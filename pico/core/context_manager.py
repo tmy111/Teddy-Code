@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 
+from .context_usage import ContextUsageAnalyzer
+from .turn_history import TurnHistoryBuilder, tail_clip
 
 DEFAULT_TOTAL_BUDGET = 12000
 DEFAULT_SECTION_BUDGETS = {
@@ -28,17 +29,6 @@ DEFAULT_REDUCTION_ORDER = ("relevant_memory", "history", "memory", "prefix")
 SECTION_ORDER = ("prefix", "memory", "relevant_memory", "history", "current_request")
 CURRENT_REQUEST_SECTION = "current_request"
 RELEVANT_MEMORY_LIMIT = 3
-
-
-def _tail_clip(text, limit):
-    text = str(text)
-    if limit <= 0:
-        return ""
-    if len(text) <= limit:
-        return text
-    if limit <= 3:
-        return text[:limit]
-    return text[: limit - 3] + "..."
 
 
 @dataclass
@@ -74,6 +64,7 @@ class ContextManager:
         self._section_floor_overrides = {str(key): int(value) for key, value in (section_floors or {}).items()}
         self.section_floors = self._compute_section_floors()
         self.reduction_order = tuple(reduction_order or DEFAULT_REDUCTION_ORDER)
+        self.history_builder = TurnHistoryBuilder(agent)
 
     def build(self, user_message):
         """按预算组装一轮完整 prompt。
@@ -190,7 +181,7 @@ class ContextManager:
             relevant_lines.append("- none")
         relevant_raw = "\n".join(relevant_lines)
         history = list(getattr(self.agent, "session", {}).get("history", []))
-        history_raw = self._raw_history_text(history)
+        history_raw = self.history_builder.raw_text(history)
         return {
             "prefix": SectionRender(raw=section_texts["prefix"], budget=len(section_texts["prefix"]), rendered=section_texts["prefix"], details={}),
             "memory": SectionRender(raw=section_texts["memory"], budget=len(section_texts["memory"]), rendered=section_texts["memory"], details={}),
@@ -236,7 +227,7 @@ class ContextManager:
                 rendered[section] = self._render_history_section(int(budget or 0))
             else:
                 raw = section_texts[section]
-                rendered_text = _tail_clip(raw, int(budget)) if budget is not None else raw
+                rendered_text = tail_clip(raw, int(budget)) if budget is not None else raw
                 rendered[section] = SectionRender(raw=raw, budget=int(budget) if budget is not None else 0, rendered=rendered_text, details={})
         return rendered
 
@@ -264,14 +255,14 @@ class ContextManager:
         rendered_notes = []
         while True:
             # 让每条 note 平分这一段的预算，避免一条超长笔记把其他笔记都挤掉。
-            rendered_notes = [_tail_clip(text, per_note_budget) for text in note_texts]
+            rendered_notes = [tail_clip(text, per_note_budget) for text in note_texts]
             rendered = "\n".join([header] + [f"- {text}" for text in rendered_notes])
             if len(rendered) <= budget or per_note_budget <= 1:
                 break
             per_note_budget -= 1
 
         if len(rendered) > budget and budget > 0:
-            rendered = _tail_clip(raw, budget)
+            rendered = tail_clip(raw, budget)
             rendered_notes = [rendered]
 
         return SectionRender(
@@ -296,7 +287,7 @@ class ContextManager:
 
     def _render_history_section(self, budget):
         history = list(getattr(self.agent, "session", {}).get("history", []))
-        raw = self._raw_history_text(history)
+        raw = self.history_builder.raw_text(history)
         if not history:
             rendered = "Transcript:\n- empty"
             return SectionRender(
@@ -309,137 +300,18 @@ class ContextManager:
                     "collapsed_duplicate_reads": 0,
                     "reused_file_summary_count": 0,
                     "summarized_tool_count": 0,
+                    "rendered_turns": 0,
                 },
             )
 
-        # 优先保留最近的历史，因为下一步决策通常最依赖刚刚发生的工具结果。
-        recent_window = 6
-        recent_start = max(0, len(history) - recent_window)
-        history_entries, history_details = self._compressed_history_entries(history, recent_start)
-        rendered_entries = []
-        for entry in reversed(history_entries):
-            recent = bool(entry.get("recent", False))
-            candidate_lines = list(entry.get("lines", []))
-            candidate_entries = candidate_lines + rendered_entries
-            candidate_rendered = "\n".join(["Transcript:", *candidate_entries])
-            if len(candidate_rendered) <= budget:
-                rendered_entries = candidate_entries
-                continue
-            if recent:
-                available = budget - len("Transcript:")
-                if rendered_entries:
-                    available -= sum(len(line) + 1 for line in rendered_entries)
-                available = max(20, available - 1)
-                candidate_lines = [_tail_clip(line, available) for line in candidate_lines]
-                candidate_entries = candidate_lines + rendered_entries
-                candidate_rendered = "\n".join(["Transcript:", *candidate_entries])
-                if len(candidate_rendered) <= budget:
-                    rendered_entries = candidate_entries
-            else:
-                smaller_lines = [_tail_clip(line, 20) for line in candidate_lines]
-                smaller_entries = smaller_lines + rendered_entries
-                smaller_rendered = "\n".join(["Transcript:", *smaller_entries])
-                if len(smaller_rendered) <= budget:
-                    rendered_entries = smaller_entries
-        rendered = "\n".join(["Transcript:", *rendered_entries])
-
-        if len(rendered) > budget and budget > 0:
-            rendered = _tail_clip(raw, budget)
+        rendered, history_details = self.history_builder.render_section(budget)
 
         return SectionRender(
             raw=raw,
             budget=budget,
             rendered=rendered,
-            details={
-                "recent_window": recent_window,
-                "recent_start": recent_start,
-                "rendered_entries": rendered_entries,
-                **history_details,
-            },
+            details=history_details,
         )
-
-    def _compressed_history_entries(self, history, recent_start):
-        entries = []
-        seen_older_reads = set()
-        details = {
-            "older_entries_count": 0,
-            "collapsed_duplicate_reads": 0,
-            "reused_file_summary_count": 0,
-            "summarized_tool_count": 0,
-        }
-
-        for index, item in enumerate(history):
-            recent = index >= recent_start
-            if recent:
-                line_limit = 900
-                entries.append(
-                    {
-                        "recent": True,
-                        "lines": self._render_history_item(item, line_limit),
-                    }
-                )
-                continue
-
-            if item["role"] == "tool" and item["name"] == "read_file":
-                path = str(item["args"].get("path", "")).strip()
-                if path in seen_older_reads:
-                    details["collapsed_duplicate_reads"] += 1
-                    continue
-                seen_older_reads.add(path)
-                summary = self._reusable_file_summary(path)
-                if summary:
-                    entries.append({"recent": False, "lines": [f"{path} -> {summary}"]})
-                    details["older_entries_count"] += 1
-                    details["reused_file_summary_count"] += 1
-                    continue
-
-            if item["role"] == "tool":
-                summary_line = self._summarize_old_tool_item(item)
-                entries.append({"recent": False, "lines": [summary_line]})
-                details["older_entries_count"] += 1
-                details["summarized_tool_count"] += 1
-                continue
-
-            entries.append({"recent": False, "lines": self._render_history_item(item, 60)})
-
-        return entries, details
-
-    def _reusable_file_summary(self, path):
-        memory = getattr(self.agent, "memory", None)
-        if memory is None or not hasattr(memory, "to_dict"):
-            return ""
-        snapshot = memory.to_dict()
-        summary = snapshot.get("file_summaries", {}).get(str(path), {})
-        if not summary:
-            return ""
-        return str(summary.get("summary", "")).strip()
-
-    def _summarize_old_tool_item(self, item):
-        if item["name"] == "run_shell":
-            command = str(item["args"].get("command", "")).strip() or "shell"
-            lines = [line.strip() for line in str(item.get("content", "")).splitlines() if line.strip()]
-            summary = " | ".join(lines[:3]) if lines else "(empty)"
-            return f"{command} -> {summary}"
-        return self._render_history_item(item, 60)[0]
-
-    def _raw_history_text(self, history):
-        if not history:
-            return "Transcript:\n- empty"
-        lines = []
-        for item in history:
-            if item["role"] == "tool":
-                lines.append(f"[tool:{item['name']}] {json.dumps(item['args'], sort_keys=True)}")
-                lines.append(str(item["content"]))
-            else:
-                lines.append(f"[{item['role']}] {item['content']}")
-        return "\n".join(["Transcript:", *lines])
-
-    def _render_history_item(self, item, line_limit):
-        if item["role"] == "tool":
-            prefix = f"[tool:{item['name']}] {json.dumps(item['args'], sort_keys=True)}"
-            content = _tail_clip(item["content"], max(20, line_limit))
-            return [prefix, content]
-        return [f"[{item['role']}] {_tail_clip(item['content'], line_limit)}"]
 
     def _assemble_prompt(self, rendered):
         # 顺序是刻意设计的：稳定规则放前面，最新请求放最后。
@@ -499,6 +371,7 @@ class ContextManager:
                 "collapsed_duplicate_reads": int(rendered["history"].details.get("collapsed_duplicate_reads", 0)),
                 "reused_file_summary_count": int(rendered["history"].details.get("reused_file_summary_count", 0)),
                 "summarized_tool_count": int(rendered["history"].details.get("summarized_tool_count", 0)),
+                "rendered_turns": int(rendered["history"].details.get("rendered_turns", 0)),
             },
             "current_request": {
                 "text": user_message,
@@ -506,4 +379,5 @@ class ContextManager:
                 "rendered_chars": len(user_message),
                 "section_chars": len(rendered[CURRENT_REQUEST_SECTION].rendered),
             },
+            "context_usage": ContextUsageAnalyzer(self.agent).analyze(rendered),
         }

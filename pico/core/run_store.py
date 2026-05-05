@@ -32,6 +32,9 @@ class RunStore:
     def report_path(self, run_id):
         return self.run_dir(run_id) / "report.json"
 
+    def artifacts_dir(self, run_id):
+        return self.run_dir(run_id) / "artifacts"
+
     def start_run(self, task_state):
         # 每次 ask() 都会生成一个 run 目录。
         # 这样一次用户请求对应一组独立工件，后续排查更容易。
@@ -54,6 +57,14 @@ class RunStore:
         with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, sort_keys=True, ensure_ascii=True))
             handle.write("\n")
+        return path
+
+    def write_text_artifact(self, task_state, stem, content):
+        directory = self.artifacts_dir(task_state)
+        directory.mkdir(parents=True, exist_ok=True)
+        index = len(list(directory.glob(f"{stem}-*.txt"))) + 1
+        path = directory / f"{stem}-{index:03d}.txt"
+        path.write_text(str(content), encoding="utf-8")
         return path
 
     def write_report(self, task_state, report):

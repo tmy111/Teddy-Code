@@ -2,7 +2,10 @@
 
 import re
 
+from .tool_policy import ToolPolicyChecker
 from .workspace import clip
+
+INLINE_TOOL_OUTPUT_LIMIT = 1000
 
 
 def run_tool(agent, name, args):
@@ -52,6 +55,21 @@ def run_tool(agent, name, args):
             "diff_summary": [],
         }
         return _permission_error(agent, tool, decision)
+    policy = ToolPolicyChecker(agent).check(tool, args)
+    _emit_tool_policy_decision(agent, tool, args, policy)
+    if not policy.allowed:
+        agent._last_tool_result_metadata = {
+            "tool_status": "rejected",
+            "tool_error_code": policy.reason,
+            "security_event_type": "tool_policy",
+            "risk_level": "high" if tool.risky else "low",
+            "read_only": tool.read_only,
+            "affected_paths": [],
+            "workspace_changed": False,
+            "diff_summary": [],
+        }
+        agent.record_process_note_for_tool(name, agent._last_tool_result_metadata)
+        return policy.message
     if agent.repeated_tool_call(name, args):
         agent._last_tool_result_metadata = {
             "tool_status": "rejected",
@@ -68,7 +86,8 @@ def run_tool(agent, name, args):
     before_snapshot = agent.capture_workspace_snapshot() if tool.risky else {}
     after_snapshot = before_snapshot
     try:
-        result = clip(tool.execute(args).content)
+        full_result = tool.execute(args).content
+        result, full_output_artifact = _render_tool_result(agent, name, full_result)
         after_snapshot = agent.capture_workspace_snapshot() if tool.risky else before_snapshot
         affected_paths, diff_summary = agent.diff_workspace_snapshots(before_snapshot, after_snapshot)
         workspace_changed = bool(affected_paths)
@@ -94,6 +113,7 @@ def run_tool(agent, name, args):
             "workspace_changed": workspace_changed,
             "workspace_fingerprint": agent.workspace.fingerprint(),
             "diff_summary": diff_summary,
+            "full_output_artifact": full_output_artifact,
         }
         agent.record_process_note_for_tool(name, agent._last_tool_result_metadata)
         return result
@@ -117,6 +137,17 @@ def run_tool(agent, name, args):
         return f"error: tool {name} failed: {exc}"
 
 
+def _render_tool_result(agent, name, full_result):
+    full_result = str(full_result)
+    if name != "run_shell" or len(full_result) <= INLINE_TOOL_OUTPUT_LIMIT:
+        return clip(full_result), ""
+    if not getattr(agent, "current_task_state", None):
+        return clip(full_result, INLINE_TOOL_OUTPUT_LIMIT), ""
+    path = agent.run_store.write_text_artifact(agent.current_task_state, f"{name}-output", full_result)
+    relative = path.relative_to(agent.root).as_posix()
+    return clip(full_result, INLINE_TOOL_OUTPUT_LIMIT) + f"\nfull output saved: {relative}", relative
+
+
 def _emit_permission_decision(agent, tool, args, decision):
     agent.session_event_bus.emit(
         "permission_decision",
@@ -128,6 +159,13 @@ def _emit_permission_decision(agent, tool, args, decision):
             "tool_profile": agent.active_tool_profile.name,
             "args": args or {},
         },
+    )
+
+
+def _emit_tool_policy_decision(agent, tool, args, decision):
+    agent.session_event_bus.emit(
+        "tool_policy_decision",
+        {"tool_name": tool.name, "decision": decision.decision, "reason": decision.reason, "args": args or {}},
     )
 
 

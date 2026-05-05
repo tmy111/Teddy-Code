@@ -229,6 +229,7 @@ def test_patch_file_replaces_exact_match(tmp_path):
     file_path.write_text("hello world\n", encoding="utf-8")
     agent = build_agent(tmp_path, [])
 
+    agent.run_tool("read_file", {"path": "sample.txt", "start": 1, "end": 1})
     result = agent.run_tool(
         "patch_file",
         {

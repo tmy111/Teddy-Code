@@ -16,14 +16,18 @@ from datetime import datetime
 from pathlib import Path
 
 from ..features import memory as memorylib
+from .compact import CompactManager
 from .context_manager import ContextManager
 from .engine import Engine
 from . import model_output, tool_executor
 from .plan_mode import PlanModeController
 from .permissions import PermissionChecker
 from .run_store import RunStore
+from .runtime_consumers import default_runtime_consumers
+from .runtime_events import build_runtime_event
 from .session_events import SessionEventBus
 from .tool_profiles import build_tool_profiles
+from .turn_history import TurnHistoryBuilder
 from ..tools import registry as toolkit
 from .workspace import IGNORED_PATH_NAMES, MAX_HISTORY, WorkspaceContext, clip, now
 
@@ -154,6 +158,13 @@ class Pico:
         self.permission_checker = PermissionChecker(self)
         self.prefix_state = self.build_prefix()
         self.prefix = self.prefix_state.text
+        self.current_turn_id = ""
+        self.current_run_id = ""
+        self._trace_seq = 0
+        self._last_trace_span_id = {}
+        self.turn_history = TurnHistoryBuilder(self)
+        self.compact_manager = CompactManager(self)
+        self.runtime_consumers = default_runtime_consumers()
         self.context_manager = ContextManager(self)
         self.resume_state = self.evaluate_resume_state()
         self.session_path = self.session_store.save(self.session)
@@ -165,10 +176,7 @@ class Pico:
         self.last_durable_rejections = []
         self.last_durable_superseded = []
         self._last_tool_result_metadata = {}
-        self._last_prefix_refresh = {
-            "workspace_changed": False,
-            "prefix_changed": False,
-        }
+        self._last_prefix_refresh = {"workspace_changed": False, "prefix_changed": False}
 
     @classmethod
     def from_session(cls, model_client, workspace, session_store, session_id, **kwargs):
@@ -441,10 +449,7 @@ class Pico:
         if prefix_changed:
             self._apply_prefix_state(prefix_state)
 
-        self._last_prefix_refresh = {
-            "workspace_changed": workspace_changed,
-            "prefix_changed": prefix_changed,
-        }
+        self._last_prefix_refresh = {"workspace_changed": workspace_changed, "prefix_changed": prefix_changed}
         return dict(self._last_prefix_refresh)
 
     def memory_text(self):
@@ -497,7 +502,7 @@ class Pico:
         return prompt
 
     def record(self, item):
-        self.session["history"].append(item)
+        self.session["history"].append(self.turn_history.enrich(item))
         self.session_path = self.session_store.save(self.session)
 
     @staticmethod
@@ -583,6 +588,10 @@ class Pico:
         refresh = self.refresh_prefix()
         self.resume_state = self.evaluate_resume_state()
         prompt, metadata = self.context_manager.build(user_message)
+        if metadata.get("prompt_over_budget") and len(self.session.get("history", [])) > 4:
+            self.compact_history(trigger="auto_prompt_over_budget")
+            prompt, metadata = self.context_manager.build(user_message)
+            metadata["auto_compacted"] = True
         # 这里把“这轮 prompt 是怎么拼出来的”连同缓存相关状态一起记下来，
         # 后面 trace/report 才能解释清楚：为什么这一轮 prefix 变了、缓存有没有命中。
         metadata.update(
@@ -609,14 +618,29 @@ class Pico:
             }
         )
         metadata.update(self.detected_secret_env_summary())
+        usage_payload = {
+            "run_id": getattr(getattr(self, "current_task_state", None), "run_id", ""),
+            "context_usage": metadata.get("context_usage", {}),
+        }
+        self.session_event_bus.emit("context_usage_recorded", usage_payload)
         return prompt, metadata
+
+    def compact_history(self, trigger="manual"):
+        return self.compact_manager.compact(trigger=trigger)
 
     def emit_trace(self, task_state, event, payload=None):
         payload = self.redact_artifact(payload or {})
-        payload["event"] = event
-        payload["created_at"] = now()
-        # trace 是运行中的逐事件时间线，适合回答“这一轮 agent 到底做了什么”。
+        for path in payload.get("affected_paths", []) or []:
+            if path not in task_state.changed_paths:
+                task_state.changed_paths.append(path)
+        payload = build_runtime_event(self, task_state, event, payload)
         self.run_store.append_trace(task_state, payload)
+        for consumer in self.runtime_consumers:
+            try:
+                consumer.handle(self, task_state, payload)
+            except Exception:
+                continue
+        self.run_store.write_task_state(task_state)
         return payload
 
     def capture_workspace_snapshot(self):
@@ -811,9 +835,6 @@ class Pico:
     def ask(self, user_message):
         return self.engine.ask(user_message)
 
-    def _ask_impl(self, user_message):
-        return self.engine.ask(user_message)
-
     def run_tool(self, name, args):
         return tool_executor.run_tool(self, name, args)
 
@@ -853,6 +874,10 @@ class Pico:
             "durable_rejections": list(self.last_durable_rejections),
             "durable_superseded": list(self.last_durable_superseded),
             "redacted_env": self.detected_secret_env_summary(),
+            "compactions": list(self.session.get("compactions", [])),
+            "artifact_graph": dict(task_state.artifact_graph),
+            "verifier_suggestions": list(task_state.verifier_suggestions),
+            "runtime_reminders": list(task_state.runtime_reminders),
         }
 
     def tool_example(self, name):

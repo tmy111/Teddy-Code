@@ -6,6 +6,7 @@
 """
 
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -46,6 +47,8 @@ HELP_DETAILS = textwrap.dedent(
     /help    Show this help message.
     /memory  Show the agent's distilled working memory.
     /session Show the path to the saved session file.
+    /context Show prompt context usage.
+    /compact Compact older session history.
     /reset   Clear the current session history and memory.
     /exit    Exit the agent.
     """
@@ -308,6 +311,12 @@ def main(argv=None):
             continue
         if user_input == "/session":
             print(agent.session_path)
+            continue
+        if user_input == "/context":
+            print(json.dumps(agent.prompt_metadata("", "")["context_usage"], indent=2, sort_keys=True))
+            continue
+        if user_input == "/compact":
+            print(json.dumps(agent.compact_history(trigger="manual"), indent=2, sort_keys=True))
             continue
         if user_input == "/reset":
             agent.reset()

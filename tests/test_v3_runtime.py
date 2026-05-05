@@ -43,6 +43,7 @@ def test_engine_drives_real_session_and_persists_event_timeline(tmp_path):
         "session_started",
         "turn_started",
         "user_message",
+        "context_usage_recorded",
         "model_requested",
         "model_parsed",
         "assistant_message",

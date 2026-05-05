@@ -32,6 +32,8 @@ class Engine:
         task_state = TaskState.create(run_id=agent.new_run_id(), task_id=agent.new_task_id(), user_request=user_message)
         task_state.resume_status = agent.resume_state.get("status", CHECKPOINT_NONE_STATUS)
         agent.current_task_state = task_state
+        agent.current_turn_id = task_state.task_id
+        agent.current_run_id = task_state.run_id
         agent.current_run_dir = agent.run_store.start_run(task_state)
         agent.session_event_bus.emit(
             "turn_started",
@@ -306,6 +308,8 @@ class Engine:
                 },
             )
             agent.run_store.write_report(task_state, agent.redact_artifact(agent.build_report(task_state)))
+            agent.current_turn_id = ""
+            agent.current_run_id = ""
             yield {"type": "final", "run_id": task_state.run_id, "content": final}
             yield {
                 "type": "turn_finished",
@@ -357,6 +361,8 @@ class Engine:
             },
         )
         agent.run_store.write_report(task_state, agent.redact_artifact(agent.build_report(task_state)))
+        agent.current_turn_id = ""
+        agent.current_run_id = ""
         yield {"type": "stop", "run_id": task_state.run_id, "content": final}
         yield {
             "type": "turn_finished",
