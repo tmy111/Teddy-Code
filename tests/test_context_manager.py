@@ -29,11 +29,12 @@ def test_context_manager_assembles_sections_in_expected_order(tmp_path):
     prompt, metadata = ContextManager(agent).build("Where is the deploy key?")
 
     assert prompt.index("You are pico") < prompt.index("Memory:")
-    assert prompt.index("Memory:") < prompt.index("Relevant memory:")
+    assert prompt.index("Memory:") < prompt.index("Available skills:")
+    assert prompt.index("Available skills:") < prompt.index("Relevant memory:")
     assert prompt.index("Relevant memory:") < prompt.index("Transcript:")
     assert prompt.index("Transcript:") < prompt.index("Current user request:")
     assert prompt.rstrip().endswith("Current user request:\nWhere is the deploy key?")
-    assert metadata["section_order"] == ["prefix", "memory", "relevant_memory", "history", "current_request"]
+    assert metadata["section_order"] == ["prefix", "memory", "skills", "relevant_memory", "history", "current_request"]
 
 
 def test_context_manager_reduces_relevant_memory_before_history_and_preserves_newer_context(tmp_path):
@@ -83,10 +84,11 @@ def test_context_manager_renders_top_three_episodic_notes_per_note_under_budget(
 
     prompt, metadata = ContextManager(
         agent,
-        total_budget=250,
+        total_budget=500,
         section_budgets={
             "prefix": 60,
             "memory": 60,
+            "skills": 80,
             "relevant_memory": 80,
             "history": 60,
         },

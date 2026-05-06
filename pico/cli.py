@@ -13,6 +13,8 @@ import sys
 import textwrap
 
 from .config import load_project_env, provider_env
+from .features import skills as skillslib
+from .features.skills_runtime import invoke_skill
 from .providers import AnthropicCompatibleModelClient, OpenAICompatibleModelClient
 from .core.runtime import Pico, SessionStore
 from .core.workspace import WorkspaceContext, middle
@@ -46,6 +48,7 @@ HELP_DETAILS = textwrap.dedent(
     Commands:
     /help    Show this help message.
     /memory  Show the agent's distilled working memory.
+    /skills  List available skills and slash workflows.
     /session Show the path to the saved session file.
     /context Show prompt context usage.
     /compact Compact older session history.
@@ -270,6 +273,30 @@ def build_arg_parser():
     return parser
 
 
+def handle_repl_command(agent, user_input):
+    if user_input in {"/exit", "/quit"}:
+        return True, True, ""
+    if user_input == "/help":
+        return True, False, HELP_DETAILS
+    if user_input == "/memory":
+        return True, False, agent.memory_text()
+    if user_input == "/skills":
+        return True, False, skillslib.render_skills_list(agent.skills)
+    if user_input == "/session":
+        return True, False, str(agent.session_path)
+    if user_input == "/context":
+        return True, False, json.dumps(agent.prompt_metadata("", "")["context_usage"], indent=2, sort_keys=True)
+    if user_input == "/compact":
+        return True, False, json.dumps(agent.compact_history(trigger="manual"), indent=2, sort_keys=True)
+    if user_input == "/reset":
+        agent.reset()
+        return True, False, "session reset"
+    command, arguments = skillslib.parse_slash_command(user_input)
+    if command and command in agent.skills:
+        return True, False, invoke_skill(agent, command, arguments)
+    return False, False, ""
+
+
 def main(argv=None):
     args = build_arg_parser().parse_args(argv)
     agent = build_agent(args)
@@ -284,7 +311,8 @@ def main(argv=None):
         if prompt:
             print()
             try:
-                print(agent.ask(prompt))
+                handled, _, output = handle_repl_command(agent, prompt)
+                print(output if handled else agent.ask(prompt))
             except RuntimeError as exc:
                 print(str(exc), file=sys.stderr)
                 return 1
@@ -301,26 +329,11 @@ def main(argv=None):
 
         if not user_input:
             continue
-        if user_input in {"/exit", "/quit"}:
+        handled, should_exit, output = handle_repl_command(agent, user_input)
+        if should_exit:
             return 0
-        if user_input == "/help":
-            print(HELP_DETAILS)
-            continue
-        if user_input == "/memory":
-            print(agent.memory_text())
-            continue
-        if user_input == "/session":
-            print(agent.session_path)
-            continue
-        if user_input == "/context":
-            print(json.dumps(agent.prompt_metadata("", "")["context_usage"], indent=2, sort_keys=True))
-            continue
-        if user_input == "/compact":
-            print(json.dumps(agent.compact_history(trigger="manual"), indent=2, sort_keys=True))
-            continue
-        if user_input == "/reset":
-            agent.reset()
-            print("session reset")
+        if handled:
+            print(output)
             continue
 
         print()

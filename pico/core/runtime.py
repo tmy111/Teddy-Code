@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from ..features import memory as memorylib
+from ..features import memory as memorylib, skills as skillslib
 from .compact import CompactManager
 from .context_manager import ContextManager
 from .engine import Engine
@@ -152,6 +152,7 @@ class Pico:
             workspace_root=self.root,
         )
         self.session["memory"] = self.memory.to_dict()
+        self.skills = skillslib.discover_skills(self.root)
         self.tools = self.build_tools()
         self.tool_profiles = build_tool_profiles(self.tools)
         self._active_tool_profile_name = "plan" if self.runtime_mode == "plan" else "readonly" if self.read_only else "default"

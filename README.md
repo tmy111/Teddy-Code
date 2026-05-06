@@ -150,9 +150,48 @@ uv run pico --provider deepseek
 
 - `/help`：查看内置命令
 - `/memory`：查看提炼后的工作记忆
+- `/skills`：查看可用技能和 slash workflow
+- `/review`、`/test`、`/commit`、`/simplify`：调用内置技能
 - `/session`：查看当前会话文件路径
+- `/context`：查看当前 prompt 的上下文用量
+- `/compact`：手动压缩较旧的会话历史
 - `/reset`：清空当前会话状态
 - `/exit` 或 `/quit`：退出 REPL
+
+## Skills
+
+`pico` 会加载三类技能，后面的同名技能覆盖前面的：
+
+- 内置技能：`review`、`test`、`commit`、`simplify`
+- 用户技能：`~/.pico/skills/<name>/SKILL.md`
+- 项目技能：`skills/<name>/SKILL.md` 或 `.pico/skills/<name>/SKILL.md`
+
+技能文件可以带一段简单 frontmatter：
+
+```markdown
+---
+name: deploy
+description: Deploy checklist
+argument-hint: target
+context: inline
+allowed-tools: read_file, search
+paths: src/*.py, tests/*.py
+---
+Check deployment readiness for $ARGUMENTS from ${PICO_SKILL_DIR}.
+```
+
+在 REPL 或 one-shot 模式里输入 `/deploy staging` 时，技能内容会被展开成一次普通 session 请求，因此仍然走同一套工具、审批、事件和验证链路。`context: fork` 会用隔离 session 执行，不污染主会话历史；`disable-model-invocation: true` 会只渲染 prompt，不发起模型调用。
+
+支持的 metadata：
+
+- `name` / `description` / `when-to-use`
+- `arguments` 或 `argument-hint`
+- `context: inline|fork`
+- `allowed-tools: read_file, search`
+- `disable-model-invocation: true|false`
+- `model`
+- `paths`
+- `user-invocable: true|false`
 
 ## 安全与持久化
 

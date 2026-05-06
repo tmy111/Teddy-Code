@@ -82,6 +82,7 @@ def test_long_shell_output_is_clipped_and_full_output_is_saved_as_run_artifact(t
     tool_item = next(item for item in agent.session["history"] if item["role"] == "tool" and item["name"] == "run_shell")
     assert len(tool_item["content"]) < 1200
     assert "full output saved:" in tool_item["content"]
+    assert "full output saved:" in agent.model_client.prompts[1]
 
     report = json.loads((agent.current_run_dir / "report.json").read_text(encoding="utf-8"))
     artifact_path = report["runtime_reminders"][0]["artifact_path"] if report["runtime_reminders"] else agent._last_tool_result_metadata["full_output_artifact"]

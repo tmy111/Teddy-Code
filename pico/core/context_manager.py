@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..features import skills as skillslib
 from .context_usage import ContextUsageAnalyzer
 from .turn_history import TurnHistoryBuilder, tail_clip
 
@@ -15,18 +16,20 @@ DEFAULT_TOTAL_BUDGET = 12000
 DEFAULT_SECTION_BUDGETS = {
     "prefix": 3600,
     "memory": 1600,
+    "skills": 900,
     "relevant_memory": 1200,
     "history": 5200,
 }
 DEFAULT_SECTION_FLOORS = {
     "prefix": 1200,
     "memory": 400,
+    "skills": 200,
     "relevant_memory": 300,
     "history": 1500,
 }
 # 当 prompt 超预算时，会优先压缩这些 section。
-DEFAULT_REDUCTION_ORDER = ("relevant_memory", "history", "memory", "prefix")
-SECTION_ORDER = ("prefix", "memory", "relevant_memory", "history", "current_request")
+DEFAULT_REDUCTION_ORDER = ("relevant_memory", "skills", "history", "memory", "prefix")
+SECTION_ORDER = ("prefix", "memory", "skills", "relevant_memory", "history", "current_request")
 CURRENT_REQUEST_SECTION = "current_request"
 RELEVANT_MEMORY_LIMIT = 3
 
@@ -99,6 +102,7 @@ class ContextManager:
         section_texts = {
             "prefix": str(getattr(self.agent, "prefix", "")),
             "memory": "Memory:\n- disabled" if not memory_enabled else str(self.agent.memory_text()),
+            "skills": skillslib.render_prompt_section(getattr(self.agent, "skills", {})),
             "history": "",
             CURRENT_REQUEST_SECTION: f"Current user request:\n{user_message}",
         }
@@ -185,6 +189,7 @@ class ContextManager:
         return {
             "prefix": SectionRender(raw=section_texts["prefix"], budget=len(section_texts["prefix"]), rendered=section_texts["prefix"], details={}),
             "memory": SectionRender(raw=section_texts["memory"], budget=len(section_texts["memory"]), rendered=section_texts["memory"], details={}),
+            "skills": SectionRender(raw=section_texts["skills"], budget=len(section_texts["skills"]), rendered=section_texts["skills"], details={}),
             "relevant_memory": SectionRender(
                 raw=relevant_raw,
                 budget=len(relevant_raw),
@@ -315,15 +320,7 @@ class ContextManager:
 
     def _assemble_prompt(self, rendered):
         # 顺序是刻意设计的：稳定规则放前面，最新请求放最后。
-        return "\n\n".join(
-            [
-                rendered["prefix"].rendered,
-                rendered["memory"].rendered,
-                rendered["relevant_memory"].rendered,
-                rendered["history"].rendered,
-                rendered[CURRENT_REQUEST_SECTION].rendered,
-            ]
-        ).strip()
+        return "\n\n".join(rendered[section].rendered for section in SECTION_ORDER).strip()
 
     def _metadata(self, prompt, rendered, budgets, reduction_log, selected_notes, user_message, section_texts):
         section_metadata = {}
@@ -373,6 +370,7 @@ class ContextManager:
                 "summarized_tool_count": int(rendered["history"].details.get("summarized_tool_count", 0)),
                 "rendered_turns": int(rendered["history"].details.get("rendered_turns", 0)),
             },
+            "skills": self._skills_metadata(),
             "current_request": {
                 "text": user_message,
                 "raw_chars": len(user_message),
@@ -380,4 +378,13 @@ class ContextManager:
                 "section_chars": len(rendered[CURRENT_REQUEST_SECTION].rendered),
             },
             "context_usage": ContextUsageAnalyzer(self.agent).analyze(rendered),
+        }
+
+    def _skills_metadata(self):
+        skills = getattr(self.agent, "skills", {})
+        items = [skill.metadata() for skill in skillslib.list_skills(skills, user_invocable_only=False)]
+        return {
+            "available_count": len(items),
+            "user_invocable_count": sum(1 for item in items if item["user_invocable"]),
+            "items": items,
         }

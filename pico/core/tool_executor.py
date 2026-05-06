@@ -145,7 +145,7 @@ def _render_tool_result(agent, name, full_result):
         return clip(full_result, INLINE_TOOL_OUTPUT_LIMIT), ""
     path = agent.run_store.write_text_artifact(agent.current_task_state, f"{name}-output", full_result)
     relative = path.relative_to(agent.root).as_posix()
-    return clip(full_result, INLINE_TOOL_OUTPUT_LIMIT) + f"\nfull output saved: {relative}", relative
+    return f"full output saved: {relative}\n" + clip(full_result, INLINE_TOOL_OUTPUT_LIMIT), relative
 
 
 def _emit_permission_decision(agent, tool, args, decision):

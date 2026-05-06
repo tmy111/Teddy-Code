@@ -19,6 +19,9 @@ def test_core_modules_stay_below_entropy_budget():
         "pico/core/tool_executor.py": 180,
         "pico/core/tool_profiles.py": 80,
         "pico/core/turn_history.py": 250,
+        "pico/features/skills.py": 220,
+        "pico/features/skills_bundled.py": 120,
+        "pico/features/skills_runtime.py": 140,
         "pico/tools/registry.py": 360,
     }
 
