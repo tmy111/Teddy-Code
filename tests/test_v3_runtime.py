@@ -1,7 +1,5 @@
 import json
 
-import pytest
-
 from pico import Engine, FakeModelClient, Pico, SessionEventBus, SessionStore, WorkspaceContext
 
 
@@ -118,13 +116,12 @@ def test_plan_mode_rejects_final_before_the_plan_artifact_exists(tmp_path):
     assert any("Plan mode requires writing" in item["content"] for item in agent.session["history"])
 
 
-def test_provider_surface_excludes_ollama():
+def test_provider_surface_allows_profiles_without_reintroducing_ollama_client():
     import pico
 
     parser = pico.build_arg_parser()
     provider_action = next(action for action in parser._actions if action.dest == "provider")
 
-    assert "ollama" not in provider_action.choices
+    assert provider_action.choices is None
     assert not hasattr(pico, "OllamaModelClient")
-    with pytest.raises(SystemExit):
-        parser.parse_args(["--provider", "ollama"])
+    assert parser.parse_args(["--provider", "deepseek"]).provider == "deepseek"

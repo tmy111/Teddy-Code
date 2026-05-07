@@ -620,10 +620,10 @@ def test_build_agent_uses_openai_provider_and_model_override(tmp_path):
     assert agent.model_client is fake_client
 
 
-def test_build_arg_parser_defaults_provider_to_openai(tmp_path):
+def test_build_arg_parser_leaves_provider_to_config_by_default(tmp_path):
     args = pico_pkg.build_arg_parser().parse_args(["--cwd", str(tmp_path)])
 
-    assert args.provider == "openai"
+    assert args.provider is None
 
 
 def test_build_arg_parser_accepts_anthropic_provider(tmp_path):
@@ -729,13 +729,7 @@ def test_build_agent_uses_deepseek_provider_and_env_configuration(tmp_path):
 
     with patch.dict(
         os.environ,
-        {
-            "DEEPSEEK_API_BASE": "https://legacy.deepseek.example/anthropic",
-            "DEEPSEEK_API_KEY": "sk-legacy-deepseek",
-            "DEEPSEEK_MODEL": "legacy-deepseek-model",
-            "ANTHROPIC_API_KEY": "sk-anthropic",
-            "OPENAI_API_KEY": "sk-openai",
-        },
+        {"ANTHROPIC_API_KEY": "sk-anthropic", "OPENAI_API_KEY": "sk-openai"},
         clear=True,
     ):
         with patch(
@@ -749,6 +743,39 @@ def test_build_agent_uses_deepseek_provider_and_env_configuration(tmp_path):
     assert mock_anthropic.call_args.kwargs["model"] == "deepseek-v4-pro"
     assert mock_anthropic.call_args.kwargs["base_url"] == "https://api.deepseek.com/anthropic"
     assert mock_anthropic.call_args.kwargs["api_key"] == "sk-project-deepseek"
+    assert agent.model_client is fake_client
+
+
+def test_build_agent_uses_provider_profile_protocol_from_project_toml(tmp_path):
+    (tmp_path / ".pico.toml").write_text(
+        "\n".join(
+            [
+                'provider = "deepseek"',
+                "",
+                "[providers.deepseek]",
+                'protocol = "anthropic"',
+                'api_key = "sk-config-deepseek"',
+                'base_url = "https://api.deepseek.com/anthropic"',
+                'model = "deepseek-v4-pro"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = pico_pkg.build_arg_parser().parse_args(["--cwd", str(tmp_path)])
+
+    with patch.dict(os.environ, {"PICO_DEEPSEEK_API_KEY": "sk-legacy-env"}, clear=True):
+        with patch(
+            "pico.cli.OpenAICompatibleModelClient",
+            side_effect=AssertionError("openai client should not be used"),
+        ), patch("pico.cli.AnthropicCompatibleModelClient") as mock_anthropic:
+            fake_client = mock_anthropic.return_value
+            agent = pico_pkg.build_agent(args)
+
+    mock_anthropic.assert_called_once()
+    assert mock_anthropic.call_args.kwargs["model"] == "deepseek-v4-pro"
+    assert mock_anthropic.call_args.kwargs["base_url"] == "https://api.deepseek.com/anthropic"
+    assert mock_anthropic.call_args.kwargs["api_key"] == "sk-config-deepseek"
     assert agent.model_client is fake_client
 
 

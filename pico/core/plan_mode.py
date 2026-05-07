@@ -67,6 +67,7 @@ class PlanModeManager:
             "Runtime mode: plan\n"
             f"- Active plan artifact: {self.plan_path}\n"
             "- You may inspect files, but writes must target only the active plan artifact.\n"
+            "- Use todo tools to keep the task ledger current.\n"
             "- Return a final answer only after the active plan artifact has been written."
         )
 

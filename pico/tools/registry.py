@@ -11,6 +11,7 @@ from functools import partial
 
 from ..core.workspace import IGNORED_PATH_NAMES, clip
 from .base import RegisteredTool
+from .todos import TODO_TOOL_EXAMPLES, TODO_TOOL_SPECS, tool_todo_add, tool_todo_list, tool_todo_update, validate_todo_tool
 
 BASE_TOOL_SPECS = {
     "list_files": {
@@ -43,6 +44,7 @@ BASE_TOOL_SPECS = {
         "risky": True,
         "description": "Replace one exact text block in a file.",
     },
+    **TODO_TOOL_SPECS,
 }
 
 DELEGATE_TOOL_SPEC = {
@@ -58,6 +60,7 @@ TOOL_EXAMPLES = {
     "run_shell": '<tool>{"name":"run_shell","args":{"command":"uv run --with pytest python -m pytest -q","timeout":20}}</tool>',
     "write_file": '<tool name="write_file" path="binary_search.py"><content>def binary_search(nums, target):\n    return -1\n</content></tool>',
     "patch_file": '<tool name="patch_file" path="binary_search.py"><old_text>return -1</old_text><new_text>return mid</new_text></tool>',
+    **TODO_TOOL_EXAMPLES,
     "delegate": '<tool>{"name":"delegate","args":{"task":"inspect README.md","max_steps":3}}</tool>',
 }
 
@@ -156,6 +159,9 @@ def validate_tool(agent, name, args):
         task = str(args.get("task", "")).strip()
         if not task:
             raise ValueError("task must not be empty")
+        return
+    if name.startswith("todo_"):
+        validate_todo_tool(name, args)
         return
 
 
@@ -308,4 +314,7 @@ _TOOL_RUNNERS = {
     "run_shell": tool_run_shell,
     "write_file": tool_write_file,
     "patch_file": tool_patch_file,
+    "todo_add": tool_todo_add,
+    "todo_update": tool_todo_update,
+    "todo_list": tool_todo_list,
 }

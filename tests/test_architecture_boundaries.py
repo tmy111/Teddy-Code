@@ -9,6 +9,7 @@ def test_core_modules_stay_below_entropy_budget():
         "pico/core/runtime_consumers.py": 90,
         "pico/core/artifacts.py": 130,
         "pico/core/task_state.py": 140,
+        "pico/core/todo_ledger.py": 120,
         "pico/core/context_manager.py": 420,
         "pico/core/context_usage.py": 120,
         "pico/core/compact.py": 180,
@@ -23,6 +24,7 @@ def test_core_modules_stay_below_entropy_budget():
         "pico/features/skills_bundled.py": 120,
         "pico/features/skills_runtime.py": 140,
         "pico/tools/registry.py": 360,
+        "pico/tools/todos.py": 80,
     }
 
     for relative_path, max_lines in budgets.items():

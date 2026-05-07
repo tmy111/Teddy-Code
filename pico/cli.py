@@ -12,7 +12,7 @@ import shutil
 import sys
 import textwrap
 
-from .config import load_project_env, provider_env
+from .config import DEFAULT_PROVIDER, PROVIDER_DEFAULTS, load_project_env, resolve_provider_config
 from .features import skills as skillslib
 from .features.skills_runtime import invoke_skill
 from .providers import AnthropicCompatibleModelClient, OpenAICompatibleModelClient
@@ -20,6 +20,7 @@ from .core.runtime import Pico, SessionStore
 from .core.workspace import WorkspaceContext, middle
 
 DEFAULT_SECRET_ENV_NAMES = (
+    "PICO_API_KEY",
     "PICO_OPENAI_API_KEY",
     "OPENAI_API_KEY",
     "OPENAI_API_TOKEN",
@@ -58,39 +59,9 @@ HELP_DETAILS = textwrap.dedent(
 ).strip()
 
 
-DEFAULT_OPENAI_MODEL = "gpt-5.4"
-DEFAULT_OPENAI_BASE_URL = "https://www.right.codes/codex/v1"
-DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6"
-DEFAULT_ANTHROPIC_BASE_URL = "https://www.right.codes/claude/v1"
-DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-pro"
-DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com/anthropic"
+DEFAULT_OPENAI_MODEL = PROVIDER_DEFAULTS["openai"]["model"]
+DEFAULT_OPENAI_BASE_URL = PROVIDER_DEFAULTS["openai"]["base_url"]
 SECRET_ENV_NAMES_VAR = "PICO_SECRET_ENV_NAMES"
-
-
-def _effective_model(args, provider):
-    # 模型选择优先级：
-    # 1. 用户显式传入 --model
-    # 2. provider 对应的环境变量
-    # 3. 代码里的默认值
-    explicit_model = getattr(args, "model", None)
-    if explicit_model:
-        return explicit_model
-    if provider == "openai":
-        model = provider_env("PICO_OPENAI_MODEL", ("OPENAI_MODEL",))
-        if model:
-            return model
-        return DEFAULT_OPENAI_MODEL
-    if provider == "anthropic":
-        model = provider_env("PICO_ANTHROPIC_MODEL", ("ANTHROPIC_MODEL",))
-        if model:
-            return model
-        return DEFAULT_ANTHROPIC_MODEL
-    if provider == "deepseek":
-        model = provider_env("PICO_DEEPSEEK_MODEL", ("DEEPSEEK_MODEL",))
-        if model:
-            return model
-        return DEFAULT_DEEPSEEK_MODEL
-    raise ValueError(f"unknown provider: {provider}")
 
 
 def _configured_secret_names(args):
@@ -107,47 +78,34 @@ def _configured_secret_names(args):
 
 
 def _build_model_client(args):
-    provider = getattr(args, "provider", "openai")
-    # CLI 只负责把 provider 选择翻译成具体 client。
-    # 真正的提示词格式、缓存支持、HTTP 协议差异，都封装在 models.py 里。
-    if provider == "openai":
-        model = _effective_model(args, provider)
-        base_url = getattr(args, "base_url", None) or provider_env("PICO_OPENAI_API_BASE", ("OPENAI_API_BASE",), DEFAULT_OPENAI_BASE_URL)
-        api_key = provider_env("PICO_OPENAI_API_KEY", ("OPENAI_API_KEY",))
+    config = resolve_provider_config(
+        getattr(args, "provider", None),
+        start=getattr(args, "cwd", "."),
+        config_path=getattr(args, "config", None),
+        model=getattr(args, "model", None),
+        base_url=getattr(args, "base_url", None),
+        api_key=getattr(args, "api_key", None),
+    )
+    # CLI 只负责把 provider profile 翻译成具体协议 client。
+    # 例如 deepseek 是 profile，protocol=anthropic 才决定走 Messages API。
+    if config.protocol == "openai":
         return OpenAICompatibleModelClient(
-            model=model,
-            base_url=base_url,
-            api_key=api_key,
+            model=config.model,
+            base_url=config.base_url,
+            api_key=config.api_key,
             temperature=args.temperature,
             timeout=getattr(args, "openai_timeout", 300),
         )
-    if provider == "anthropic":
-        model = _effective_model(args, provider)
-        base_url = getattr(args, "base_url", None) or provider_env("PICO_ANTHROPIC_API_BASE", ("ANTHROPIC_API_BASE",), DEFAULT_ANTHROPIC_BASE_URL)
-        api_key = provider_env(
-            "PICO_ANTHROPIC_API_KEY",
-            ("ANTHROPIC_API_KEY", "PICO_RIGHT_CODES_API_KEY", "RIGHT_CODES_API_KEY", "PICO_OPENAI_API_KEY", "OPENAI_API_KEY"),
-        )
+    if config.protocol == "anthropic":
         return AnthropicCompatibleModelClient(
-            model=model,
-            base_url=base_url,
-            api_key=api_key,
-            temperature=args.temperature,
-            timeout=getattr(args, "openai_timeout", 300),
-        )
-    if provider == "deepseek":
-        model = _effective_model(args, provider)
-        base_url = getattr(args, "base_url", None) or provider_env("PICO_DEEPSEEK_API_BASE", ("DEEPSEEK_API_BASE",), DEFAULT_DEEPSEEK_BASE_URL)
-        api_key = provider_env("PICO_DEEPSEEK_API_KEY", ("DEEPSEEK_API_KEY",))
-        return AnthropicCompatibleModelClient(
-            model=model,
-            base_url=base_url,
-            api_key=api_key,
+            model=config.model,
+            base_url=config.base_url,
+            api_key=config.api_key,
             temperature=args.temperature,
             timeout=getattr(args, "openai_timeout", 300),
         )
 
-    raise ValueError(f"unknown provider: {provider}")
+    raise ValueError(f"unknown provider protocol: {config.protocol}")
 
 
 def build_welcome(agent, model, host):
@@ -212,12 +170,12 @@ def build_agent(args):
     得到 agent 后，后面无论是 one-shot 还是 REPL 模式，都会落到 `ask()`。
     """
     # 这里是 CLI 到 runtime 的装配点：
-    # 先采集工作区快照和加载项目级环境，再整理 secret 名单、模型后端和 session。
+    # 先采集工作区快照，再整理 secret 名单、模型后端和 session。
     workspace = WorkspaceContext.build(args.cwd)
-    load_project_env(workspace.repo_root)
-    configured_secret_names = _configured_secret_names(args)
     store = SessionStore(workspace.repo_root + "/.pico/sessions")
     model = _build_model_client(args)
+    load_project_env(workspace.repo_root, override=False)
+    configured_secret_names = _configured_secret_names(args)
     session_id = args.resume
     if session_id == "latest":
         session_id = store.latest()
@@ -246,17 +204,19 @@ def build_agent(args):
 def build_arg_parser():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Minimal coding agent for OpenAI-compatible, Anthropic-compatible, or DeepSeek models.",
+        description="Minimal coding agent for provider profiles backed by OpenAI-compatible or Anthropic-compatible APIs.",
     )
     parser.add_argument("prompt", nargs="*", help="Optional one-shot prompt.")
     parser.add_argument("--cwd", default=".", help="Workspace directory.")
-    parser.add_argument("--provider", choices=("openai", "anthropic", "deepseek"), default="openai", help="Model backend to use.")
+    parser.add_argument("--config", default=None, help="Path to a Pico TOML config file.")
+    parser.add_argument("--provider", default=None, help=f"Provider profile to use. Defaults to config provider or {DEFAULT_PROVIDER}.")
+    parser.add_argument("--api-key", default=None, help="API key override for the selected provider profile.")
     parser.add_argument(
         "--model",
         default=None,
-        help="Model name override. Defaults to PICO_OPENAI_MODEL for openai, PICO_ANTHROPIC_MODEL for anthropic, and PICO_DEEPSEEK_MODEL for deepseek when set.",
+        help="Model name override for the selected provider profile.",
     )
-    parser.add_argument("--base-url", default=None, help="Provider API base URL for openai, anthropic, or deepseek.")
+    parser.add_argument("--base-url", default=None, help="API base URL override for the selected provider profile.")
     parser.add_argument("--openai-timeout", type=int, default=300, help="Provider request timeout in seconds.")
     parser.add_argument("--resume", default=None, help="Session id to resume or 'latest'.")
     parser.add_argument("--approval", choices=("ask", "auto", "never"), default="ask", help="Approval policy for risky tools.")
@@ -299,7 +259,11 @@ def handle_repl_command(agent, user_input):
 
 def main(argv=None):
     args = build_arg_parser().parse_args(argv)
-    agent = build_agent(args)
+    try:
+        agent = build_agent(args)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
 
     model = getattr(agent.model_client, "model", getattr(args, "model", DEFAULT_OPENAI_MODEL))
     host = getattr(agent.model_client, "base_url", getattr(args, "base_url", DEFAULT_OPENAI_BASE_URL))

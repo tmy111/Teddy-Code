@@ -27,6 +27,7 @@ from .runtime_consumers import default_runtime_consumers
 from .runtime_events import build_runtime_event
 from .session_events import SessionEventBus
 from .tool_profiles import build_tool_profiles
+from .todo_ledger import TodoLedger
 from .turn_history import TurnHistoryBuilder
 from ..tools import registry as toolkit
 from .workspace import IGNORED_PATH_NAMES, MAX_HISTORY, WorkspaceContext, clip, now
@@ -147,11 +148,9 @@ class Pico:
             self.session_event_bus.emit("session_started", {"workspace_root": workspace.repo_root})
         self.plan_mode = PlanModeController(self)
         self.engine = Engine(self)
-        self.memory = memorylib.LayeredMemory(
-            self.session.setdefault("memory", memorylib.default_memory_state()),
-            workspace_root=self.root,
-        )
+        self.memory = memorylib.LayeredMemory(self.session.setdefault("memory", memorylib.default_memory_state()), workspace_root=self.root)
         self.session["memory"] = self.memory.to_dict()
+        self.todo_ledger = TodoLedger(self)
         self.skills = skillslib.discover_skills(self.root)
         self.tools = self.build_tools()
         self.tool_profiles = build_tool_profiles(self.tools)
@@ -858,7 +857,6 @@ class Pico:
 
     def build_report(self, task_state):
         # report 是一次运行的最终摘要；
-        # 和 trace 的区别在于，trace 关注过程，report 关注结果与关键指标。
         return {
             "run_id": task_state.run_id,
             "task_id": task_state.task_id,
@@ -879,6 +877,8 @@ class Pico:
             "artifact_graph": dict(task_state.artifact_graph),
             "verifier_suggestions": list(task_state.verifier_suggestions),
             "runtime_reminders": list(task_state.runtime_reminders),
+            "todos": self.todo_ledger.to_dict(),
+            "todo_changes": list(task_state.todo_changes),
         }
 
     def tool_example(self, name):

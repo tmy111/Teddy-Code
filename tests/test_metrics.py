@@ -25,14 +25,16 @@ def test_run_context_ablation_v2_writes_expected_artifact(tmp_path):
     assert "current_request_preserved_rate" in artifact["summary"]
 
 
-def test_provider_profile_loads_project_env_before_reading_deepseek_config(tmp_path, monkeypatch):
+def test_provider_profile_uses_project_toml_before_legacy_pico_env(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    (tmp_path / ".env").write_text(
+    (tmp_path / ".pico.toml").write_text(
         "\n".join(
             [
-                "PICO_DEEPSEEK_API_KEY=sk-project-deepseek",
-                "PICO_DEEPSEEK_MODEL=deepseek-v4-pro",
-                "PICO_DEEPSEEK_API_BASE=https://api.deepseek.com/anthropic",
+                "[providers.deepseek]",
+                'protocol = "anthropic"',
+                'api_key = "sk-project-deepseek"',
+                'model = "deepseek-v4-pro"',
+                'base_url = "https://api.deepseek.com/anthropic"',
             ]
         )
         + "\n",
@@ -42,9 +44,9 @@ def test_provider_profile_loads_project_env_before_reading_deepseek_config(tmp_p
     with patch.dict(
         os.environ,
         {
-            "DEEPSEEK_API_KEY": "sk-legacy-deepseek",
-            "DEEPSEEK_MODEL": "legacy-deepseek-model",
-            "DEEPSEEK_API_BASE": "https://legacy.deepseek.example/anthropic",
+            "PICO_DEEPSEEK_API_KEY": "sk-legacy-deepseek",
+            "PICO_DEEPSEEK_MODEL": "legacy-deepseek-model",
+            "PICO_DEEPSEEK_API_BASE": "https://legacy.deepseek.example/anthropic",
         },
         clear=True,
     ):

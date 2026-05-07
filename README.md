@@ -81,36 +81,63 @@ python -m pico --provider deepseek
 
 ## 模型后端
 
-Pico 启动时会读取项目根目录的 `.env`。本地真实 key 放在 `.env`，仓库只保留 `.env.example`。配置优先级是：
+Pico 的 provider 配置是 TOML profile。用户选择的是 `deepseek`、`openai` 这类 profile；runtime 真正分派的是 profile 里的 `protocol`，目前支持 `openai` 和 `anthropic` 两种协议。
+
+配置文件加载顺序是：
+
+1. `~/.config/pico/config.toml`
+2. 当前项目向上查找的 `.pico.toml`
+
+后加载的项目配置会覆盖全局配置。也可以用 `--config /path/to/config.toml` 指定单个配置文件。
+
+配置优先级是：
 
 ```text
-显式 CLI 参数 > .env 里的 PICO_* 变量 > 旧环境变量 > 代码默认值
+显式 CLI 参数 > shell 环境变量 > TOML profile > 旧 .env 兼容变量 > 代码默认值
 ```
 
 本地第一次配置：
 
 ```bash
-cp .env.example .env
+cp .pico.toml.example .pico.toml
 ```
 
-然后把要使用的 provider key 填进去。`.env` 已经被 `.gitignore` 忽略，不要提交真实 key。
+然后把要使用的 provider key 填进去。`.pico.toml` 已经被 `.gitignore` 忽略，不要提交真实 key。
+
+### 配置示例
+
+```toml
+provider = "deepseek"
+
+[providers.deepseek]
+protocol = "anthropic"
+api_key = "your-api-key"
+base_url = "https://api.deepseek.com/anthropic"
+model = "deepseek-v4-pro"
+
+[providers.openai]
+protocol = "openai"
+api_key = "your-api-key"
+base_url = "https://www.right.codes/codex/v1"
+model = "gpt-5.4"
+```
+
+```bash
+uv run pico
+uv run pico --provider openai
+uv run pico --provider deepseek --model deepseek-v4-pro
+```
 
 ### OpenAI 兼容接口
 
 默认 OpenAI 兼容接口使用 right.codes 的 Codex endpoint：
 
-```bash
-PICO_OPENAI_API_BASE="https://www.right.codes/codex/v1"
-PICO_OPENAI_API_KEY="your-api-key"
-PICO_OPENAI_MODEL="gpt-5.4"
-```
-
-也可以改成其他 OpenAI-compatible 服务：
-
-```bash
-PICO_OPENAI_API_BASE="https://your-api.example/v1"
-PICO_OPENAI_API_KEY="your-api-key"
-PICO_OPENAI_MODEL="gpt-5.4"
+```toml
+[providers.openai]
+protocol = "openai"
+api_key = "your-api-key"
+base_url = "https://www.right.codes/codex/v1"
+model = "gpt-5.4"
 ```
 
 ```bash
@@ -121,30 +148,46 @@ uv run pico --provider openai
 
 默认 Anthropic 兼容接口使用 right.codes 的 Claude endpoint：
 
-```bash
-PICO_ANTHROPIC_API_BASE="https://www.right.codes/claude/v1"
-PICO_ANTHROPIC_API_KEY="your-api-key"
-PICO_ANTHROPIC_MODEL="claude-sonnet-4-6"
+```toml
+[providers.anthropic]
+protocol = "anthropic"
+api_key = "your-api-key"
+base_url = "https://www.right.codes/claude/v1"
+model = "claude-sonnet-4-6"
 ```
 
 ```bash
 uv run pico --provider anthropic
 ```
 
-如果你的服务端对多个兼容接口复用了同一套密钥，`pico` 也支持从 `PICO_ANTHROPIC_API_KEY` 回退到 `ANTHROPIC_API_KEY`、`PICO_RIGHT_CODES_API_KEY`、`RIGHT_CODES_API_KEY`、`PICO_OPENAI_API_KEY` 或 `OPENAI_API_KEY`。
-
 ### DeepSeek
 
-```bash
-PICO_DEEPSEEK_API_KEY="your-api-key"
-PICO_DEEPSEEK_MODEL="deepseek-v4-pro"
+DeepSeek 是一个 profile，底层协议是 Anthropic-compatible：
+
+```toml
+[providers.deepseek]
+protocol = "anthropic"
+api_key = "your-api-key"
+base_url = "https://api.deepseek.com/anthropic"
+model = "deepseek-v4-pro"
 ```
 
 ```bash
 uv run pico --provider deepseek
 ```
 
-默认 DeepSeek base URL 是 `https://api.deepseek.com/anthropic`，走 DeepSeek 的 Anthropic 兼容接口。如果需要改到代理服务，可以设置 `PICO_DEEPSEEK_API_BASE` 或启动时传 `--base-url`。
+如果需要临时改到代理服务，可以启动时传 `--base-url`，或者在 profile 里改 `base_url`。
+
+### 环境变量
+
+环境变量用于临时覆盖 TOML：
+
+- `PICO_PROVIDER` / `PICO_API_KEY` / `PICO_BASE_URL` / `PICO_MODEL`
+- `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL`
+- `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL`
+- `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL`
+
+旧的 `.env` + `PICO_OPENAI_*`、`PICO_ANTHROPIC_*`、`PICO_DEEPSEEK_*` 仍然能用，但只作为兼容兜底。
 
 ## 常用交互命令
 
@@ -192,6 +235,33 @@ Check deployment readiness for $ARGUMENTS from ${PICO_SKILL_DIR}.
 - `model`
 - `paths`
 - `user-invocable: true|false`
+
+## Task Ledger
+
+`pico` 提供 session 级任务账本，供模型把较大的工作拆成可追踪 todo。账本保存在 session JSON 里，每次变更都会写入 `.pico/sessions/<session>.events.jsonl`，并进入本轮 `report.json`。
+
+模型可使用这些工具：
+
+- `todo_add(content, status='pending', priority='normal', note='')`
+- `todo_update(todo_id, status?, content?, priority?, note?)`
+- `todo_list()`
+
+支持的状态是 `pending`、`in_progress`、`done`、`blocked`；优先级是 `low`、`normal`、`high`。Plan mode 下也可以使用 todo 工具，用来保持计划和执行账本同步。
+
+## Subagents
+
+`pico` 提供 session 级 worker manager。主 agent 可以通过工具启动一个子 agent、继续同一个子 agent，或者停止它：
+
+- `agent(description, prompt, subagent_type='worker', write_scope=[])`
+- `send_message(to, message)`
+- `task_stop(task_id)`
+
+支持两种子 agent：
+
+- `Explore`：只读，用于快速搜索和理解代码。Plan mode 下只允许启动 `Explore`。
+- `worker`：可以执行多步任务，但写文件必须落在 `write_scope` 指定的路径内，且不会再暴露子 agent 工具。
+
+子 agent 完成后会把 `<task-notification>` 写回主 session history，并在 `.pico/sessions/<session>.events.jsonl` 里记录 `worker_started` / `worker_finished`。本轮 `report.json` 也会包含 `workers` 快照，便于复盘真实 session。
 
 ## 安全与持久化
 

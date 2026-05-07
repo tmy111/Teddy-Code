@@ -106,11 +106,13 @@ class ContextManager:
             "history": "",
             CURRENT_REQUEST_SECTION: f"Current user request:\n{user_message}",
         }
+        if hasattr(self.agent, "todo_ledger"):
+            section_texts["memory"] += "\n\n" + self.agent.todo_ledger.render_prompt()
         checkpoint_text = ""
         if hasattr(self.agent, "render_checkpoint_text"):
             checkpoint_text = str(self.agent.render_checkpoint_text() or "").strip()
         if checkpoint_text:
-            section_texts["prefix"] = section_texts["prefix"] + "\n\n" + checkpoint_text
+            section_texts["memory"] += "\n\n" + checkpoint_text
         selected_notes = []
         if memory_enabled and relevant_memory_enabled and hasattr(self.agent, "memory") and hasattr(self.agent.memory, "retrieval_candidates"):
             selected_notes = self.agent.memory.retrieval_candidates(user_message, limit=RELEVANT_MEMORY_LIMIT)

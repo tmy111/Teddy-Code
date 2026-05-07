@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from ..config import load_project_env, provider_env
+from ..config import resolve_provider_config
 from .evaluator import run_fixed_benchmark
 from ..providers import AnthropicCompatibleModelClient, FakeModelClient, OpenAICompatibleModelClient
 from ..core.runtime import Pico, SessionStore
@@ -678,41 +678,22 @@ def _provider_summary_from_artifact(payload):
 
 
 def _provider_profile(provider):
-    load_project_env(Path.cwd())
-    if provider == "gpt":
-        api_key = provider_env("PICO_OPENAI_API_KEY", ("OPENAI_API_KEY",))
-        if not api_key:
-            return {"provider": provider, "status": "blocked", "reason": "PICO_OPENAI_API_KEY or OPENAI_API_KEY missing"}
+    config = resolve_provider_config(provider, start=Path.cwd())
+    if not config.api_key:
         return {
             "provider": provider,
-            "status": "ready",
-            "model": provider_env("PICO_OPENAI_MODEL", ("OPENAI_MODEL",), "gpt-5.4"),
-            "base_url": provider_env("PICO_OPENAI_API_BASE", ("OPENAI_API_BASE",), "https://api.openai.com/v1"),
-            "api_key": api_key,
+            "protocol": config.protocol,
+            "status": "blocked",
+            "reason": f"API key missing for provider profile {config.name}",
         }
-    if provider == "deepseek":
-        api_key = provider_env("PICO_DEEPSEEK_API_KEY", ("DEEPSEEK_API_KEY",))
-        if not api_key:
-            return {"provider": provider, "status": "blocked", "reason": "PICO_DEEPSEEK_API_KEY or DEEPSEEK_API_KEY missing"}
-        return {
-            "provider": provider,
-            "status": "ready",
-            "model": provider_env("PICO_DEEPSEEK_MODEL", ("DEEPSEEK_MODEL",), "deepseek-v4-pro"),
-            "base_url": provider_env("PICO_DEEPSEEK_API_BASE", ("DEEPSEEK_API_BASE",), "https://api.deepseek.com/anthropic"),
-            "api_key": api_key,
-        }
-    api_key = provider_env(
-        "PICO_ANTHROPIC_API_KEY",
-        ("ANTHROPIC_API_KEY", "PICO_RIGHT_CODES_API_KEY", "RIGHT_CODES_API_KEY", "PICO_OPENAI_API_KEY", "OPENAI_API_KEY"),
-    )
-    if not api_key:
-        return {"provider": "claude", "status": "blocked", "reason": "PICO_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY missing"}
     return {
-        "provider": "claude",
+        "provider": provider,
+        "profile": config.name,
+        "protocol": config.protocol,
         "status": "ready",
-        "model": provider_env("PICO_ANTHROPIC_MODEL", ("ANTHROPIC_MODEL",), "claude-sonnet-4-6"),
-        "base_url": provider_env("PICO_ANTHROPIC_API_BASE", ("ANTHROPIC_API_BASE",), "https://www.right.codes/claude/v1"),
-        "api_key": api_key,
+        "model": config.model,
+        "base_url": config.base_url,
+        "api_key": config.api_key,
     }
 
 
@@ -721,7 +702,7 @@ def _make_provider_client(provider):
     if profile["status"] != "ready":
         raise RuntimeError(profile["reason"])
     timeout = 60
-    if provider == "gpt":
+    if profile["protocol"] == "openai":
         return OpenAICompatibleModelClient(
             model=profile["model"],
             base_url=profile["base_url"],

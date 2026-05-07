@@ -1,0 +1,19 @@
+provider = "deepseek"
+
+[providers.openai]
+protocol = "openai"
+api_key = "your-api-key"
+base_url = "https://www.right.codes/codex/v1"
+model = "gpt-5.4"
+
+[providers.anthropic]
+protocol = "anthropic"
+api_key = "your-api-key"
+base_url = "https://www.right.codes/claude/v1"
+model = "claude-sonnet-4-6"
+
+[providers.deepseek]
+protocol = "anthropic"
+api_key = "your-api-key"
+base_url = "https://api.deepseek.com/anthropic"
+model = "deepseek-v4-pro"

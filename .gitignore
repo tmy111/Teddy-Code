@@ -38,6 +38,8 @@ readme_intro_locked/
 .env
 .env.*
 !.env.example
+.pico.toml
+!.pico.toml.example
 
 # Local docs not intended for publication
 docs/**
