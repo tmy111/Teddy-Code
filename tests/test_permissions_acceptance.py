@@ -3,6 +3,7 @@ import json
 from pico.testing import ScriptedModelClient
 from pico import Pico, SessionStore, WorkspaceContext
 from pico.core.permissions import PermissionDecision
+from pico.features.sandbox.config import SandboxConfig
 
 
 def build_agent(tmp_path, outputs=None, **kwargs):
@@ -22,7 +23,9 @@ def build_agent(tmp_path, outputs=None, **kwargs):
 def read_session_events(agent):
     return [
         json.loads(line)
-        for line in agent.session_event_bus.path.read_text(encoding="utf-8").splitlines()
+        for line in agent.session_event_bus.path.read_text(
+            encoding="utf-8"
+        ).splitlines()
         if line.strip()
     ]
 
@@ -30,11 +33,17 @@ def read_session_events(agent):
 def test_permission_checker_is_the_single_default_tool_gate(tmp_path):
     agent = build_agent(tmp_path, approval_policy="never")
 
-    read_decision = agent.permission_checker.check(agent.tools["read_file"], {"path": "README.md"})
-    shell_decision = agent.permission_checker.check(agent.tools["run_shell"], {"command": "echo hi", "timeout": 20})
+    read_decision = agent.permission_checker.check(
+        agent.tools["read_file"], {"path": "README.md"}
+    )
+    shell_decision = agent.permission_checker.check(
+        agent.tools["run_shell"], {"command": "echo hi", "timeout": 20}
+    )
 
     assert read_decision == PermissionDecision.allow("read_only")
-    assert shell_decision == PermissionDecision.deny("approval_denied", security_event_type="approval_denied")
+    assert shell_decision == PermissionDecision.deny(
+        "approval_denied", security_event_type="approval_denied"
+    )
 
     result = agent.run_tool("run_shell", {"command": "echo hi", "timeout": 20})
 
@@ -46,6 +55,39 @@ def test_permission_checker_is_the_single_default_tool_gate(tmp_path):
         and event["decision"] == "deny"
         and event["reason"] == "approval_denied"
         for event in read_session_events(agent)
+    )
+
+
+def test_run_shell_required_sandbox_fails_closed_after_permission(tmp_path):
+    agent = build_agent(
+        tmp_path,
+        [],
+        approval_policy="auto",
+        sandbox_config=SandboxConfig(mode="required", backend="bubblewrap"),
+    )
+    agent.sandbox_runner.which = lambda name: None
+
+    result = agent.run_tool("run_shell", {"command": "echo hi", "timeout": 20})
+
+    assert "sandbox required but unavailable" in result
+    assert agent._last_tool_result_metadata["tool_error_code"] == "tool_failed"
+
+
+def test_run_shell_best_effort_sandbox_degrades_and_keeps_permission_gate(tmp_path):
+    agent = build_agent(
+        tmp_path,
+        [],
+        approval_policy="auto",
+        sandbox_config=SandboxConfig(mode="best_effort", backend="bubblewrap"),
+    )
+    agent.sandbox_runner.which = lambda name: None
+
+    result = agent.run_tool("run_shell", {"command": "echo hi", "timeout": 20})
+
+    assert "exit_code: 0" in result
+    assert "hi" in result
+    assert any(
+        event["event"] == "sandbox_unavailable" for event in read_session_events(agent)
     )
 
 
@@ -67,15 +109,24 @@ def test_plan_mode_switches_tool_profile_and_allows_only_active_plan_file(tmp_pa
     assert agent.active_tool_profile.name == "plan"
     assert "run_shell" not in agent.active_tool_profile.allowed_tools
 
-    rejected = agent.run_tool("write_file", {"path": "src.py", "content": "print('no')\n"})
-    assert rejected == "error: plan mode can only write the active plan artifact (.pico/plans/v3-plan.md)"
+    rejected = agent.run_tool(
+        "write_file", {"path": "src.py", "content": "print('no')\n"}
+    )
+    assert (
+        rejected
+        == "error: plan mode can only write the active plan artifact (.pico/plans/v3-plan.md)"
+    )
     assert not (tmp_path / "src.py").exists()
 
     answer = agent.ask("draft the plan")
 
     assert answer == "Plan ready."
     assert agent.active_tool_profile.name == "default"
-    assert (tmp_path / ".pico" / "plans" / "v3-plan.md").read_text(encoding="utf-8").startswith("# Plan")
+    assert (
+        (tmp_path / ".pico" / "plans" / "v3-plan.md")
+        .read_text(encoding="utf-8")
+        .startswith("# Plan")
+    )
     events = read_session_events(agent)
     assert any(
         event["event"] == "permission_decision"
@@ -91,3 +142,27 @@ def test_plan_mode_switches_tool_profile_and_allows_only_active_plan_file(tmp_pa
         and event["reason"] == "plan_artifact_write"
         for event in events
     )
+
+
+def test_plan_mode_does_not_allow_retargeting_active_plan_with_enter_tool(tmp_path):
+    agent = build_agent(tmp_path)
+
+    agent.enter_plan_mode("original")
+
+    rejected = agent.run_tool(
+        "enter_plan_mode", {"topic": "retarget", "path": "src.py"}
+    )
+
+    assert "plan mode" in rejected
+    assert agent.plan_mode.plan_path == ".pico/plans/original-plan.md"
+
+
+def test_plan_mode_rejects_arbitrary_workspace_plan_path(tmp_path):
+    agent = build_agent(tmp_path)
+
+    rejected = agent.run_tool(
+        "enter_plan_mode", {"topic": "retarget", "path": "src/auth.py"}
+    )
+
+    assert "plan path must stay under .pico/plans/" in rejected
+    assert agent.runtime_mode == "default"

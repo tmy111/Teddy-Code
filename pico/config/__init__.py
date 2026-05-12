@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..features.sandbox import resolve_sandbox_config as resolve_sandbox_values
+
 if sys.version_info >= (3, 11):
     import tomllib
 else:  # pragma: no cover - covered on Python 3.10 by dependency resolution
@@ -53,6 +55,20 @@ PROVIDER_ALIASES = {
 
 PROTOCOLS = {"openai", "anthropic"}
 
+PROVIDER_MAX_TOKENS: dict[str, int] = {
+    "openai": 8192,
+    "anthropic": 32000,
+    "deepseek": 8192,
+}
+DEFAULT_MAX_TOKENS_FALLBACK = 4096
+
+
+def default_max_tokens_for_provider(provider: str | None) -> int:
+    if not provider:
+        return DEFAULT_MAX_TOKENS_FALLBACK
+    key = PROVIDER_ALIASES.get(provider, provider)
+    return PROVIDER_MAX_TOKENS.get(key, DEFAULT_MAX_TOKENS_FALLBACK)
+
 ENV_PROVIDER = "PICO_PROVIDER"
 ENV_API_KEY = "PICO_API_KEY"
 ENV_BASE_URL = "PICO_BASE_URL"
@@ -65,7 +81,12 @@ PROVIDER_ENV_NAMES = {
         "model": ("OPENAI_MODEL",),
     },
     "anthropic": {
-        "api_key": ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "RIGHT_CODES_API_KEY", "OPENAI_API_KEY"),
+        "api_key": (
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_AUTH_TOKEN",
+            "RIGHT_CODES_API_KEY",
+            "OPENAI_API_KEY",
+        ),
         "base_url": ("ANTHROPIC_API_BASE", "ANTHROPIC_BASE_URL"),
         "model": ("ANTHROPIC_MODEL",),
     },
@@ -91,12 +112,20 @@ LEGACY_ENV_NAMES = {
             "PICO_OPENAI_API_KEY",
             "OPENAI_API_KEY",
         ),
-        "base_url": ("PICO_ANTHROPIC_API_BASE", "ANTHROPIC_API_BASE", "ANTHROPIC_BASE_URL"),
+        "base_url": (
+            "PICO_ANTHROPIC_API_BASE",
+            "ANTHROPIC_API_BASE",
+            "ANTHROPIC_BASE_URL",
+        ),
         "model": ("PICO_ANTHROPIC_MODEL", "ANTHROPIC_MODEL"),
     },
     "deepseek": {
         "api_key": ("PICO_DEEPSEEK_API_KEY", "DEEPSEEK_API_KEY"),
-        "base_url": ("PICO_DEEPSEEK_API_BASE", "DEEPSEEK_API_BASE", "DEEPSEEK_BASE_URL"),
+        "base_url": (
+            "PICO_DEEPSEEK_API_BASE",
+            "DEEPSEEK_API_BASE",
+            "DEEPSEEK_BASE_URL",
+        ),
         "model": ("PICO_DEEPSEEK_MODEL", "DEEPSEEK_MODEL"),
     },
 }
@@ -114,7 +143,7 @@ def _parse_env_line(line):
     if not line or line.startswith("#"):
         return None
     if line.startswith("export "):
-        line = line[len("export "):].strip()
+        line = line[len("export ") :].strip()
     if "=" not in line:
         raise ValueError(f"invalid .env line: {line}")
     name, value = line.split("=", 1)
@@ -242,15 +271,33 @@ def resolve_provider_config(
     )
 
 
+def resolve_project_sandbox_config(
+    *,
+    start: str | Path = ".",
+    config_path: str | None = None,
+    mode: str | None = None,
+    backend: str | None = None,
+):
+    file_values = _load_config_values(start=start, explicit_path=config_path)
+    values = {"sandbox": dict(file_values.get("sandbox", {}) or {})}
+    if mode:
+        values["sandbox"]["mode"] = mode
+    if backend:
+        values["sandbox"]["backend"] = backend
+    return resolve_sandbox_values(values)
+
+
 def normalize_provider_name(provider: str | None) -> str:
     normalized = (provider or DEFAULT_PROVIDER).strip().lower()
     return PROVIDER_ALIASES.get(normalized, normalized)
 
 
 def _load_config_values(start: str | Path, explicit_path: str | None) -> dict[str, Any]:
-    values: dict[str, Any] = {"top": {}, "providers": {}}
+    values: dict[str, Any] = {"top": {}, "providers": {}, "sandbox": {}}
     if explicit_path:
-        _merge_config_values(values, _read_config_file(Path(explicit_path).expanduser()))
+        _merge_config_values(
+            values, _read_config_file(Path(explicit_path).expanduser())
+        )
         return values
 
     for path in (DEFAULT_CONFIG_PATH, find_project_config(start)):
@@ -268,7 +315,7 @@ def _read_config_file(path: Path) -> dict[str, Any]:
     except OSError as exc:
         raise ValueError(f"could not read Pico config file {path}: {exc}") from exc
 
-    values: dict[str, Any] = {"top": {}, "providers": {}}
+    values: dict[str, Any] = {"top": {}, "providers": {}, "sandbox": {}}
     if "provider" in data:
         values["top"]["provider"] = data["provider"]
 
@@ -277,6 +324,10 @@ def _read_config_file(path: Path) -> dict[str, Any]:
         for name, section in providers.items():
             if isinstance(section, dict):
                 values["providers"][normalize_provider_name(str(name))] = dict(section)
+
+    sandbox = data.get("sandbox", {})
+    if isinstance(sandbox, dict):
+        values["sandbox"] = dict(sandbox)
 
     for name in ("openai", "anthropic", "deepseek"):
         section = data.get(name, {})
@@ -287,11 +338,14 @@ def _read_config_file(path: Path) -> dict[str, Any]:
 
 def _merge_config_values(target: dict[str, Any], incoming: dict[str, Any]) -> None:
     target["top"].update(incoming.get("top", {}))
+    target["sandbox"].update(incoming.get("sandbox", {}))
     for name, section in incoming.get("providers", {}).items():
         target["providers"].setdefault(name, {}).update(section)
 
 
-def _profile_values(providers: dict[str, dict[str, Any]], provider_name: str) -> dict[str, Any]:
+def _profile_values(
+    providers: dict[str, dict[str, Any]], provider_name: str
+) -> dict[str, Any]:
     values = dict(PROVIDER_DEFAULTS.get(provider_name, {}))
     values.update(providers.get(provider_name, {}))
     return values
@@ -322,7 +376,9 @@ def _env_values(provider_name: str, protocol: str) -> dict[str, str]:
     return values
 
 
-def _legacy_values(provider_name: str, protocol: str, env_values: dict[str, str]) -> dict[str, str]:
+def _legacy_values(
+    provider_name: str, protocol: str, env_values: dict[str, str]
+) -> dict[str, str]:
     values: dict[str, str] = {}
     sources = [LEGACY_ENV_NAMES.get(provider_name, {})]
     if provider_name == protocol:
@@ -361,5 +417,7 @@ def _first_value(*values):
 def _validate_protocol(protocol: Any, provider_name: str) -> str:
     normalized = str(protocol or "").strip().lower()
     if normalized not in PROTOCOLS:
-        raise ValueError(f"provider {provider_name!r} uses unsupported protocol: {protocol!r}")
+        raise ValueError(
+            f"provider {provider_name!r} uses unsupported protocol: {protocol!r}"
+        )
     return normalized

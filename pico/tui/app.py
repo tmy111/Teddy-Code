@@ -9,7 +9,17 @@ from textual.binding import Binding
 from textual.events import Key
 
 from ..cli import HELP_DETAILS, handle_repl_command
-from .widgets import ChatLog, ConfirmPrompt, InputBar, StatusBar, ThinkingIndicator, ToolCard, WelcomeBanner, format_tool_args
+from .widgets import (
+    AskUserPrompt,
+    ChatLog,
+    ConfirmPrompt,
+    InputBar,
+    StatusBar,
+    ThinkingIndicator,
+    ToolCard,
+    WelcomeBanner,
+    format_tool_args,
+)
 
 
 PICO_TUI_CSS = """
@@ -42,8 +52,12 @@ class PicoTuiApp(App):
         self._running_tool_cards: list[ToolCard] = []
         self._confirm_prompt: ConfirmPrompt | None = None
         self._confirm_decision: tuple[threading.Event, dict] | None = None
+        self._ask_user_prompt: AskUserPrompt | None = None
+        self._ask_user_decision: tuple[threading.Event, dict] | None = None
         self._previous_approve = getattr(agent, "approve", None)
+        self._previous_ask_user = getattr(agent, "ask_user_callback", None)
         self.agent.approve = self._approval_callback
+        self.agent.ask_user_callback = self._ask_user_callback
 
     def compose(self) -> ComposeResult:
         yield WelcomeBanner(
@@ -59,15 +73,20 @@ class PicoTuiApp(App):
     def on_mount(self) -> None:
         self.query_one(StatusBar).update_agent(self.agent)
         self.query_one(InputBar).focus_input()
+        self.set_interval(0.5, self._drain_idle_worker_notifications)
 
     def on_unmount(self) -> None:
         if self._previous_approve is not None:
             self.agent.approve = self._previous_approve
+        self.agent.ask_user_callback = self._previous_ask_user
 
     def action_clear_screen(self) -> None:
         self.query_one(ChatLog).clear_messages()
 
     def action_submit_input(self) -> None:
+        if self._ask_user_prompt is not None:
+            self._resolve_ask_user(self._ask_user_prompt.selected_choice)
+            return
         if self._confirm_prompt is not None:
             self._resolve_confirm(self._confirm_prompt.selected)
             return
@@ -80,12 +99,27 @@ class PicoTuiApp(App):
         bar.input.value = ""
         if text.startswith("/"):
             self.query_one(ChatLog).add_message("user", text)
+            bar.hide_slash_suggestions()
             self._handle_command(text)
             return
         self.query_one(ChatLog).add_message("user", text)
         self._run_agent(text)
 
     def on_key(self, event: Key) -> None:
+        if self._ask_user_prompt is not None:
+            if event.key in {"right", "down"}:
+                self._ask_user_prompt.select_next()
+                event.prevent_default()
+            elif event.key in {"left", "up"}:
+                self._ask_user_prompt.select_previous()
+                event.prevent_default()
+            elif event.key == "enter":
+                self._resolve_ask_user(self._ask_user_prompt.selected_choice)
+                event.prevent_default()
+            elif event.key == "escape":
+                self._resolve_ask_user("")
+                event.prevent_default()
+            return
         if self._confirm_prompt is not None:
             if event.key in {"y", "right"}:
                 self._confirm_prompt.select_allow()
@@ -101,7 +135,16 @@ class PicoTuiApp(App):
                 event.prevent_default()
             return
         bar = self.query_one(InputBar)
-        if event.key == "up":
+        if event.key == "tab" and bar.complete_slash_suggestion():
+            event.prevent_default()
+        elif event.key == "up" and bar.move_slash_selection(-1):
+            event.prevent_default()
+        elif event.key == "down" and bar.move_slash_selection(1):
+            event.prevent_default()
+        elif event.key == "escape":
+            bar.hide_slash_suggestions()
+            event.prevent_default()
+        elif event.key == "up":
             bar.history_prev()
             event.prevent_default()
         elif event.key == "down":
@@ -117,13 +160,28 @@ class PicoTuiApp(App):
             self.query_one(ChatLog).add_message("assistant", output)
             self.query_one(StatusBar).update_agent(self.agent)
             return
-        self.query_one(ChatLog).add_message("assistant", f"Unknown command. Use /help.\n\n{HELP_DETAILS}")
+        self.query_one(ChatLog).add_message(
+            "assistant", f"Unknown command. Use /help.\n\n{HELP_DETAILS}"
+        )
 
     def _run_agent(self, text: str) -> None:
         self.query_one(InputBar).set_busy(True)
         self.query_one(ThinkingIndicator).show()
-        self._thinking_timer = self.set_interval(0.15, self.query_one(ThinkingIndicator).advance)
+        self._thinking_timer = self.set_interval(
+            0.15, self.query_one(ThinkingIndicator).advance
+        )
         asyncio.create_task(self._agent_task(text))
+
+    def _drain_idle_worker_notifications(self) -> None:
+        if self.query_one(InputBar).input.disabled:
+            return
+        notifications = self.agent.engine.drain_worker_notifications()
+        if not notifications:
+            return
+        chat = self.query_one(ChatLog)
+        for notification in notifications:
+            chat.add_message("assistant", f"[worker notification]\n{notification}")
+        self.query_one(StatusBar).update_agent(self.agent)
 
     async def _agent_task(self, text: str) -> None:
         loop = asyncio.get_running_loop()
@@ -139,7 +197,9 @@ class PicoTuiApp(App):
             status = self.query_one(StatusBar)
             status.update_turns(self._turn_count)
             status.update_agent(self.agent)
-            usage = (getattr(self.agent, "last_prompt_metadata", {}) or {}).get("context_usage") or {}
+            usage = (getattr(self.agent, "last_prompt_metadata", {}) or {}).get(
+                "context_usage"
+            ) or {}
             status.update_context_usage(usage)
 
     def _drive_turn(self, text: str) -> None:
@@ -154,7 +214,9 @@ class PicoTuiApp(App):
         if event_type == "model_requested":
             attempts = event.get("attempts", 0)
             tool_steps = event.get("tool_steps", 0)
-            self.query_one(ThinkingIndicator).set_detail(f"model request {attempts}, tools {tool_steps}")
+            self.query_one(ThinkingIndicator).set_detail(
+                f"model request {attempts}, tools {tool_steps}"
+            )
             return
         if event_type == "model_parsed":
             kind = event.get("kind", "")
@@ -171,8 +233,15 @@ class PicoTuiApp(App):
             self._finish_tool_card(event)
             self.query_one(ThinkingIndicator).set_detail("thinking after tool")
             return
+        if event_type == "worker_notification":
+            self.query_one(ChatLog).add_message(
+                "assistant", f"[worker notification]\n{event.get('content', '')}"
+            )
+            return
         if event_type in {"retry", "runtime_notice", "final", "stop"}:
-            self.query_one(ChatLog).add_message("assistant", str(event.get("content", "")))
+            self.query_one(ChatLog).add_message(
+                "assistant", str(event.get("content", ""))
+            )
             return
 
     def _finish_tool_card(self, event: dict) -> None:
@@ -184,7 +253,9 @@ class PicoTuiApp(App):
                 break
         if card is None:
             card = self.query_one(ChatLog).add_tool_call(name, {})
-        metadata = event.get("metadata") if isinstance(event.get("metadata"), dict) else {}
+        metadata = (
+            event.get("metadata") if isinstance(event.get("metadata"), dict) else {}
+        )
         content = str(event.get("content", ""))
         status = str(metadata.get("tool_status", "ok") or "ok")
         if status in {"error", "rejected", "partial_success"}:
@@ -209,7 +280,9 @@ class PicoTuiApp(App):
         event.wait()
         return bool(decision.get("approved", False))
 
-    def _show_confirm(self, name: str, args: dict, event: threading.Event, decision: dict) -> None:
+    def _show_confirm(
+        self, name: str, args: dict, event: threading.Event, decision: dict
+    ) -> None:
         prompt = ConfirmPrompt(name, format_tool_args(name, args))
         self._confirm_prompt = prompt
         self._confirm_decision = (event, decision)
@@ -227,3 +300,36 @@ class PicoTuiApp(App):
             self._confirm_prompt.remove()
         self._confirm_prompt = None
         self._confirm_decision = None
+
+    def _ask_user_callback(self, question: str, choices: list[str]) -> str:
+        event = threading.Event()
+        decision = {"answer": ""}
+        try:
+            self.call_from_thread(
+                self._show_ask_user, question, choices, event, decision
+            )
+        except RuntimeError:
+            return ""
+        event.wait()
+        return str(decision.get("answer", ""))
+
+    def _show_ask_user(
+        self, question: str, choices: list[str], event: threading.Event, decision: dict
+    ) -> None:
+        prompt = AskUserPrompt(question, choices)
+        self._ask_user_prompt = prompt
+        self._ask_user_decision = (event, decision)
+        chat = self.query_one(ChatLog)
+        chat.mount(prompt)
+        chat.call_after_refresh(chat.scroll_end, animate=False)
+
+    def _resolve_ask_user(self, answer: str) -> None:
+        if self._ask_user_decision is None:
+            return
+        event, decision = self._ask_user_decision
+        decision["answer"] = str(answer)
+        event.set()
+        if self._ask_user_prompt is not None:
+            self._ask_user_prompt.remove()
+        self._ask_user_prompt = None
+        self._ask_user_decision = None

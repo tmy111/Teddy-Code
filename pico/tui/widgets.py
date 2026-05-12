@@ -8,6 +8,8 @@ from textual.containers import VerticalScroll
 from textual.widget import Widget
 from textual.widgets import Collapsible, Input, Markdown, Static
 
+from ..commands.slash import SlashCommand, suggest_commands
+
 
 PICO_MARK = [
     r"        /\___/\\",
@@ -60,7 +62,10 @@ class WelcomeBanner(Static):
         muted = "#8b93a7"
         accent = "#9ec5fe"
         rows = [
-            Text.assemble(Text("pico", style=f"bold {accent}"), Text("  local coding agent", style=muted)),
+            Text.assemble(
+                Text("pico", style=f"bold {accent}"),
+                Text("  local coding agent", style=muted),
+            ),
             Text(""),
         ]
         rows.extend(Text(line, style=accent) for line in PICO_MARK)
@@ -75,7 +80,10 @@ class WelcomeBanner(Static):
                     Text("   cwd ", style=muted),
                     Text(cwd_name, style=accent),
                 ),
-                Text("type /help for commands, Ctrl+L to clear, Ctrl+Q to quit", style=muted),
+                Text(
+                    "type /help for commands, Ctrl+L to clear, Ctrl+Q to quit",
+                    style=muted,
+                ),
             ]
         )
         return Text("\n").join(rows)
@@ -97,7 +105,9 @@ class UserMessage(Static):
         self.content = content
 
     def render(self) -> Text:
-        return Text.assemble(Text("> ", style="bold green"), Text(self.content, style="green"))
+        return Text.assemble(
+            Text("> ", style="bold green"), Text(self.content, style="green")
+        )
 
 
 class AssistantMessage(Static):
@@ -158,11 +168,15 @@ class ToolCard(Static):
 
     def compose(self):
         self._output_widget = Static("", classes="tool-output")
-        self._collapsible = Collapsible(self._output_widget, title=self._label(), collapsed=False)
+        self._collapsible = Collapsible(
+            self._output_widget, title=self._label(), collapsed=False
+        )
         yield self._collapsible
 
     def _label(self) -> str:
-        icon = {"running": "...", "success": "OK", "error": "ERR"}.get(self.status, "..")
+        icon = {"running": "...", "success": "OK", "error": "ERR"}.get(
+            self.status, ".."
+        )
         if self.args_summary:
             return f"[{icon}] {self.tool_name}: {self.args_summary}"
         return f"[{icon}] {self.tool_name}"
@@ -228,6 +242,62 @@ class ConfirmPrompt(Static):
     def select_deny(self) -> None:
         self.selected = False
         self.refresh()
+
+
+class AskUserPrompt(Static):
+    DEFAULT_CSS = """
+    AskUserPrompt {
+        height: auto;
+        margin: 0 0 1 0;
+        padding: 1 2;
+        background: #121f2b;
+        color: #d0ebff;
+        border: round #4dabf7;
+    }
+    """
+
+    def __init__(self, question: str, choices: list[str]) -> None:
+        super().__init__()
+        self.question = question
+        self.choices = list(choices or [])
+        self.selected_index = 0
+
+    @property
+    def selected_choice(self) -> str:
+        if not self.choices:
+            return ""
+        return self.choices[self.selected_index]
+
+    def render(self) -> Text:
+        if not self.choices:
+            return Text.assemble(
+                Text(self.question + "\n", style="bold #d0ebff"),
+                Text("Enter continues, Esc cancels", style="#74c0fc"),
+            )
+        parts = [Text(self.question + "\n", style="bold #d0ebff")]
+        for index, choice in enumerate(self.choices):
+            marker = f"[{choice}]" if index == self.selected_index else f" {choice} "
+            parts.append(
+                Text(
+                    marker,
+                    style="bold #a5d8ff" if index == self.selected_index else "#74c0fc",
+                )
+            )
+            parts.append(Text("  "))
+        parts.append(
+            Text("\nLeft/Right choose, Enter confirms, Esc cancels", style="#74c0fc")
+        )
+        return Text.assemble(*parts)
+
+    def select_next(self) -> None:
+        if self.choices:
+            self.selected_index = min(len(self.choices) - 1, self.selected_index + 1)
+            self.refresh()
+
+    def select_previous(self) -> None:
+        if self.choices:
+            self.selected_index = max(0, self.selected_index - 1)
+            self.refresh()
 
 
 class ChatLog(VerticalScroll):
@@ -335,8 +405,17 @@ class StatusBar(Static):
 
     def update_context_usage(self, usage: dict | None) -> None:
         usage = usage or {}
-        used = usage.get("used_tokens") or usage.get("estimated_tokens") or usage.get("total_tokens")
-        budget = usage.get("budget") or usage.get("max_tokens") or usage.get("context_window")
+        used = (
+            usage.get("total_estimated_tokens")
+            or usage.get("used_tokens")
+            or usage.get("estimated_tokens")
+            or usage.get("total_tokens")
+        )
+        budget = (
+            usage.get("budget")
+            or usage.get("max_tokens")
+            or usage.get("context_window")
+        )
         if used and budget:
             self.context_text = f"context {used}/{budget}"
         elif used:
@@ -346,13 +425,68 @@ class StatusBar(Static):
         self._render_status()
 
     def _render_status(self) -> None:
-        self.update(f"{self.agent_text} | turns {self.turns} | {self.context_text}".strip())
+        self.update(
+            f"{self.agent_text} | turns {self.turns} | {self.context_text}".strip()
+        )
+
+
+class SlashSuggestions(Static):
+    DEFAULT_CSS = """
+    SlashSuggestions {
+        display: none;
+        height: auto;
+        max-height: 8;
+        padding: 0 1;
+        background: #111827;
+        color: #d8dcff;
+        border: round #4b61a8;
+    }
+    SlashSuggestions.visible {
+        display: block;
+    }
+    """
+
+    def __init__(self) -> None:
+        super().__init__("")
+        self.suggestions: list[SlashCommand] = []
+        self.selected_index = 0
+        self.visible = False
+
+    def update_suggestions(
+        self, suggestions: list[SlashCommand], selected_index: int = 0
+    ) -> None:
+        self.suggestions = list(suggestions)
+        self.selected_index = max(
+            0, min(int(selected_index or 0), max(len(self.suggestions) - 1, 0))
+        )
+        self.visible = bool(self.suggestions)
+        self.set_class(self.visible, "visible")
+        self.refresh()
+
+    def hide_suggestions(self) -> None:
+        self.update_suggestions([])
+
+    def render(self) -> Text:
+        if not self.suggestions:
+            return Text("")
+        lines = []
+        for index, command in enumerate(self.suggestions):
+            marker = ">" if index == self.selected_index else " "
+            style = "bold cyan" if index == self.selected_index else "#a7a9bb"
+            lines.append(
+                Text.assemble(
+                    Text(f"{marker} /{command.name:<15}", style=style),
+                    Text(command.description, style="#d8dcff"),
+                )
+            )
+        return Text("\n").join(lines)
 
 
 class InputBar(Static):
     DEFAULT_CSS = """
     InputBar {
-        height: 3;
+        height: auto;
+        min-height: 3;
         padding: 0 1 1 1;
         background: #0f1117;
     }
@@ -367,16 +501,21 @@ class InputBar(Static):
         self.input = Input(placeholder="Ask pico or type /help")
         self.history: list[str] = []
         self.history_index = 0
+        self._slash_suggestions: list[SlashCommand] = []
+        self._slash_index = 0
 
     def compose(self):
         yield self.input
+        yield SlashSuggestions()
 
     def focus_input(self) -> None:
         self.input.focus()
 
     def set_busy(self, busy: bool) -> None:
         self.input.disabled = bool(busy)
-        self.input.placeholder = "pico is working..." if busy else "Ask pico or type /help"
+        self.input.placeholder = (
+            "pico is working..." if busy else "Ask pico or type /help"
+        )
 
     def history_prev(self) -> None:
         if not self.history:
@@ -388,7 +527,55 @@ class InputBar(Static):
         if not self.history:
             return
         self.history_index = min(len(self.history), self.history_index + 1)
-        self.input.value = "" if self.history_index == len(self.history) else self.history[self.history_index]
+        self.input.value = (
+            ""
+            if self.history_index == len(self.history)
+            else self.history[self.history_index]
+        )
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        self.update_slash_suggestions(event.value)
+
+    def update_slash_suggestions(self, text: str | None = None) -> None:
+        text = self.input.value if text is None else str(text)
+        self._slash_suggestions = suggest_commands(text)
+        self._slash_index = 0
+        self.query_one(SlashSuggestions).update_suggestions(
+            self._slash_suggestions, self._slash_index
+        )
+
+    def hide_slash_suggestions(self) -> None:
+        self._slash_suggestions = []
+        self._slash_index = 0
+        self.query_one(SlashSuggestions).hide_suggestions()
+
+    def complete_slash_suggestion(self) -> bool:
+        if not self._slash_suggestions:
+            return False
+        command = self._slash_suggestions[self._slash_index]
+        raw = self.input.value
+        _, separator, rest = (
+            raw[1:].partition(" ") if raw.startswith("/") else ("", "", "")
+        )
+        suffix = rest if separator else ""
+        self.input.value = f"/{command.name} " + (suffix if suffix else "")
+        self.input.cursor_position = len(self.input.value)
+        self.hide_slash_suggestions()
+        return True
+
+    def move_slash_selection(self, direction: int) -> bool:
+        if not self._slash_suggestions:
+            return False
+        self._slash_index = (self._slash_index + direction) % len(
+            self._slash_suggestions
+        )
+        self.query_one(SlashSuggestions).update_suggestions(
+            self._slash_suggestions, self._slash_index
+        )
+        return True
+
+    def apply_slash_completion(self) -> bool:
+        return self.complete_slash_suggestion()
 
 
 def _clip(text: str, limit: int = 1200) -> str:

@@ -1,12 +1,14 @@
 """Session-scoped worker lifecycle for subagents."""
 
 import json
+import queue
+import threading
 import time
-from dataclasses import dataclass
-from xml.sax.saxutils import escape
+from dataclasses import dataclass, field
 
-from .worker_artifacts import collect_worker_artifacts
-from .workspace import WorkspaceContext, clip, now
+from .worker_execution import run_worker
+from .worker_runtime import build_child_runtime
+from .workspace import now
 
 
 @dataclass
@@ -16,6 +18,9 @@ class WorkerTask:
     subagent_type: str
     write_scope: tuple[str, ...]
     runtime: object
+    thread: threading.Thread | None = None
+    stop_requested: bool = False
+    state: dict = field(default_factory=dict)
 
 
 class WorkerManager:
@@ -23,6 +28,8 @@ class WorkerManager:
         self.runtime = runtime
         self.runtime.session.setdefault("workers", {"next_id": 1, "items": []})
         self._tasks = {}
+        self._lock = threading.Lock()
+        self._notifications = queue.Queue()
 
     @property
     def state(self):
@@ -34,24 +41,67 @@ class WorkerManager:
             raise ValueError("plan mode only allows Explore agents")
         task = self._new_task(description, subagent_type, write_scope)
         self._tasks[task.id] = task
-        self._run(task, prompt, action="spawn")
+        if self._can_run_background():
+            self._start_background(task, prompt, action="spawn")
+            return self._public_payload(task, status="started")
+        run_worker(self, task, prompt, action="spawn")
         return self._public_payload(task)
 
     def continue_task(self, task_id, message):
         task = self._get_active_task(task_id)
+        item = self._get_item(task_id)
+        if item.get("status") in {"running", "stopping"}:
+            raise ValueError(f"worker is running: {task_id}")
         if self.runtime.runtime_mode == "plan" and task.subagent_type != "Explore":
             raise ValueError("plan mode only allows Explore agents")
-        self._run(task, message, action="continue")
+        if self._can_run_background():
+            self._start_background(task, message, action="continue")
+            return self._public_payload(task, status="started")
+        run_worker(self, task, message, action="continue")
         return self._public_payload(task)
 
     def stop_task(self, task_id):
         item = self._get_item(task_id)
         if item["status"] == "running":
-            item["status"] = "stopped"
+            task = self._tasks.get(str(task_id))
+            if task is not None:
+                self._request_stop(task)
+            item["status"] = "stopping"
             item["updated_at"] = now()
-            self.runtime.session_event_bus.emit("worker_stopped", {"worker_id": item["id"], "status": "stopped"})
+            self.runtime.session_event_bus.emit(
+                "worker_stop_requested", {"worker_id": item["id"], "status": "stopping"}
+            )
             self._save()
-        return {"task_id": item["id"], "status": item["status"], "description": item["description"]}
+        return {
+            "task_id": item["id"],
+            "status": item["status"],
+            "description": item["description"],
+        }
+
+    def shutdown(self, timeout=2.0):
+        tasks = list(self._tasks.values())
+        for task in tasks:
+            item = self._get_item(task.id)
+            if item.get("status") in {"running", "stopping"}:
+                self._request_stop(task)
+                with self._lock:
+                    item["status"] = "stopping"
+                    item["updated_at"] = now()
+                self.runtime.session_event_bus.emit(
+                    "worker_stop_requested",
+                    {"worker_id": item["id"], "status": "stopping"},
+                )
+        if tasks:
+            self._save()
+        deadline = time.monotonic() + float(timeout)
+        for task in tasks:
+            thread = task.thread
+            if thread is None or not thread.is_alive():
+                continue
+            remaining = max(0.0, deadline - time.monotonic())
+            if remaining:
+                thread.join(remaining)
+        return {"stopped": sum(1 for task in tasks if task.stop_requested)}
 
     def to_dict(self):
         return {
@@ -60,10 +110,11 @@ class WorkerManager:
         }
 
     def _new_task(self, description, subagent_type, write_scope):
-        worker_id = f"agent_{int(self.state.get('next_id', 1))}"
-        self.state["next_id"] = int(self.state.get("next_id", 1)) + 1
+        with self._lock:
+            worker_id = f"agent_{int(self.state.get('next_id', 1))}"
+            self.state["next_id"] = int(self.state.get("next_id", 1)) + 1
         scope = tuple(_clean_scope(write_scope))
-        child = self._build_child(subagent_type, scope)
+        child = build_child_runtime(self.runtime, subagent_type, scope)
         item = {
             "id": worker_id,
             "description": str(description or "").strip() or "Worker task",
@@ -73,93 +124,52 @@ class WorkerManager:
             "result": "",
             "tool_steps": 0,
             "attempts": 0,
+            "duration_ms": 0,
+            "notification_drained": False,
             "created_at": now(),
             "updated_at": now(),
         }
-        self.state.setdefault("items", []).append(item)
-        self._save()
+        with self._lock:
+            self.state.setdefault("items", []).append(item)
+            self._save()
         return WorkerTask(worker_id, item["description"], subagent_type, scope, child)
 
-    def _build_child(self, subagent_type, write_scope):
-        from .runtime import Pico
+    def _can_run_background(self):
+        return getattr(self.runtime, "model_client_factory", None) is not None
 
-        child = Pico(
-            model_client=self.runtime.model_client,
-            workspace=WorkspaceContext.build(self.runtime.root, repo_root_override=self.runtime.root),
-            session_store=self.runtime.session_store,
-            run_store=self.runtime.run_store,
-            approval_policy="never" if subagent_type == "Explore" else "auto",
-            max_steps=self.runtime.max_steps,
-            max_new_tokens=self.runtime.max_new_tokens,
-            depth=self.runtime.depth + 1,
-            max_depth=self.runtime.max_depth,
-            read_only=subagent_type == "Explore" or (subagent_type == "worker" and not write_scope),
-            secret_env_names=self.runtime.secret_env_names,
-            shell_env_allowlist=self.runtime.shell_env_allowlist,
-            feature_flags=self.runtime.feature_flags,
-            write_scope=write_scope,
+    def _start_background(self, task, prompt, action):
+        thread = threading.Thread(
+            target=run_worker,
+            args=(self, task, prompt, action),
+            daemon=True,
+            name=f"pico-worker-{task.id}",
         )
-        child.set_tool_profile("readonly" if subagent_type == "Explore" else "worker")
-        child.refresh_prefix(force=True)
-        return child
+        task.thread = thread
+        thread.start()
 
-    def _run(self, task, prompt, action):
-        item = self._get_item(task.id)
-        item["status"] = "running"
-        item["updated_at"] = now()
-        self.runtime.session_event_bus.emit(
-            "worker_started",
-            {"worker_id": task.id, "description": task.description, "subagent_type": task.subagent_type, "action": action},
-        )
-        self._save()
-        started = time.monotonic()
-        try:
-            result = task.runtime.ask(str(prompt or ""))
-            status = "completed"
-        except Exception as exc:
-            result = f"error: worker failed: {exc}"
-            status = "failed"
-        task_state = getattr(task.runtime, "current_task_state", None)
-        item.update(
-            {
-                "status": status,
-                "result": clip(result, 2000),
-                "tool_steps": int(getattr(task_state, "tool_steps", 0) or 0),
-                "attempts": int(getattr(task_state, "attempts", 0) or 0),
-                **collect_worker_artifacts(self.runtime.root, task.runtime, task_state),
-                "duration_ms": int((time.monotonic() - started) * 1000),
-                "updated_at": now(),
-            }
-        )
-        notification = self._notification(item)
-        self.runtime.record({"role": "user", "content": notification, "created_at": now()})
-        self.runtime.session_event_bus.emit(
-            "worker_finished",
-            {"worker_id": task.id, "status": status, "duration_ms": item["duration_ms"]},
-        )
-        self._save()
+    def _request_stop(self, task):
+        task.stop_requested = True
+        abort = getattr(task.runtime, "abort_current_turn", None)
+        if callable(abort):
+            abort()
 
-    def _notification(self, item):
-        result = str(item.get("result", ""))
-        parts = [
-            "<task-notification>",
-            f"<task-id>{escape(item['id'])}</task-id>",
-            f"<status>{escape(item['status'])}</status>",
-            f"<summary>{escape('Agent ' + item['description'] + ' ' + item['status'])}</summary>",
-        ]
-        if result:
-            parts.append(f"<result>{escape(result)}</result>")
-        parts.extend(
-            [
-                "<usage>",
-                f"  <tool_uses>{int(item.get('tool_steps', 0))}</tool_uses>",
-                f"  <attempts>{int(item.get('attempts', 0))}</attempts>",
-                f"  <duration_ms>{int(item.get('duration_ms', 0))}</duration_ms>",
-                "</usage>",
-                "</task-notification>",
-            ]
-        )
-        return "\n".join(parts)
+    def drain_notifications(self):
+        drained = []
+        while True:
+            try:
+                task_id, notification = self._notifications.get_nowait()
+            except queue.Empty:
+                break
+            item = self._get_item(task_id)
+            with self._lock:
+                if item.get("notification_drained"):
+                    continue
+                item["notification_drained"] = True
+                item["updated_at"] = now()
+            drained.append(notification)
+        if drained:
+            self._save()
+        return drained
 
     def _get_active_task(self, task_id):
         task = self._tasks.get(str(task_id))
@@ -173,12 +183,18 @@ class WorkerManager:
                 return item
         raise ValueError(f"unknown worker: {task_id}")
 
-    def _public_payload(self, task):
+    def _public_payload(self, task, status=None):
         item = self._get_item(task.id)
-        return {"task_id": task.id, "status": item["status"], "description": task.description}
+        return {
+            "task_id": task.id,
+            "status": status or item["status"],
+            "description": task.description,
+        }
 
     def _save(self):
-        self.runtime.session_path = self.runtime.session_store.save(self.runtime.session)
+        self.runtime.session_path = self.runtime.session_store.save(
+            self.runtime.session
+        )
 
 
 def _clean_type(value):

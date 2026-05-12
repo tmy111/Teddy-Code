@@ -1606,7 +1606,7 @@ def test_memory_dir_is_workspace_relative_and_repo_local(tmp_path):
         )
 
 
-def test_auto_dream_runs_after_session_gate(tmp_path):
+def test_auto_dream_runs_in_background_after_session_gate(tmp_path):
     for index in range(2):
         (tmp_path / ".pico" / "sessions" / f"older-{index}.json").parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / ".pico" / "sessions" / f"older-{index}.json").write_text("{}", encoding="utf-8")
@@ -1614,6 +1614,7 @@ def test_auto_dream_runs_after_session_gate(tmp_path):
         tmp_path,
         [
             "<final><memory>Project: use repo-local memory.</memory></final>",
+            '<tool>{"name":"read_file","args":{"path":".pico/memory/MEMORY.md","start":1,"end":50}}</tool>',
             '<tool>{"name":"write_file","args":{"path":".pico/memory/MEMORY.md","content":"# Durable Memory Index\\n\\n- [Project](topics/project.md): Project memory\\n"}}</tool>',
             "<final>Dreamed.</final>",
         ],
@@ -1621,17 +1622,61 @@ def test_auto_dream_runs_after_session_gate(tmp_path):
         dream_interval_hours=0,
     )
 
-    agent.ask("Finish and trigger memory maintenance")
+    answer = agent.ask("Finish and trigger memory maintenance")
 
     report = json.loads(agent.run_store.report_path(agent.current_task_state).read_text(encoding="utf-8"))
-    trace = agent.run_store.trace_path(agent.current_task_state).read_text(encoding="utf-8")
 
-    assert "Project memory" in (tmp_path / ".pico" / "memory" / "MEMORY.md").read_text(encoding="utf-8")
+    assert answer == "<memory>Project: use repo-local memory.</memory>"
     assert report["memory_maintenance"]["auto_dream"]["triggered"] is True
+    assert report["memory_maintenance"]["auto_dream"]["status"] == "submitted"
     assert report["memory_maintenance"]["auto_dream"]["session_count"] == 2
-    assert report["memory_maintenance"]["auto_dream"]["changed_files"] == [".pico/memory/MEMORY.md"]
+    assert report["memory_maintenance"]["auto_dream"]["changed_files"] == []
+
+    agent.wait_for_memory_maintenance(timeout=2)
+
+    post_report = json.loads(agent.run_store.report_path(agent.current_task_state).read_text(encoding="utf-8"))
+    trace = agent.run_store.trace_path(agent.current_task_state).read_text(encoding="utf-8")
+    assert "Project memory" in (tmp_path / ".pico" / "memory" / "MEMORY.md").read_text(encoding="utf-8")
+    assert agent.last_memory_maintenance["auto_dream"]["status"] == "finished"
+    assert post_report["memory_maintenance"]["auto_dream"]["changed_files"] == [".pico/memory/MEMORY.md"]
     assert "memory_auto_dream_finished" in trace
     assert ".pico/memory/MEMORY.md" in trace
+
+
+def test_background_auto_dream_failure_restores_lock_and_reports_error(tmp_path, monkeypatch):
+    memory_root = tmp_path / ".pico" / "memory"
+    memory_root.mkdir(parents=True)
+    lock_path = memory_root / ".consolidate-lock"
+    lock_path.write_text("released", encoding="utf-8")
+    os.utime(lock_path, (123, 123))
+    for index in range(2):
+        session_path = tmp_path / ".pico" / "sessions" / f"older-{index}.json"
+        session_path.parent.mkdir(parents=True, exist_ok=True)
+        session_path.write_text("{}", encoding="utf-8")
+
+    def fail_dream(*_args, **_kwargs):
+        raise RuntimeError("dream provider unavailable")
+
+    monkeypatch.setattr("pico.features.memory.run_dream", fail_dream)
+    agent = build_agent(
+        tmp_path,
+        ["<final><memory>Project: keep memory observable.</memory></final>"],
+        dream_min_sessions=2,
+        dream_interval_hours=0,
+    )
+
+    assert agent.ask("Finish and trigger failing memory maintenance") == "<memory>Project: keep memory observable.</memory>"
+
+    agent.wait_for_memory_maintenance(timeout=2)
+
+    report = json.loads(agent.run_store.report_path(agent.current_task_state).read_text(encoding="utf-8"))
+    events = agent.session_store.event_path(agent.session["id"]).read_text(encoding="utf-8")
+    trace = agent.run_store.trace_path(agent.current_task_state).read_text(encoding="utf-8")
+    assert report["memory_maintenance"]["auto_dream"]["status"] == "failed"
+    assert report["memory_maintenance"]["errors"] == ["dream provider unavailable"]
+    assert int(lock_path.stat().st_mtime) == 123
+    assert "memory_auto_dream_failed" in events
+    assert "memory_auto_dream_failed" in trace
 
 
 def test_explicit_memory_promotion_accepts_bullet_prefixed_labels(tmp_path):
@@ -1813,8 +1858,8 @@ def test_public_api_exports_resolve_through_package_path():
 
 
 def test_reviewer_skeleton_docs_exist():
-    review_pack = Path("docs/review-pack/README.md")
-    architecture = Path("docs/architecture/agent-harness-v1-overview.md")
+    review_pack = Path("docs/internal/review-pack/README.md")
+    architecture = Path("docs/internal/architecture/agent-harness-v1-overview.md")
 
     assert review_pack.exists()
     assert architecture.exists()

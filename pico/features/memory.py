@@ -6,7 +6,9 @@ session history 负责保存完整事件流；这个模块只保存更小的一�
 """
 
 import hashlib
+import json
 import os
+import threading
 from datetime import date, datetime
 import re
 from pathlib import Path
@@ -21,6 +23,11 @@ MAX_ENTRYPOINT_LINES = 200
 ENTRYPOINT_NAME = "MEMORY.md"
 LOCK_FILE_NAME = ".consolidate-lock"
 HOLDER_STALE_S = 3600
+# 单次 dream 最多消化的 session 数。超出时 dream prompt 只列最近 N 个，
+# 防止 75+ session ID 撑爆模型上下文导致 empty_response。
+DREAM_SESSION_CAP = 30
+# dream 任务需要更多输出 token（要写多个 topic 文件 + 更新索引）。
+DREAM_MIN_NEW_TOKENS = 4096
 
 DURABLE_MEMORY_INTENT_PATTERN = re.compile(r"(?i)\b(capture|remember|save|store|persist|note)\b")
 DURABLE_MEMORY_INTENT_ZH_PATTERN = re.compile(r"(记住|保存|记录|沉淀|长期记忆|持久记忆)")
@@ -65,6 +72,15 @@ def ensure_memory_dir(memory_dir):
     memory_dir = Path(memory_dir)
     memory_dir.mkdir(parents=True, exist_ok=True)
     (memory_dir / "logs").mkdir(parents=True, exist_ok=True)
+    (memory_dir / "topics").mkdir(parents=True, exist_ok=True)
+    index_path = memory_dir / ENTRYPOINT_NAME
+    if not index_path.exists():
+        index_path.write_text(
+            "# Durable Memory Index\n\n"
+            "_Empty. `/remember` writes a daily log entry; `/dream` consolidates "
+            "logs into topic files and adds entries here._\n",
+            encoding="utf-8",
+        )
     return memory_dir
 
 
@@ -136,14 +152,31 @@ def _emit_memory_trace(agent, event, payload):
     return agent.emit_trace(task_state, event, payload)
 
 
+def _write_memory_maintenance_report(agent, task_state, audit):
+    try:
+        if agent.run_store.report_path(task_state).exists():
+            report = agent.run_store.load_report(task_state)
+        else:
+            report = agent.build_report(task_state)
+    except (OSError, json.JSONDecodeError):
+        report = agent.build_report(task_state)
+    report["memory_maintenance"] = dict(audit)
+    agent.run_store.write_report(task_state, agent.redact_artifact(report))
+
+
 def load_memory_index_text(memory_dir):
     path = Path(memory_dir) / ENTRYPOINT_NAME
     if not path.exists():
         return ""
     try:
-        return path.read_text(encoding="utf-8", errors="replace")[:MAX_MEMORY_INDEX_CHARS]
+        text = path.read_text(encoding="utf-8", errors="replace")[:MAX_MEMORY_INDEX_CHARS]
     except OSError:
         return ""
+    # 占位模板里没有实际 topic 条目（行首 "- [name]"），视作空索引，
+    # 让 /memory 显示"No durable memories yet"提示而不是占位文本。
+    if not any(line.lstrip().startswith("- [") for line in text.splitlines()):
+        return ""
+    return text
 
 
 def extract_memory_tags(text):
@@ -329,12 +362,23 @@ Then add a pointer to that file in `{Path(memory_dir)}/{ENTRYPOINT_NAME}`. MEMOR
 
 
 def build_dream_prompt(memory_dir, transcript_dir="", session_ids=None):
-    session_ids = session_ids or []
+    session_ids = list(session_ids or [])
+    total = len(session_ids)
+    truncated = False
+    if total > DREAM_SESSION_CAP:
+        session_ids = session_ids[-DREAM_SESSION_CAP:]
+        truncated = True
     extra_parts = [
         "Tool constraints for this run: shell execution is not required. Writes must stay inside the memory directory. Read/search/list tools may be used to inspect existing memories and transcripts."
     ]
     if session_ids:
-        extra_parts.append("Sessions since last consolidation:\n" + "\n".join(f"- {session_id}" for session_id in session_ids))
+        header = (
+            f"Sessions since last consolidation (showing the most recent {len(session_ids)} of {total}; "
+            "consolidate these and the next dream will pick up the rest):"
+            if truncated
+            else "Sessions since last consolidation:"
+        )
+        extra_parts.append(header + "\n" + "\n".join(f"- {session_id}" for session_id in session_ids))
     extra_section = "\n\n## Additional context\n\n" + "\n\n".join(extra_parts)
     transcript_line = ""
     if transcript_dir:
@@ -472,8 +516,8 @@ def run_dream(agent, quiet=False, session_ids=None):
         workspace=WorkspaceContext.build(agent.root),
         session_store=agent.session_store,
         approval_policy="auto",
-        max_steps=agent.max_steps,
-        max_new_tokens=agent.max_new_tokens,
+        max_steps=max(agent.max_steps, 20),
+        max_new_tokens=max(agent.max_new_tokens, DREAM_MIN_NEW_TOKENS),
         secret_env_names=agent.secret_env_names,
         feature_flags={**agent.feature_flags, "memory": False, "relevant_memory": False},
         write_scope=[str(memory_scope)],
@@ -526,23 +570,41 @@ def maintain_memory_after_turn(agent, final_answer):
         _emit_memory_trace(agent, "memory_auto_dream_skipped", dict(audit["auto_dream"]))
         return audit
     session_ids = list(gate["session_ids"])
-    agent.session_event_bus.emit("auto_dream_started", {"session_ids": session_ids, "session_count": len(session_ids)})
-    _emit_memory_trace(agent, "memory_auto_dream_started", {"session_ids": session_ids, "session_count": len(session_ids)})
-    try:
-        run_dream(agent, quiet=True, session_ids=session_ids)
-        audit["auto_dream"]["triggered"] = True
-        audit["auto_dream"]["changed_files"] = list(getattr(agent, "last_dream_changed_files", []))
-        _emit_memory_trace(agent, "memory_auto_dream_finished", dict(audit["auto_dream"]))
-        release_lock(agent.memory_dir)
-        return audit
-    except Exception:
-        lock_path = Path(agent.memory_dir) / LOCK_FILE_NAME
-        if lock_path.exists():
-            try:
-                os.utime(lock_path, (previous_mtime, previous_mtime))
-            except OSError:
-                pass
-        raise
+    task_state = getattr(agent, "current_task_state", None)
+    audit["auto_dream"]["triggered"] = True
+    audit["auto_dream"]["status"] = "submitted"
+    started_payload = {"session_ids": session_ids, "session_count": len(session_ids), "status": "submitted"}
+    agent.session_event_bus.emit("auto_dream_started", started_payload)
+    _emit_memory_trace(agent, "memory_auto_dream_started", started_payload)
+
+    def _background_dream():
+        try:
+            run_dream(agent, quiet=True, session_ids=session_ids)
+            audit["auto_dream"]["status"] = "finished"
+            audit["auto_dream"]["changed_files"] = list(getattr(agent, "last_dream_changed_files", []))
+            _emit_memory_trace(agent, "memory_auto_dream_finished", dict(audit["auto_dream"]))
+            release_lock(agent.memory_dir)
+        except Exception as exc:
+            audit["auto_dream"]["status"] = "failed"
+            audit["errors"].append(str(exc))
+            lock_path = Path(agent.memory_dir) / LOCK_FILE_NAME
+            if lock_path.exists():
+                try:
+                    os.utime(lock_path, (previous_mtime, previous_mtime))
+                except OSError:
+                    pass
+            agent.session_event_bus.emit("memory_auto_dream_failed", {"error": clip(str(exc), 300), "session_ids": session_ids})
+            _emit_memory_trace(agent, "memory_auto_dream_failed", {"error": clip(str(exc), 300), "session_ids": session_ids})
+        finally:
+            if getattr(agent, "current_task_state", None) is task_state:
+                agent.last_memory_maintenance = audit
+            if task_state is not None:
+                _write_memory_maintenance_report(agent, task_state, audit)
+
+    thread = threading.Thread(target=_background_dream, name="pico-auto-dream", daemon=True)
+    agent._memory_maintenance_thread = thread
+    thread.start()
+    return audit
 
 
 def default_memory_state():

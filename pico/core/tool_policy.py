@@ -5,7 +5,11 @@ from dataclasses import dataclass
 
 from ..features import memory as memorylib
 
-SHELL_SEARCH_RE = re.compile(r"(^|\s)(cat|less|head|tail|grep|rg|find|ls)(\s|$)")
+# 只在"主命令位置"禁这些工具——命令开头，或被 ; && || 串联起的开头。
+# 管道 | 之后允许：模型常把 `... | tail -5` 用来截断输出，不是在搜索 workspace。
+SHELL_SEARCH_RE = re.compile(
+    r"(?:^|;|&&|\|\|)\s*(?:cat|less|head|tail|grep|rg|find|ls)(?:\s|$)"
+)
 
 
 @dataclass(frozen=True)

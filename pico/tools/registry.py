@@ -11,8 +11,36 @@ from functools import partial
 
 from ..core.workspace import IGNORED_PATH_NAMES
 from .base import RegisteredTool
-from .agents import AGENT_TOOL_EXAMPLES, AGENT_TOOL_NAMES, AGENT_TOOL_SPECS, tool_agent, tool_send_message, tool_task_stop, validate_agent_tool
-from .todos import TODO_TOOL_EXAMPLES, TODO_TOOL_SPECS, tool_todo_add, tool_todo_list, tool_todo_update, validate_todo_tool
+from .agents import (
+    AGENT_TOOL_EXAMPLES,
+    AGENT_TOOL_NAMES,
+    AGENT_TOOL_SPECS,
+    tool_agent,
+    tool_send_message,
+    tool_task_stop,
+    validate_agent_tool,
+)
+from .ask_user import (
+    ASK_USER_TOOL_EXAMPLES,
+    ASK_USER_TOOL_SPECS,
+    tool_ask_user,
+    validate_ask_user_tool,
+)
+from .plan import (
+    PLAN_TOOL_EXAMPLES,
+    PLAN_TOOL_SPECS,
+    tool_enter_plan_mode,
+    tool_exit_plan_mode,
+    validate_plan_tool,
+)
+from .todos import (
+    TODO_TOOL_EXAMPLES,
+    TODO_TOOL_SPECS,
+    tool_todo_add,
+    tool_todo_list,
+    tool_todo_update,
+    validate_todo_tool,
+)
 
 BASE_TOOL_SPECS = {
     "list_files": {
@@ -47,6 +75,8 @@ BASE_TOOL_SPECS = {
     },
     **TODO_TOOL_SPECS,
     **AGENT_TOOL_SPECS,
+    **PLAN_TOOL_SPECS,
+    **ASK_USER_TOOL_SPECS,
 }
 
 TOOL_EXAMPLES = {
@@ -58,6 +88,8 @@ TOOL_EXAMPLES = {
     "patch_file": '<tool name="patch_file" path="binary_search.py"><old_text>return -1</old_text><new_text>return mid</new_text></tool>',
     **TODO_TOOL_EXAMPLES,
     **AGENT_TOOL_EXAMPLES,
+    **PLAN_TOOL_EXAMPLES,
+    **ASK_USER_TOOL_EXAMPLES,
 }
 
 
@@ -144,6 +176,12 @@ def validate_tool(agent, name, args):
     if name in AGENT_TOOL_NAMES:
         validate_agent_tool(agent, name, args)
         return
+    if name in PLAN_TOOL_SPECS:
+        validate_plan_tool(name, args)
+        return
+    if name in ASK_USER_TOOL_SPECS:
+        validate_ask_user_tool(name, args)
+        return
     if name.startswith("todo_"):
         validate_todo_tool(name, args)
         return
@@ -154,7 +192,10 @@ def tool_list_files(agent, args):
     if not path.is_dir():
         raise ValueError("path is not a directory")
     entries = [
-        item for item in sorted(path.iterdir(), key=lambda item: (item.is_file(), item.name.lower()))
+        item
+        for item in sorted(
+            path.iterdir(), key=lambda item: (item.is_file(), item.name.lower())
+        )
         if item.name not in IGNORED_PATH_NAMES
     ]
     lines = []
@@ -173,7 +214,10 @@ def tool_read_file(agent, args):
     if start < 1 or end < start:
         raise ValueError("invalid line range")
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    body = "\n".join(f"{number:>4}: {line}" for number, line in enumerate(lines[start - 1:end], start=start))
+    body = "\n".join(
+        f"{number:>4}: {line}"
+        for number, line in enumerate(lines[start - 1 : end], start=start)
+    )
     return f"# {path.relative_to(agent.root)}\n{body}"
 
 
@@ -194,12 +238,24 @@ def tool_search(agent, args):
         return result.stdout.strip() or result.stderr.strip() or "(no matches)"
 
     matches = []
-    files = [path] if path.is_file() else [
-        item for item in path.rglob("*")
-        if item.is_file() and not any(part in IGNORED_PATH_NAMES for part in item.relative_to(agent.root).parts)
-    ]
+    files = (
+        [path]
+        if path.is_file()
+        else [
+            item
+            for item in path.rglob("*")
+            if item.is_file()
+            and not any(
+                part in IGNORED_PATH_NAMES
+                for part in item.relative_to(agent.root).parts
+            )
+        ]
+    )
     for file_path in files:
-        for number, line in enumerate(file_path.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
+        for number, line in enumerate(
+            file_path.read_text(encoding="utf-8", errors="replace").splitlines(),
+            start=1,
+        ):
             if pattern.lower() in line.lower():
                 matches.append(f"{file_path.relative_to(agent.root)}:{number}:{line}")
                 if len(matches) >= 200:
@@ -214,17 +270,26 @@ def tool_run_shell(agent, args):
     timeout = int(args.get("timeout", 20))
     if timeout < 1 or timeout > 120:
         raise ValueError("timeout must be in [1, 120]")
-    result = subprocess.run(
-        command,
-        cwd=agent.root,
-        shell=True,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        # 这里传入的是过滤后的环境变量，而不是直接继承整个父 shell 环境，
-        # 目的是减少敏感信息被意外带进命令执行环境的风险。
-        env=agent.shell_env(),
-    )
+    runner = getattr(agent, "sandbox_runner", None)
+    if runner is None:
+        result = subprocess.run(
+            command,
+            cwd=agent.root,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            # 这里传入的是过滤后的环境变量，而不是直接继承整个父 shell 环境，
+            # 目的是减少敏感信息被意外带进命令执行环境的风险。
+            env=agent.shell_env(),
+        )
+    else:
+        result = runner.run(
+            command,
+            cwd=agent.root,
+            env=agent.shell_env(),
+            timeout=timeout,
+        )
     return textwrap.dedent(
         f"""\
         exit_code: {result.returncode}
@@ -274,4 +339,7 @@ _TOOL_RUNNERS = {
     "agent": tool_agent,
     "send_message": tool_send_message,
     "task_stop": tool_task_stop,
+    "enter_plan_mode": tool_enter_plan_mode,
+    "exit_plan_mode": tool_exit_plan_mode,
+    "ask_user": tool_ask_user,
 }

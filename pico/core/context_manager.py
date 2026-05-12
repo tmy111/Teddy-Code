@@ -12,20 +12,20 @@ from ..features import memory as memorylib, skills as skillslib
 from .context_usage import ContextUsageAnalyzer
 from .turn_history import TurnHistoryBuilder, tail_clip
 
-DEFAULT_TOTAL_BUDGET = 12000
+DEFAULT_TOTAL_BUDGET = 60000
 DEFAULT_SECTION_BUDGETS = {
-    "prefix": 3600,
-    "memory": 1600,
-    "skills": 900,
-    "relevant_memory": 1200,
-    "history": 5200,
+    "prefix": 12000,
+    "memory": 8000,
+    "skills": 4000,
+    "relevant_memory": 6000,
+    "history": 30000,
 }
 DEFAULT_SECTION_FLOORS = {
-    "prefix": 1200,
-    "memory": 400,
-    "skills": 200,
-    "relevant_memory": 300,
-    "history": 1500,
+    "prefix": 4000,
+    "memory": 1200,
+    "skills": 600,
+    "relevant_memory": 1000,
+    "history": 6000,
 }
 # 当 prompt 超预算时，会优先压缩这些 section。
 DEFAULT_REDUCTION_ORDER = ("relevant_memory", "skills", "history", "memory", "prefix")

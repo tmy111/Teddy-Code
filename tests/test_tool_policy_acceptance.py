@@ -80,6 +80,26 @@ def test_shell_search_like_commands_are_rejected_by_policy(tmp_path):
     )
 
 
+def test_shell_policy_allows_head_tail_grep_after_pipe(tmp_path):
+    """`pip install ... 2>&1 | tail -5` 和 `git log | head -10` 是合法的输出管理，
+    policy 不应该把它们当作 workspace search 拒绝。"""
+    agent = build_agent(tmp_path)
+
+    for command in (
+        "echo hello && echo world | tail -1",
+        "python3 --version 2>&1 | head -3",
+        "echo a; echo b | grep b",
+    ):
+        result = agent.run_tool("run_shell", {"command": command, "timeout": 20})
+        assert "exit_code: 0" in result, f"command should run, got: {result[:200]}"
+
+    rejected_after_seq = agent.run_tool(
+        "run_shell", {"command": "echo a; cat README.md", "timeout": 20}
+    )
+    assert "search" in rejected_after_seq, "命令分号后跟 cat 仍应被禁"
+    assert agent._last_tool_result_metadata["tool_error_code"] == "shell_search_should_use_tool"
+
+
 def test_long_shell_output_is_clipped_and_full_output_is_saved_as_run_artifact(tmp_path):
     script = "print('x'*6000)"
     command = f"{shlex.quote(sys.executable)} -c {shlex.quote(script)}"

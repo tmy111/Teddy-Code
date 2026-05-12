@@ -25,14 +25,16 @@ class PlanModeManager:
         return str(self.state.get("plan_path", "") or "")
 
     def enter(self, topic, path=None):
-        plan_path = str(path or f".pico/plans/{_slug(topic)}-plan.md")
+        plan_path = _plan_path(topic, path)
         self.runtime.session["runtime_mode"] = {
             "mode": "plan",
             "topic": str(topic or ""),
             "plan_path": plan_path,
         }
         self.runtime.set_tool_profile("plan")
-        self.runtime.session_path = self.runtime.session_store.save(self.runtime.session)
+        self.runtime.session_path = self.runtime.session_store.save(
+            self.runtime.session
+        )
         self.runtime.refresh_prefix(force=True)
         self.runtime.session_event_bus.emit(
             "runtime_mode_changed",
@@ -44,11 +46,17 @@ class PlanModeManager:
         previous = dict(self.state)
         self.runtime.session["runtime_mode"] = {"mode": "default"}
         self.runtime.set_tool_profile("default")
-        self.runtime.session_path = self.runtime.session_store.save(self.runtime.session)
+        self.runtime.session_path = self.runtime.session_store.save(
+            self.runtime.session
+        )
         self.runtime.refresh_prefix(force=True)
         self.runtime.session_event_bus.emit(
             "runtime_mode_changed",
-            {"mode": "default", "previous_mode": previous.get("mode", "default"), "plan_path": previous.get("plan_path", "")},
+            {
+                "mode": "default",
+                "previous_mode": previous.get("mode", "default"),
+                "plan_path": previous.get("plan_path", ""),
+            },
         )
 
     def can_finish(self):
@@ -74,3 +82,25 @@ class PlanModeManager:
 
 
 PlanModeController = PlanModeManager
+
+
+_PLAN_DIR_MARKER = "/.pico/plans/"
+
+
+def _plan_path(topic, path=None):
+    if path:
+        value = str(path).strip()
+        # 模型有时给绝对路径，如 /Users/u/repo/.pico/plans/foo；自动把它相对化。
+        if value.startswith("/") and _PLAN_DIR_MARKER in value:
+            value = value[value.index(_PLAN_DIR_MARKER) + 1 :]
+        if value.startswith("./"):
+            value = value[2:]
+    else:
+        value = f".pico/plans/{_slug(topic)}-plan.md"
+    if (
+        not value.startswith(".pico/plans/")
+        or value.endswith("/")
+        or ".." in value.split("/")
+    ):
+        raise ValueError("plan path must stay under .pico/plans/")
+    return value

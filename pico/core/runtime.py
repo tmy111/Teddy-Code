@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..features import memory as memorylib, skills as skillslib
+from ..features.sandbox import SandboxConfig, SandboxRunner
 from .compact import CompactManager
 from .context_manager import ContextManager
 from .engine import Engine
@@ -23,18 +24,34 @@ from .plan_mode import PlanModeController
 from .permissions import PermissionChecker
 from .run_store import RunStore
 from .runtime_consumers import default_runtime_consumers
+from .runtime_checkpoints import RuntimeCheckpointsMixin
 from .runtime_events import build_runtime_event
+from .runtime_secrets import REDACTED_VALUE, RuntimeSecretsMixin
 from .session_events import SessionEventBus
+from .session_lifecycle import clear_runtime_session, resume_runtime_session
+from .session_store import SessionStore as SessionStore  # noqa: F401
 from .tool_profiles import build_tool_profiles
 from .todo_ledger import TodoLedger
 from .turn_history import TurnHistoryBuilder
 from .worker_manager import WorkerManager
 from ..tools import registry as toolkit
-from .workspace import IGNORED_PATH_NAMES, MAX_HISTORY, WorkspaceContext, clip, now
+from .workspace import MAX_HISTORY, WorkspaceContext, clip, now
 
-SENSITIVE_ENV_NAME_MARKERS = ("API_KEY", "TOKEN", "SECRET", "PASSWORD")
-REDACTED_VALUE = "<redacted>"
-DEFAULT_SHELL_ENV_ALLOWLIST = ("HOME", "LANG", "LC_ALL", "LC_CTYPE", "LOGNAME", "PATH", "PWD", "SHELL", "TERM", "TMPDIR", "TMP", "TEMP", "USER")
+DEFAULT_SHELL_ENV_ALLOWLIST = (
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "LOGNAME",
+    "PATH",
+    "PWD",
+    "SHELL",
+    "TERM",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+    "USER",
+)
 DEFAULT_FEATURE_FLAGS = {
     "memory": True,
     "relevant_memory": True,
@@ -60,31 +77,7 @@ class PromptPrefix:
     built_at: str
 
 
-class SessionStore:
-    def __init__(self, root):
-        self.root = Path(root)
-        self.root.mkdir(parents=True, exist_ok=True)
-
-    def path(self, session_id):
-        return self.root / f"{session_id}.json"
-
-    def event_path(self, session_id):
-        return self.root / f"{session_id}.events.jsonl"
-
-    def save(self, session):
-        path = self.path(session["id"])
-        path.write_text(json.dumps(session, indent=2), encoding="utf-8")
-        return path
-
-    def load(self, session_id):
-        return json.loads(self.path(session_id).read_text(encoding="utf-8"))
-
-    def latest(self):
-        files = sorted(self.root.glob("*.json"), key=lambda path: path.stat().st_mtime)
-        return files[-1].stem if files else None
-
-
-class Pico:
+class Pico(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
     def __init__(
         self,
         model_client,
@@ -93,8 +86,8 @@ class Pico:
         session=None,
         run_store=None,
         approval_policy="ask",
-        max_steps=6,
-        max_new_tokens=512,
+        max_steps=50,
+        max_new_tokens=8192,
         depth=0,
         max_depth=1,
         read_only=False,
@@ -106,8 +99,21 @@ class Pico:
         auto_dream=True,
         dream_interval_hours=24.0,
         dream_min_sessions=5,
+        model_client_factory=None,
+        sandbox_config=None,
+        ask_user_callback=None,
     ):
         self.model_client = model_client
+        self.model_client_factory = model_client_factory
+        self.abort_requested = False
+        self.ask_user_callback = ask_user_callback
+        self.sandbox_config = sandbox_config or SandboxConfig()
+        self.sandbox_runner = SandboxRunner(
+            self.sandbox_config,
+            emit_event=lambda event, payload: self.session_event_bus.emit(
+                event, payload
+            ),
+        )
         self.workspace = workspace
         self.root = Path(workspace.repo_root)
         self.session_store = session_store
@@ -117,20 +123,28 @@ class Pico:
         self.depth = depth
         self.max_depth = max_depth
         self.read_only = read_only
-        self.shell_env_allowlist = tuple(shell_env_allowlist or DEFAULT_SHELL_ENV_ALLOWLIST)
+        self.shell_env_allowlist = tuple(
+            shell_env_allowlist or DEFAULT_SHELL_ENV_ALLOWLIST
+        )
         self.secret_env_names = {str(name).upper() for name in (secret_env_names or ())}
         if isinstance(write_scope, str):
             write_scope = [write_scope]
-        self.write_scope = tuple(str(path) for path in (write_scope or ()) if str(path).strip())
+        self.write_scope = tuple(
+            str(path) for path in (write_scope or ()) if str(path).strip()
+        )
         self.feature_flags = dict(DEFAULT_FEATURE_FLAGS)
         if feature_flags:
-            self.feature_flags.update({str(key): bool(value) for key, value in feature_flags.items()})
+            self.feature_flags.update(
+                {str(key): bool(value) for key, value in feature_flags.items()}
+            )
         self.memory_dir = self._resolve_memory_dir(memory_dir)
         memorylib.ensure_memory_dir(self.memory_dir)
         self.auto_dream = bool(auto_dream)
         self.dream_interval_hours = float(dream_interval_hours)
         self.dream_min_sessions = int(dream_min_sessions)
-        self.run_store = run_store or RunStore(Path(workspace.repo_root) / ".pico" / "runs")
+        self.run_store = run_store or RunStore(
+            Path(workspace.repo_root) / ".pico" / "runs"
+        )
         self.session = session or {
             "id": datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6],
             "created_at": now(),
@@ -144,11 +158,19 @@ class Pico:
             self.session_store.event_path(self.session["id"]),
             redact=self.redact_artifact,
         )
-        if not self.session_event_bus.path.exists() or self.session_event_bus.path.stat().st_size == 0:
-            self.session_event_bus.emit("session_started", {"workspace_root": workspace.repo_root})
+        if (
+            not self.session_event_bus.path.exists()
+            or self.session_event_bus.path.stat().st_size == 0
+        ):
+            self.session_event_bus.emit(
+                "session_started", {"workspace_root": workspace.repo_root}
+            )
         self.plan_mode = PlanModeController(self)
         self.engine = Engine(self)
-        self.memory = memorylib.LayeredMemory(self.session.setdefault("memory", memorylib.default_memory_state()), workspace_root=self.root)
+        self.memory = memorylib.LayeredMemory(
+            self.session.setdefault("memory", memorylib.default_memory_state()),
+            workspace_root=self.root,
+        )
         self.session["memory"] = self.memory.to_dict()
         self.self_authored_file_freshness = {}
         self.todo_ledger = TodoLedger(self)
@@ -156,7 +178,13 @@ class Pico:
         self.skills = skillslib.discover_skills(self.root)
         self.tools = self.build_tools()
         self.tool_profiles = build_tool_profiles(self.tools)
-        self._active_tool_profile_name = "plan" if self.runtime_mode == "plan" else "readonly" if self.read_only else "default"
+        self._active_tool_profile_name = (
+            "plan"
+            if self.runtime_mode == "plan"
+            else "readonly"
+            if self.read_only
+            else "default"
+        )
         self.permission_checker = PermissionChecker(self)
         self.prefix_state = self.build_prefix()
         self.prefix = self.prefix_state.text
@@ -177,10 +205,16 @@ class Pico:
         self.last_durable_promotions = []
         self.last_durable_rejections = []
         self.last_durable_superseded = []
-        self.last_memory_maintenance = memorylib.default_memory_maintenance_audit(auto_dream=self.auto_dream)
+        self.last_memory_maintenance = memorylib.default_memory_maintenance_audit(
+            auto_dream=self.auto_dream
+        )
         self.last_dream_changed_files = []
+        self._memory_maintenance_thread = None
         self._last_tool_result_metadata = {}
-        self._last_prefix_refresh = {"workspace_changed": False, "prefix_changed": False}
+        self._last_prefix_refresh = {
+            "workspace_changed": False,
+            "prefix_changed": False,
+        }
 
     @classmethod
     def from_session(cls, model_client, workspace, session_store, session_id, **kwargs):
@@ -234,7 +268,11 @@ class Pico:
             "max_new_tokens": int(self.max_new_tokens),
             "feature_flags": dict(self.feature_flags),
             "shell_env_allowlist": list(self.shell_env_allowlist),
-            "workspace_fingerprint": getattr(getattr(self, "prefix_state", None), "workspace_fingerprint", self.workspace.fingerprint()),
+            "workspace_fingerprint": getattr(
+                getattr(self, "prefix_state", None),
+                "workspace_fingerprint",
+                self.workspace.fingerprint(),
+            ),
             "tool_signature": self.tool_signature(),
         }
 
@@ -273,7 +311,11 @@ class Pico:
                     current = memorylib.file_freshness(path, self.root)
                     if expected != current and path not in stale_paths:
                         stale_paths.append(path)
-                saved_identity = dict(checkpoint.get("runtime_identity", {}) or self.session.get("runtime_identity", {}) or {})
+                saved_identity = dict(
+                    checkpoint.get("runtime_identity", {})
+                    or self.session.get("runtime_identity", {})
+                    or {}
+                )
                 current_identity = self.current_runtime_identity()
                 identity_keys = (
                     "cwd",
@@ -327,14 +369,26 @@ class Pico:
             f"- Current blocker: {checkpoint.get('current_blocker', '-') or '-'}",
             f"- Next step: {checkpoint.get('next_step', '-') or '-'}",
         ]
-        key_files = [str(item.get("path", "")).strip() for item in checkpoint.get("key_files", []) if str(item.get("path", "")).strip()]
+        key_files = [
+            str(item.get("path", "")).strip()
+            for item in checkpoint.get("key_files", [])
+            if str(item.get("path", "")).strip()
+        ]
         lines.append(f"- Key files: {', '.join(key_files) or '-'}")
         if checkpoint.get("completed"):
-            lines.append("- Completed: " + " | ".join(str(item) for item in checkpoint.get("completed", [])))
+            lines.append(
+                "- Completed: "
+                + " | ".join(str(item) for item in checkpoint.get("completed", []))
+            )
         if checkpoint.get("excluded"):
-            lines.append("- Excluded: " + " | ".join(str(item) for item in checkpoint.get("excluded", [])))
+            lines.append(
+                "- Excluded: "
+                + " | ".join(str(item) for item in checkpoint.get("excluded", []))
+            )
         if self.resume_state.get("stale_paths"):
-            lines.append("- Stale paths: " + ", ".join(self.resume_state["stale_paths"]))
+            lines.append(
+                "- Stale paths: " + ", ".join(self.resume_state["stale_paths"])
+            )
         summary = str(checkpoint.get("summary", "")).strip()
         if summary:
             lines.append(f"- Summary: {summary}")
@@ -363,11 +417,7 @@ class Pico:
 
     def available_tools(self):
         profile = self.active_tool_profile
-        return {
-            name: tool
-            for name, tool in self.tools.items()
-            if profile.allows(name)
-        }
+        return {name: tool for name, tool in self.tools.items() if profile.allows(name)}
 
     def tool_signature(self):
         payload = []
@@ -381,12 +431,16 @@ class Pico:
                     "description": tool["description"],
                 }
             )
-        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode("utf-8")
+        ).hexdigest()
 
     def build_prefix(self):
         tool_lines = []
         for name, tool in self.available_tools().items():
-            fields = ", ".join(f"{key}: {value}" for key, value in tool["schema"].items())
+            fields = ", ".join(
+                f"{key}: {value}" for key, value in tool["schema"].items()
+            )
             risk = "approval required" if tool["risky"] else "safe"
             tool_lines.append(f"- {name}({fields}) [{risk}] {tool['description']}")
         tool_text = "\n".join(tool_lines)
@@ -453,22 +507,33 @@ class Pico:
 
     def refresh_prefix(self, force=False):
         previous_hash = getattr(getattr(self, "prefix_state", None), "hash", None)
-        previous_workspace_fingerprint = getattr(getattr(self, "prefix_state", None), "workspace_fingerprint", None)
+        previous_workspace_fingerprint = getattr(
+            getattr(self, "prefix_state", None), "workspace_fingerprint", None
+        )
 
         # 工作区事实相对稳定，所以这里按整体刷新；
         # 只有这些事实真的变化了，才重建完整 prefix。
         refreshed_workspace = WorkspaceContext.build(self.root)
         refreshed_workspace_fingerprint = refreshed_workspace.fingerprint()
-        workspace_changed = force or refreshed_workspace_fingerprint != previous_workspace_fingerprint
+        workspace_changed = (
+            force or refreshed_workspace_fingerprint != previous_workspace_fingerprint
+        )
         if workspace_changed:
             self.workspace = refreshed_workspace
 
-        prefix_state = self.build_prefix() if workspace_changed or force or previous_hash is None else self.prefix_state
+        prefix_state = (
+            self.build_prefix()
+            if workspace_changed or force or previous_hash is None
+            else self.prefix_state
+        )
         prefix_changed = force or previous_hash != prefix_state.hash
         if prefix_changed:
             self._apply_prefix_state(prefix_state)
 
-        self._last_prefix_refresh = {"workspace_changed": workspace_changed, "prefix_changed": prefix_changed}
+        self._last_prefix_refresh = {
+            "workspace_changed": workspace_changed,
+            "prefix_changed": prefix_changed,
+        }
         return dict(self._last_prefix_refresh)
 
     def memory_text(self):
@@ -476,7 +541,9 @@ class Pico:
 
     @property
     def runtime_mode(self):
-        return str(self.session.get("runtime_mode", {}).get("mode", "default") or "default")
+        return str(
+            self.session.get("runtime_mode", {}).get("mode", "default") or "default"
+        )
 
     def runtime_mode_text(self):
         return self.plan_mode.prompt_text()
@@ -505,7 +572,9 @@ class Pico:
 
             if item["role"] == "tool":
                 limit = 900 if recent else 180
-                lines.append(f"[tool:{item['name']}] {json.dumps(item['args'], sort_keys=True)}")
+                lines.append(
+                    f"[tool:{item['name']}] {json.dumps(item['args'], sort_keys=True)}"
+                )
                 lines.append(clip(item["content"], limit))
             else:
                 limit = 900 if recent else 220
@@ -524,81 +593,6 @@ class Pico:
         self.session["history"].append(self.turn_history.enrich(item))
         self.session_path = self.session_store.save(self.session)
 
-    @staticmethod
-    def looks_sensitive_env_name(name):
-        upper = str(name).upper()
-        return any(upper == marker or upper.endswith(marker) or upper.endswith(f"_{marker}") for marker in SENSITIVE_ENV_NAME_MARKERS)
-
-    def is_secret_env_name(self, name):
-        upper = str(name).upper()
-        return upper in self.secret_env_names or self.looks_sensitive_env_name(upper)
-
-    def configured_secret_env_items(self):
-        items = [
-            (name, value)
-            for name, value in os.environ.items()
-            if str(name).upper() in self.secret_env_names and value
-        ]
-        items.sort(key=lambda item: item[0])
-        return items
-
-    def detected_secret_env_items(self):
-        items = [
-            (name, value)
-            for name, value in os.environ.items()
-            if self.is_secret_env_name(name) and value
-        ]
-        items.sort(key=lambda item: item[0])
-        return items
-
-    def secret_env_summary(self):
-        names = [name for name, _ in self.configured_secret_env_items()]
-        return {
-            "secret_env_count": len(names),
-            "secret_env_names": names,
-        }
-
-    def detected_secret_env_summary(self):
-        names = [name for name, _ in self.detected_secret_env_items()]
-        return {
-            "secret_env_count": len(names),
-            "secret_env_names": names,
-        }
-
-    def redact_text(self, text):
-        text = str(text)
-        for _, value in sorted(self.detected_secret_env_items(), key=lambda item: len(item[1]), reverse=True):
-            text = text.replace(value, REDACTED_VALUE)
-        return text
-
-    def redact_artifact(self, value, key=None):
-        if key and self.is_secret_env_name(key):
-            return REDACTED_VALUE
-        if isinstance(value, dict):
-            return {
-                str(item_key): self.redact_artifact(item_value, key=item_key)
-                for item_key, item_value in value.items()
-            }
-        if isinstance(value, list):
-            return [self.redact_artifact(item, key=key) for item in value]
-        if isinstance(value, tuple):
-            return [self.redact_artifact(item, key=key) for item in value]
-        if isinstance(value, str):
-            redacted = self.redact_text(value)
-            return redacted
-        return value
-
-    def shell_env(self):
-        env = {
-            name: os.environ[name]
-            for name in self.shell_env_allowlist
-            if name in os.environ
-        }
-        env["PWD"] = str(self.root)
-        if "PATH" not in env and os.environ.get("PATH"):
-            env["PATH"] = os.environ["PATH"]
-        return env
-
     def prompt_metadata(self, user_message, prompt):
         _, metadata = self._build_prompt_and_metadata(user_message)
         return metadata
@@ -607,7 +601,10 @@ class Pico:
         refresh = self.refresh_prefix()
         self.resume_state = self.evaluate_resume_state()
         prompt, metadata = self.context_manager.build(user_message)
-        if metadata.get("prompt_over_budget") and len(self.session.get("history", [])) > 4:
+        if (
+            metadata.get("prompt_over_budget")
+            and len(self.session.get("history", [])) > 4
+        ):
             self.compact_history(trigger="auto_prompt_over_budget")
             prompt, metadata = self.context_manager.build(user_message)
             metadata["auto_compacted"] = True
@@ -629,11 +626,19 @@ class Pico:
                 "tool_signature": self.prefix_state.tool_signature,
                 "workspace_changed": refresh["workspace_changed"],
                 "prefix_changed": refresh["prefix_changed"],
-                "prompt_cache_supported": bool(getattr(self.model_client, "supports_prompt_cache", False)),
-                "resume_status": self.resume_state.get("status", CHECKPOINT_NONE_STATUS),
-                "stale_summary_invalidations": int(self.resume_state.get("stale_summary_invalidations", 0)),
+                "prompt_cache_supported": bool(
+                    getattr(self.model_client, "supports_prompt_cache", False)
+                ),
+                "resume_status": self.resume_state.get(
+                    "status", CHECKPOINT_NONE_STATUS
+                ),
+                "stale_summary_invalidations": int(
+                    self.resume_state.get("stale_summary_invalidations", 0)
+                ),
                 "stale_paths": list(self.resume_state.get("stale_paths", [])),
-                "runtime_identity_mismatch_fields": list(self.resume_state.get("runtime_identity_mismatch_fields", [])),
+                "runtime_identity_mismatch_fields": list(
+                    self.resume_state.get("runtime_identity_mismatch_fields", [])
+                ),
             }
         )
         metadata.update(self.detected_secret_env_summary())
@@ -645,7 +650,9 @@ class Pico:
         return prompt, metadata
 
     def compact_history(self, trigger="manual", keep_recent_turns=2):
-        return self.compact_manager.compact(trigger=trigger, keep_recent_turns=keep_recent_turns)
+        return self.compact_manager.compact(
+            trigger=trigger, keep_recent_turns=keep_recent_turns
+        )
 
     def durable_memory_index_text(self):
         return memorylib.load_memory_index_text(self.memory_dir)
@@ -655,7 +662,11 @@ class Pico:
         if path:
             self.session_event_bus.emit(
                 "memory_note_appended",
-                {"source": "slash_command", "path": memorylib._agent_relative_path(self, path), "chars": len(str(text).strip())},
+                {
+                    "source": "slash_command",
+                    "path": memorylib._agent_relative_path(self, path),
+                    "chars": len(str(text).strip()),
+                },
             )
         return path
 
@@ -671,6 +682,13 @@ class Pico:
     def maintain_memory_after_turn(self, final_answer):
         return memorylib.maintain_memory_after_turn(self, final_answer)
 
+    def wait_for_memory_maintenance(self, timeout=None):
+        thread = self._memory_maintenance_thread
+        if thread is None:
+            return True
+        thread.join(timeout=timeout)
+        return not thread.is_alive()
+
     def emit_trace(self, task_state, event, payload=None):
         payload = self.redact_artifact(payload or {})
         for path in payload.get("affected_paths", []) or []:
@@ -685,72 +703,6 @@ class Pico:
                 continue
         self.run_store.write_task_state(task_state)
         return payload
-
-    def capture_workspace_snapshot(self):
-        snapshot = {}
-        for path in self.root.rglob("*"):
-            try:
-                relative_parts = path.relative_to(self.root).parts
-            except ValueError:
-                continue
-            if any(part in IGNORED_PATH_NAMES for part in relative_parts):
-                continue
-            if not path.is_file():
-                continue
-            try:
-                snapshot[path.relative_to(self.root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-            except Exception:
-                continue
-        return snapshot
-
-    @staticmethod
-    def diff_workspace_snapshots(before, after):
-        changed_paths = []
-        summaries = []
-        all_paths = sorted(set(before) | set(after))
-        for path in all_paths:
-            if before.get(path) == after.get(path):
-                continue
-            changed_paths.append(path)
-            if path not in before:
-                summaries.append(f"created:{path}")
-            elif path not in after:
-                summaries.append(f"deleted:{path}")
-            else:
-                summaries.append(f"modified:{path}")
-        return changed_paths, summaries
-
-    def create_checkpoint(self, task_state, user_message, trigger):
-        state = self.checkpoint_state()
-        current = self.current_checkpoint()
-        checkpoint_id = "ckpt_" + uuid.uuid4().hex[:8]
-        key_files = []
-        freshness = {}
-        for path in self.memory.to_dict()["working"]["recent_files"]:
-            file_freshness = memorylib.file_freshness(path, self.root)
-            freshness[path] = file_freshness
-            key_files.append({"path": path, "freshness": file_freshness})
-        checkpoint = {
-            "checkpoint_id": checkpoint_id,
-            "parent_checkpoint_id": current.get("checkpoint_id", "") if current else "",
-            "schema_version": CHECKPOINT_SCHEMA_VERSION,
-            "created_at": now(),
-            "current_goal": str(user_message),
-            "completed": [task_state.final_answer] if task_state.final_answer else [],
-            "excluded": [],
-            "current_blocker": "" if str(task_state.stop_reason or "") in ("", "final_answer_returned") else str(task_state.stop_reason),
-            "next_step": self.infer_next_step(task_state),
-            "key_files": key_files,
-            "freshness": freshness,
-            "summary": f"{trigger}: {clip(str(user_message), 120)}",
-            "runtime_identity": self.current_runtime_identity(),
-        }
-        state["items"][checkpoint_id] = checkpoint
-        state["current_id"] = checkpoint_id
-        task_state.checkpoint_id = checkpoint_id
-        self.session["runtime_identity"] = checkpoint["runtime_identity"]
-        self.session_path = self.session_store.save(self.session)
-        return checkpoint
 
     def infer_next_step(self, task_state):
         if task_state.status == "completed":
@@ -786,16 +738,20 @@ class Pico:
             freshness = memorylib.file_freshness(canonical_path, self.root)
             if freshness:
                 self.self_authored_file_freshness[canonical_path] = freshness
-        if not self.feature_enabled("memory"):
-            return
-        # 不是所有工具结果都进入工作记忆。
-        # 读文件会生成摘要；写文件/patch 会让旧摘要失效，因为它们可能过期了。
-        if name in {"read_file", "write_file", "patch_file"}:
-            self.memory.remember_file(canonical_path)
+        # file_summaries 既是 prompt 上下文，也是 tool policy 的 prior-read 凭证。
+        # 即使 memory feature flag 关掉（如 dream agent），也必须维护 freshness，
+        # 否则 patch_file/write_file 会被 prior_read_required 误拒。
         if name == "read_file":
             summary = memorylib.summarize_read_result(result)
             self.memory.set_file_summary(canonical_path, summary)
-            self.memory.append_note(summary, tags=(canonical_path,), source=canonical_path)
+        if not self.feature_enabled("memory"):
+            return
+        if name in {"read_file", "write_file", "patch_file"}:
+            self.memory.remember_file(canonical_path)
+        if name == "read_file":
+            self.memory.append_note(
+                summary, tags=(canonical_path,), source=canonical_path
+            )
         elif name in {"write_file", "patch_file"}:
             self.memory.invalidate_file_summary(canonical_path)
 
@@ -806,7 +762,11 @@ class Pico:
         status = str(metadata.get("tool_status", "")).strip()
         if status not in {"partial_success", "error", "rejected"}:
             return
-        affected_paths = [str(path).strip() for path in metadata.get("affected_paths", []) if str(path).strip()]
+        affected_paths = [
+            str(path).strip()
+            for path in metadata.get("affected_paths", [])
+            if str(path).strip()
+        ]
         path_text = ", ".join(affected_paths) or "workspace"
         if status == "partial_success":
             text = f"{name} partial_success on {path_text}; inspect diff before retry"
@@ -822,7 +782,9 @@ class Pico:
         return memorylib.reject_durable_reason(note_text, redacted_value=REDACTED_VALUE)
 
     def extract_durable_promotions(self, user_message, final_answer):
-        return memorylib.extract_durable_promotions(user_message, final_answer, redacted_value=REDACTED_VALUE)
+        return memorylib.extract_durable_promotions(
+            user_message, final_answer, redacted_value=REDACTED_VALUE
+        )
 
     def promote_durable_memory(self, user_message, final_answer):
         return memorylib.promote_durable_memory(self, user_message, final_answer)
@@ -830,25 +792,60 @@ class Pico:
     def ask(self, user_message):
         return self.engine.ask(user_message)
 
+    def abort_current_turn(self):
+        self.abort_requested = True
+        abort = getattr(self.model_client, "abort", None)
+        if callable(abort):
+            try:
+                abort()
+            except Exception:
+                pass
+
+    def ask_user(self, question, choices=None):
+        if self.ask_user_callback is None:
+            return "error: ask_user requires interactive mode"
+        choices = [str(choice) for choice in (choices or [])]
+        return str(self.ask_user_callback(str(question), choices))
+
+    def resume_session(self, session_id):
+        return resume_runtime_session(self, session_id)
+
+    def clear_session(self):
+        return clear_runtime_session(self)
+
     def run_tool(self, name, args):
         return tool_executor.run_tool(self, name, args)
 
     def repeated_tool_call(self, name, args):
         # agent 很常见的一种坏循环，是在没有新信息的情况下反复发起同一调用。
-        # 这里提前挡掉最简单的这种循环。
-        tool_events = [item for item in self.session["history"] if item["role"] == "tool"]
-        if len(tool_events) < 2:
-            return False
-        recent = tool_events[-2:]
-        return all(item["name"] == name and item["args"] == args for item in recent)
+        # 这里提前挡掉这种循环，避免真实 session 反复 read/search 到 step limit。
+        tool_events = [
+            item for item in self.session["history"] if item["role"] == "tool"
+        ]
+        matches = [
+            item
+            for item in tool_events
+            if item["name"] == name and item["args"] == args
+        ]
+        return len(matches) >= 2
 
     @staticmethod
     def new_task_id():
-        return "task_" + datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
+        return (
+            "task_"
+            + datetime.now().strftime("%Y%m%d-%H%M%S")
+            + "-"
+            + uuid.uuid4().hex[:6]
+        )
 
     @staticmethod
     def new_run_id():
-        return "run_" + datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
+        return (
+            "run_"
+            + datetime.now().strftime("%Y%m%d-%H%M%S")
+            + "-"
+            + uuid.uuid4().hex[:6]
+        )
 
     def build_report(self, task_state):
         # report 是一次运行的最终摘要；
@@ -896,7 +893,9 @@ class Pico:
         if self.approval_policy == "never":
             return False
         try:
-            answer = input(f"approve {name} {json.dumps(args, ensure_ascii=True)}? [y/N] ")
+            answer = input(
+                f"approve {name} {json.dumps(args, ensure_ascii=True)}? [y/N] "
+            )
         except EOFError:
             return False
         return answer.strip().lower() in {"y", "yes"}
@@ -912,7 +911,9 @@ class Pico:
         self.session["history"] = []
         self.session["memory"].clear()
         self.session["memory"].update(memorylib.default_memory_state())
-        self.memory = memorylib.LayeredMemory(self.session["memory"], workspace_root=self.root)
+        self.memory = memorylib.LayeredMemory(
+            self.session["memory"], workspace_root=self.root
+        )
         self.self_authored_file_freshness.clear()
         self.session_store.save(self.session)
 

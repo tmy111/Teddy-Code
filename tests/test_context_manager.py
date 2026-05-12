@@ -57,6 +57,7 @@ def test_context_manager_reduces_relevant_memory_before_history_and_preserves_ne
         section_budgets={
             "prefix": 120,
             "memory": 120,
+            "skills": 60,
             "relevant_memory": 120,
             "history": 400,
         },
@@ -129,6 +130,7 @@ def test_context_manager_preserves_current_request_when_over_budget(tmp_path):
         section_budgets={
             "prefix": 80,
             "memory": 80,
+            "skills": 40,
             "relevant_memory": 80,
             "history": 80,
         },

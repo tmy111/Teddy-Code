@@ -12,7 +12,19 @@ def finish_model_error(engine, task_state, user_message, prompt_metadata, exc, d
     agent.last_prompt_metadata = prompt_metadata
     error = dict(error_metadata.get("provider_error", {}))
     code = str(error.get("code") or "model_error")
-    final = f"Stopped after model error: {code}."
+    if code == "empty_response":
+        final = (
+            "模型返回空响应。可能原因：max_new_tokens 太小（当前 "
+            f"{agent.max_new_tokens}）、provider 临时异常、或 prompt 超出窗口。"
+            "建议：加大 --max-new-tokens、检查 provider 状态、或减少历史长度后重试。"
+        )
+    elif code in {"prompt_too_long", "context_length_exceeded"}:
+        final = (
+            f"Prompt 超出模型上下文窗口（{code}）。建议：/compact 压缩历史、"
+            "或 /clear 开新 session。"
+        )
+    else:
+        final = f"模型错误：{code}（{clip(str(error.get('body_excerpt', '')), 200)}）"
     task_state.stop_model_error(final)
     agent.record({"role": "assistant", "content": final, "created_at": now()})
     agent.emit_trace(

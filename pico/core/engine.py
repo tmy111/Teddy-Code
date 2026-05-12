@@ -8,6 +8,14 @@ import time
 
 from ..providers.base import complete_model
 from .model_errors import finish_model_error
+from .engine_helpers import (
+    execute_tool_payload,
+    finish_limited_run,
+    finish_stopped_run,
+    maintain_memory_safely,
+    request_step_limit_summary,
+    should_retry_model_error,
+)
 from .task_state import TaskState
 from .workspace import clip, now
 
@@ -27,20 +35,56 @@ class Engine:
                 final_answer = event["content"]
         return final_answer
 
+    def drain_worker_notifications(self):
+        agent = self.runtime
+        notifications = agent.worker_manager.drain_notifications()
+        for notification in notifications:
+            agent.record({"role": "user", "content": notification, "created_at": now()})
+            agent.session_event_bus.emit(
+                "worker_notification_drained",
+                {
+                    "run_id": getattr(agent, "current_run_id", ""),
+                    "content": clip(notification, 500),
+                },
+            )
+        return notifications
+
+    def _drain_worker_notification_events(self):
+        for notification in self.drain_worker_notifications():
+            yield {
+                "type": "worker_notification",
+                "run_id": getattr(self.runtime, "current_run_id", ""),
+                "content": notification,
+            }
+
     def run_turn(self, user_message):
         agent = self.runtime
         run_started_at = time.monotonic()
-        task_state = TaskState.create(run_id=agent.new_run_id(), task_id=agent.new_task_id(), user_request=user_message)
-        task_state.resume_status = agent.resume_state.get("status", CHECKPOINT_NONE_STATUS)
+        task_state = TaskState.create(
+            run_id=agent.new_run_id(),
+            task_id=agent.new_task_id(),
+            user_request=user_message,
+        )
+        task_state.resume_status = agent.resume_state.get(
+            "status", CHECKPOINT_NONE_STATUS
+        )
         agent.current_task_state = task_state
         agent.current_turn_id = task_state.task_id
         agent.current_run_id = task_state.run_id
         agent.current_run_dir = agent.run_store.start_run(task_state)
         agent.session_event_bus.emit(
             "turn_started",
-            {"run_id": task_state.run_id, "task_id": task_state.task_id, "runtime_mode": agent.runtime_mode},
+            {
+                "run_id": task_state.run_id,
+                "task_id": task_state.task_id,
+                "runtime_mode": agent.runtime_mode,
+            },
         )
-        yield {"type": "turn_started", "run_id": task_state.run_id, "task_id": task_state.task_id}
+        yield {
+            "type": "turn_started",
+            "run_id": task_state.run_id,
+            "task_id": task_state.task_id,
+        }
 
         agent.memory.set_task_summary(user_message)
         agent.record({"role": "user", "content": user_message, "created_at": now()})
@@ -59,9 +103,22 @@ class Engine:
 
         tool_steps = 0
         attempts = 0
-        max_attempts = max(agent.max_steps * 3, agent.max_steps + 4)
+        provider_retries = {}
+        # 不放大 attempts，避免出现"看不见的隐形重试"——失败必须被用户察觉。
+        max_attempts = agent.max_steps + 2
 
         while tool_steps < agent.max_steps and attempts < max_attempts:
+            if agent.abort_requested:
+                yield from finish_stopped_run(
+                    self,
+                    task_state,
+                    user_message,
+                    "Stopped after abort request.",
+                    "aborted",
+                    run_started_at,
+                )
+                return
+            yield from self._drain_worker_notification_events()
             attempts += 1
             task_state.record_attempt()
             agent.run_store.write_task_state(task_state)
@@ -76,7 +133,9 @@ class Engine:
                 },
             )
             if prompt_metadata.get("resume_status") == CHECKPOINT_PARTIAL_STALE_STATUS:
-                checkpoint = agent.create_checkpoint(task_state, user_message, trigger="freshness_mismatch")
+                checkpoint = agent.create_checkpoint(
+                    task_state, user_message, trigger="freshness_mismatch"
+                )
                 agent.run_store.write_task_state(task_state)
                 agent.emit_trace(
                     task_state,
@@ -86,15 +145,22 @@ class Engine:
                         "trigger": "freshness_mismatch",
                     },
                 )
-            elif prompt_metadata.get("resume_status") == CHECKPOINT_WORKSPACE_MISMATCH_STATUS:
+            elif (
+                prompt_metadata.get("resume_status")
+                == CHECKPOINT_WORKSPACE_MISMATCH_STATUS
+            ):
                 agent.emit_trace(
                     task_state,
                     "runtime_identity_mismatch",
                     {
-                        "fields": list(prompt_metadata.get("runtime_identity_mismatch_fields", [])),
+                        "fields": list(
+                            prompt_metadata.get("runtime_identity_mismatch_fields", [])
+                        ),
                     },
                 )
-                checkpoint = agent.create_checkpoint(task_state, user_message, trigger="workspace_mismatch")
+                checkpoint = agent.create_checkpoint(
+                    task_state, user_message, trigger="workspace_mismatch"
+                )
                 agent.run_store.write_task_state(task_state)
                 agent.emit_trace(
                     task_state,
@@ -105,7 +171,9 @@ class Engine:
                     },
                 )
             if prompt_metadata.get("budget_reductions"):
-                checkpoint = agent.create_checkpoint(task_state, user_message, trigger="context_reduction")
+                checkpoint = agent.create_checkpoint(
+                    task_state, user_message, trigger="context_reduction"
+                )
                 agent.run_store.write_task_state(task_state)
                 agent.emit_trace(
                     task_state,
@@ -155,6 +223,40 @@ class Engine:
                     prompt_cache_retention=prompt_cache_retention,
                 )
             except Exception as exc:
+                if agent.abort_requested:
+                    yield from finish_stopped_run(
+                        self,
+                        task_state,
+                        user_message,
+                        "Stopped after abort request.",
+                        "aborted",
+                        run_started_at,
+                    )
+                    return
+                if should_retry_model_error(exc, provider_retries):
+                    code = getattr(exc, "code", type(exc).__name__)
+                    provider_retries[code] = provider_retries.get(code, 0) + 1
+                    agent.session_event_bus.emit(
+                        "model_retry_scheduled",
+                        {
+                            "run_id": task_state.run_id,
+                            "code": code,
+                            "attempts": task_state.attempts,
+                            "retry_count": provider_retries[code],
+                        },
+                    )
+                    agent.emit_trace(
+                        task_state,
+                        "model_retry_scheduled",
+                        {
+                            "code": code,
+                            "duration_ms": int(
+                                (time.monotonic() - model_started_at) * 1000
+                            ),
+                            "retry_count": provider_retries[code],
+                        },
+                    )
+                    continue
                 yield from finish_model_error(
                     self,
                     task_state,
@@ -165,8 +267,22 @@ class Engine:
                     int((time.monotonic() - run_started_at) * 1000),
                 )
                 return
+            if agent.abort_requested:
+                yield from finish_stopped_run(
+                    self,
+                    task_state,
+                    user_message,
+                    "Stopped after abort request.",
+                    "aborted",
+                    run_started_at,
+                )
+                return
             raw = result.text
-            completion_metadata = dict(result.metadata or getattr(agent.model_client, "last_completion_metadata", {}) or {})
+            completion_metadata = dict(
+                result.metadata
+                or getattr(agent.model_client, "last_completion_metadata", {})
+                or {}
+            )
             if completion_metadata:
                 prompt_metadata.update(completion_metadata)
             agent.last_completion_metadata = completion_metadata
@@ -193,93 +309,66 @@ class Engine:
                 "duration_ms": duration_ms,
             }
 
-            if kind == "tool":
-                tool_steps += 1
-                name = payload.get("name", "")
-                args = payload.get("args", {})
-                task_state.record_tool(name)
-                tool_started_at = time.monotonic()
-                agent.session_event_bus.emit(
-                    "tool_started",
-                    {"run_id": task_state.run_id, "tool_name": name, "args": args},
-                )
-                yield {"type": "tool_call", "run_id": task_state.run_id, "name": name, "args": args}
-
-                tool_result = agent.run_tool(name, args)
-                tool_metadata = dict(agent._last_tool_result_metadata or {})
-                tool_duration_ms = int((time.monotonic() - tool_started_at) * 1000)
-                agent.session_event_bus.emit(
-                    "tool_finished",
-                    {
-                        "run_id": task_state.run_id,
-                        "tool_name": name,
-                        "status": tool_metadata.get("tool_status", ""),
-                        "tool_error_code": tool_metadata.get("tool_error_code", ""),
-                        "workspace_changed": bool(tool_metadata.get("workspace_changed", False)),
-                        "affected_paths": list(tool_metadata.get("affected_paths", [])),
-                        "duration_ms": tool_duration_ms,
-                    },
-                )
-                agent.record(
-                    {
-                        "role": "tool",
-                        "name": name,
-                        "args": args,
-                        "content": tool_result,
-                        "created_at": now(),
-                    }
-                )
-                agent.run_store.write_task_state(task_state)
-                agent.emit_trace(
-                    task_state,
-                    "tool_executed",
-                    {
-                        "name": name,
-                        "args": args,
-                        "result": clip(tool_result, 500),
-                        "duration_ms": tool_duration_ms,
-                        **dict(agent._last_tool_result_metadata or {}),
-                    },
-                )
-                checkpoint = agent.create_checkpoint(task_state, user_message, trigger="tool_executed")
-                agent.run_store.write_task_state(task_state)
-                agent.emit_trace(
-                    task_state,
-                    "checkpoint_created",
-                    {
-                        "checkpoint_id": checkpoint["checkpoint_id"],
-                        "trigger": "tool_executed",
-                    },
-                )
-                yield {
-                    "type": "tool_result",
-                    "run_id": task_state.run_id,
-                    "name": name,
-                    "content": tool_result,
-                    "metadata": tool_metadata,
-                }
+            if kind in {"tool", "tools"}:
+                tools = [payload] if kind == "tool" else list(payload)
+                for tool_payload in tools:
+                    if tool_steps >= agent.max_steps:
+                        break
+                    yield from execute_tool_payload(
+                        self, task_state, user_message, tool_payload
+                    )
+                    tool_steps += 1
+                    if agent.abort_requested:
+                        break
+                if agent.abort_requested:
+                    yield from finish_stopped_run(
+                        self,
+                        task_state,
+                        user_message,
+                        "Stopped after abort request.",
+                        "aborted",
+                        run_started_at,
+                    )
+                    return
                 continue
 
             if kind == "retry":
-                agent.record({"role": "assistant", "content": payload, "created_at": now()})
+                agent.record(
+                    {"role": "assistant", "content": payload, "created_at": now()}
+                )
                 agent.session_event_bus.emit(
                     "assistant_message",
-                    {"run_id": task_state.run_id, "kind": "retry", "content": clip(payload, 500)},
+                    {
+                        "run_id": task_state.run_id,
+                        "kind": "retry",
+                        "content": clip(payload, 500),
+                    },
                 )
                 agent.run_store.write_task_state(task_state)
                 yield {"type": "retry", "run_id": task_state.run_id, "content": payload}
                 continue
 
             final = (payload or raw).strip()
+            yield from self._drain_worker_notification_events()
             if agent.runtime_mode == "plan" and not agent.plan_mode.can_finish():
                 notice = agent.plan_mode.final_notice()
-                agent.record({"role": "assistant", "content": notice, "created_at": now()})
+                agent.record(
+                    {"role": "assistant", "content": notice, "created_at": now()}
+                )
                 agent.session_event_bus.emit(
                     "assistant_message",
-                    {"run_id": task_state.run_id, "kind": "runtime_notice", "content": notice},
+                    {
+                        "run_id": task_state.run_id,
+                        "kind": "runtime_notice",
+                        "content": notice,
+                    },
                 )
                 agent.run_store.write_task_state(task_state)
-                yield {"type": "runtime_notice", "run_id": task_state.run_id, "content": notice}
+                yield {
+                    "type": "runtime_notice",
+                    "run_id": task_state.run_id,
+                    "content": notice,
+                }
                 continue
 
             agent.record({"role": "assistant", "content": final, "created_at": now()})
@@ -287,12 +376,18 @@ class Engine:
                 agent.exit_plan_mode()
             agent.session_event_bus.emit(
                 "assistant_message",
-                {"run_id": task_state.run_id, "kind": "final", "content": clip(final, 500)},
+                {
+                    "run_id": task_state.run_id,
+                    "kind": "final",
+                    "content": clip(final, 500),
+                },
             )
             task_state.finish_success(final)
             agent.promote_durable_memory(user_message, final)
-            self._maintain_memory_safely(agent, task_state, final)
-            checkpoint = agent.create_checkpoint(task_state, user_message, trigger="run_finished")
+            maintain_memory_safely(agent, task_state, final)
+            checkpoint = agent.create_checkpoint(
+                task_state, user_message, trigger="run_finished"
+            )
             agent.run_store.write_task_state(task_state)
             agent.emit_trace(
                 task_state,
@@ -321,7 +416,10 @@ class Engine:
                     "duration_ms": int((time.monotonic() - run_started_at) * 1000),
                 },
             )
-            agent.run_store.write_report(task_state, agent.redact_artifact(agent.build_report(task_state)))
+            agent.run_store.write_report(
+                task_state, agent.redact_artifact(agent.build_report(task_state))
+            )
+            yield from self._drain_worker_notification_events()
             agent.current_turn_id = ""
             agent.current_run_id = ""
             yield {"type": "final", "run_id": task_state.run_id, "content": final}
@@ -337,66 +435,19 @@ class Engine:
             final = "Stopped after too many malformed model responses without a valid tool call or final answer."
             task_state.stop_retry_limit(final)
         else:
-            final = "Stopped after reaching the step limit without a final answer."
+            summary = None
+            if tool_steps > 0:
+                summary = request_step_limit_summary(self, task_state, user_message)
+            if summary:
+                final = (
+                    summary
+                    + "\n\n— 已达本轮 step 预算上限（max_steps）。以上是当前进展总结。"
+                    "继续工作：在 REPL 输入 /resume 续接本会话，或直接说"
+                    "「继续」让我接着干。"
+                )
+            else:
+                final = "Stopped after reaching the step limit without a final answer."
             task_state.stop_step_limit(final)
-        agent.record({"role": "assistant", "content": final, "created_at": now()})
-        agent.session_event_bus.emit(
-            "assistant_message",
-            {"run_id": task_state.run_id, "kind": "stop", "content": clip(final, 500)},
+        yield from finish_limited_run(
+            self, task_state, user_message, final, run_started_at
         )
-        agent.promote_durable_memory(user_message, final)
-        self._maintain_memory_safely(agent, task_state, final)
-        agent.run_store.write_task_state(task_state)
-        checkpoint = agent.create_checkpoint(task_state, user_message, trigger=task_state.stop_reason or "run_stopped")
-        agent.emit_trace(
-            task_state,
-            "checkpoint_created",
-            {
-                "checkpoint_id": checkpoint["checkpoint_id"],
-                "trigger": task_state.stop_reason or "run_stopped",
-            },
-        )
-        agent.emit_trace(
-            task_state,
-            "run_finished",
-            {
-                "status": task_state.status,
-                "stop_reason": task_state.stop_reason,
-                "final_answer": final,
-                "run_duration_ms": int((time.monotonic() - run_started_at) * 1000),
-            },
-        )
-        agent.session_event_bus.emit(
-            "turn_finished",
-            {
-                "run_id": task_state.run_id,
-                "status": task_state.status,
-                "stop_reason": task_state.stop_reason,
-                "duration_ms": int((time.monotonic() - run_started_at) * 1000),
-            },
-        )
-        agent.run_store.write_report(task_state, agent.redact_artifact(agent.build_report(task_state)))
-        agent.current_turn_id = ""
-        agent.current_run_id = ""
-        yield {"type": "stop", "run_id": task_state.run_id, "content": final}
-        yield {
-            "type": "turn_finished",
-            "run_id": task_state.run_id,
-            "status": task_state.status,
-            "stop_reason": task_state.stop_reason,
-        }
-
-    @staticmethod
-    def _maintain_memory_safely(agent, task_state, final_answer):
-        try:
-            agent.maintain_memory_after_turn(final_answer)
-        except Exception as exc:
-            audit = getattr(agent, "last_memory_maintenance", {"errors": []})
-            errors = audit.setdefault("errors", [])
-            errors.append(str(exc))
-            agent.last_memory_maintenance = audit
-            agent.session_event_bus.emit(
-                "memory_maintenance_failed",
-                {"run_id": task_state.run_id, "error": clip(str(exc), 300)},
-            )
-            agent.emit_trace(task_state, "memory_maintenance_failed", {"error": clip(str(exc), 300)})
