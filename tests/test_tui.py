@@ -21,6 +21,53 @@ def assistant_contents(app):
     return [message.content for message in app.query(AssistantMessage)]
 
 
+async def wait_for_assistant(app, pilot, expected="", attempts=40, delay=0.1):
+    for _ in range(attempts):
+        await pilot.pause(delay=delay)
+        text = "\n".join(assistant_contents(app))
+        if expected and expected in text:
+            return text
+        if not expected and text:
+            return text
+    return "\n".join(assistant_contents(app))
+
+
+async def wait_for_widget(app, pilot, selector, attempts=40, delay=0.1):
+    for _ in range(attempts):
+        await pilot.pause(delay=delay)
+        widgets = list(app.query(selector))
+        if widgets:
+            return widgets[-1]
+    raise AssertionError(f"timed out waiting for {selector}")
+
+
+async def wait_for_tool_card_status(app, pilot, status, attempts=40, delay=0.1):
+    from pico.tui.widgets import ToolCard
+
+    for _ in range(attempts):
+        await pilot.pause(delay=delay)
+        cards = list(app.query(ToolCard))
+        if cards and cards[-1].status == status:
+            return cards[-1]
+    raise AssertionError(f"timed out waiting for tool card status {status}")
+
+
+async def wait_for_input_ready(bar, pilot, attempts=40, delay=0.1):
+    for _ in range(attempts):
+        await pilot.pause(delay=delay)
+        if not bar.input.disabled and bar.input.has_focus:
+            return
+    raise AssertionError("timed out waiting for input to be ready")
+
+
+async def wait_for_layout(widget, pilot, attempts=40, delay=0.1):
+    for _ in range(attempts):
+        await pilot.pause(delay=delay)
+        if widget.region.width > 0 and widget.region.height > 0:
+            return
+    raise AssertionError(f"timed out waiting for layout of {widget!r}")
+
+
 def rendered_text(widget) -> str:
     rendered = widget.render()
     return getattr(rendered, "plain", str(rendered))
@@ -239,9 +286,71 @@ async def test_tui_runs_agent_turn_and_renders_final_answer(tmp_path):
         bar = app.query_one(InputBar)
         bar.input.value = "ship it"
         await pilot.press("enter")
-        await pilot.pause(delay=0.3)
+        text = await wait_for_assistant(app, pilot, "Done from TUI.")
 
-        assert "Done from TUI." in "\n".join(assistant_contents(app))
+        assert "Done from TUI." in text
+
+
+@pytest.mark.asyncio
+async def test_tui_hides_welcome_after_first_turn_so_chat_stays_visible(tmp_path):
+    from pico.tui.app import PicoTuiApp
+    from pico.tui.widgets import ChatLog, InputBar, WelcomeBanner
+
+    agent = build_agent(tmp_path, ["<final>Done from TUI.</final>"])
+    app = PicoTuiApp(agent)
+
+    async with app.run_test(size=(80, 16)) as pilot:
+        bar = app.query_one(InputBar)
+        bar.input.value = "ship it"
+        await pilot.press("enter")
+        text = await wait_for_assistant(app, pilot, "Done from TUI.")
+        await wait_for_input_ready(bar, pilot)
+
+        chat = app.query_one(ChatLog)
+        welcome = app.query_one(WelcomeBanner)
+
+        assert "Done from TUI." in text
+        assert "hidden" in welcome.classes
+        assert chat.region.height >= 8
+        assert bar.input.disabled is False
+        assert bar.input.has_focus
+
+
+@pytest.mark.asyncio
+async def test_tui_chat_stream_uses_terminal_transcript_layout(tmp_path):
+    from pico.tui.app import PicoTuiApp
+    from pico.tui.widgets import AssistantMessage, ChatLog, InputBar, UserMessage
+
+    agent = build_agent(
+        tmp_path,
+        ["<final>我是 pico。\n\n- 读代码\n- 跑命令\n- 改文件</final>"],
+    )
+    app = PicoTuiApp(agent)
+
+    async with app.run_test(size=(100, 20)) as pilot:
+        bar = app.query_one(InputBar)
+        bar.input.value = "你是谁"
+        await pilot.press("enter")
+        text = await wait_for_assistant(app, pilot, "我是 pico。")
+
+        chat = app.query_one(ChatLog)
+        user = app.query_one(UserMessage)
+        assistant = app.query_one(AssistantMessage)
+        await wait_for_layout(user, pilot)
+        await wait_for_layout(assistant, pilot)
+
+        assert "我是 pico。" in text
+        assert chat.styles.scrollbar_size_horizontal == 0
+        assert chat.styles.scrollbar_size_vertical == 1
+        assert chat.styles.scrollbar_background.hex.lower() == "#0f1117"
+        assert user.styles.border_left[0] == ""
+        assert assistant.styles.border_left[0] == ""
+        assert user.styles.background.hex.lower() == "#0f1117"
+        assert assistant.styles.background.hex.lower() == "#0f1117"
+        assert user.region.x <= chat.region.x + 2
+        assert assistant.region.x <= chat.region.x + 2
+        assert user.region.width >= chat.region.width - 4
+        assert assistant.region.width >= chat.region.width - 4
 
 
 @pytest.mark.asyncio
@@ -262,11 +371,11 @@ async def test_tui_renders_tool_card_result(tmp_path):
         bar = app.query_one(InputBar)
         bar.input.value = "write a file"
         await pilot.press("enter")
-        await pilot.pause(delay=0.5)
+        card = await wait_for_tool_card_status(app, pilot, "success")
 
         cards = list(app.query(ToolCard))
         assert cards
-        assert cards[-1].status == "success"
+        assert card is cards[-1]
         assert (tmp_path / "notes" / "result.txt").read_text(encoding="utf-8") == "ok\n"
 
 
@@ -289,15 +398,15 @@ async def test_tui_approval_prompt_controls_risky_tool(tmp_path):
         bar = app.query_one(InputBar)
         bar.input.value = "write a file"
         await pilot.press("enter")
-        await pilot.pause(delay=0.2)
+        prompt = await wait_for_widget(app, pilot, ConfirmPrompt)
 
-        assert app.query_one(ConfirmPrompt)
+        assert prompt
 
         await pilot.press("right")
         await pilot.press("enter")
-        await pilot.pause(delay=0.5)
+        text = await wait_for_assistant(app, pilot, "Wrote it.")
 
-        assert "Wrote it." in "\n".join(assistant_contents(app))
+        assert "Wrote it." in text
         assert (tmp_path / "notes" / "result.txt").read_text(encoding="utf-8") == "ok\n"
 
 
@@ -319,12 +428,12 @@ async def test_tui_ask_user_prompt_returns_selected_choice(tmp_path):
         bar = app.query_one(InputBar)
         bar.input.value = "ask before shipping"
         await pilot.press("enter")
-        await pilot.pause(delay=0.2)
+        prompt = await wait_for_widget(app, pilot, AskUserPrompt)
 
-        assert app.query_one(AskUserPrompt)
+        assert prompt
 
         await pilot.press("right")
         await pilot.press("enter")
-        await pilot.pause(delay=0.5)
+        text = await wait_for_assistant(app, pilot, "User chose yes.")
 
-        assert "User chose yes." in "\n".join(assistant_contents(app))
+        assert "User chose yes." in text

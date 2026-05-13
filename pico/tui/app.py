@@ -6,6 +6,7 @@ from functools import partial
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.css.query import NoMatches
 from textual.events import Key
 
 from ..cli import HELP_DETAILS, handle_repl_command
@@ -97,6 +98,7 @@ class PicoTuiApp(App):
         bar.history.append(text)
         bar.history_index = len(bar.history)
         bar.input.value = ""
+        self._hide_welcome_banner()
         if text.startswith("/"):
             self.query_one(ChatLog).add_message("user", text)
             bar.hide_slash_suggestions()
@@ -185,22 +187,18 @@ class PicoTuiApp(App):
 
     async def _agent_task(self, text: str) -> None:
         loop = asyncio.get_running_loop()
+        completed = False
         try:
             await loop.run_in_executor(None, partial(self._drive_turn, text))
+            completed = True
         except Exception as exc:
-            self.query_one(ChatLog).add_message("assistant", f"[Error] {exc}")
+            if self.is_running:
+                try:
+                    self.query_one(ChatLog).add_message("assistant", f"[Error] {exc}")
+                except NoMatches:
+                    pass
         finally:
-            self._stop_thinking()
-            self.query_one(InputBar).set_busy(False)
-            self.query_one(InputBar).focus_input()
-            self._turn_count += 1
-            status = self.query_one(StatusBar)
-            status.update_turns(self._turn_count)
-            status.update_agent(self.agent)
-            usage = (getattr(self.agent, "last_prompt_metadata", {}) or {}).get(
-                "context_usage"
-            ) or {}
-            status.update_context_usage(usage)
+            self._finish_agent_task(completed)
 
     def _drive_turn(self, text: str) -> None:
         for event in self.agent.engine.run_turn(text):
@@ -263,12 +261,41 @@ class PicoTuiApp(App):
         else:
             card.set_success(content)
 
+    def _hide_welcome_banner(self) -> None:
+        try:
+            self.query_one(WelcomeBanner).add_class("hidden")
+        except NoMatches:
+            pass
+
+    def _finish_agent_task(self, completed: bool) -> None:
+        if not self.is_running:
+            return
+        try:
+            self._stop_thinking()
+            bar = self.query_one(InputBar)
+            bar.set_busy(False)
+            bar.focus_input()
+            if completed:
+                self._turn_count += 1
+            status = self.query_one(StatusBar)
+            status.update_turns(self._turn_count)
+            status.update_agent(self.agent)
+            usage = (getattr(self.agent, "last_prompt_metadata", {}) or {}).get(
+                "context_usage"
+            ) or {}
+            status.update_context_usage(usage)
+        except NoMatches:
+            return
+
     def _stop_thinking(self) -> None:
         timer = getattr(self, "_thinking_timer", None)
         if timer is not None:
             timer.stop()
             self._thinking_timer = None
-        self.query_one(ThinkingIndicator).hide()
+        try:
+            self.query_one(ThinkingIndicator).hide()
+        except NoMatches:
+            pass
 
     def _approval_callback(self, name: str, args: dict) -> bool:
         event = threading.Event()
