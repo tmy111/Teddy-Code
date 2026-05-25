@@ -8,6 +8,7 @@ version = "0.3.0"
 description = "Small local coding agent for OpenAI-compatible, Anthropic-compatible, and DeepSeek models"
 requires-python = ">=3.10"
 dependencies = [
+  "pydantic>=2.0.0",
   "textual>=0.86.0",
   "tomli>=2.0.0; python_version < '3.11'",
 ]

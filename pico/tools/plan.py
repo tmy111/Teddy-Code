@@ -19,10 +19,6 @@ PLAN_TOOL_EXAMPLES = {
 }
 
 
-def validate_plan_tool(name, args):
-    if name == "enter_plan_mode" and not str(args.get("topic", "")).strip():
-        raise ValueError("topic must not be empty")
-
 
 def tool_enter_plan_mode(agent, args):
     path = agent.enter_plan_mode(args["topic"], path=args.get("path"))

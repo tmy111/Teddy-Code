@@ -9,6 +9,8 @@ import subprocess
 import textwrap
 from functools import partial
 
+from pydantic import ValidationError
+
 from ..core.workspace import IGNORED_PATH_NAMES
 from .base import RegisteredTool
 from .agents import (
@@ -18,20 +20,18 @@ from .agents import (
     tool_agent,
     tool_send_message,
     tool_task_stop,
-    validate_agent_tool,
+    validate_agent_runtime,
 )
 from .ask_user import (
     ASK_USER_TOOL_EXAMPLES,
     ASK_USER_TOOL_SPECS,
     tool_ask_user,
-    validate_ask_user_tool,
 )
 from .plan import (
     PLAN_TOOL_EXAMPLES,
     PLAN_TOOL_SPECS,
     tool_enter_plan_mode,
     tool_exit_plan_mode,
-    validate_plan_tool,
 )
 from .todos import (
     TODO_TOOL_EXAMPLES,
@@ -39,8 +39,43 @@ from .todos import (
     tool_todo_add,
     tool_todo_list,
     tool_todo_update,
-    validate_todo_tool,
 )
+from .schemas import (
+    AgentArgs,
+    AskUserArgs,
+    EnterPlanModeArgs,
+    ExitPlanModeArgs,
+    ListFilesArgs,
+    PatchFileArgs,
+    ReadFileArgs,
+    RunShellArgs,
+    SearchArgs,
+    SendMessageArgs,
+    TaskStopArgs,
+    TodoAddArgs,
+    TodoListArgs,
+    TodoUpdateArgs,
+    WriteFileArgs,
+    first_error_message,
+)
+
+_TOOL_SCHEMAS = {
+    "list_files": ListFilesArgs,
+    "read_file": ReadFileArgs,
+    "search": SearchArgs,
+    "run_shell": RunShellArgs,
+    "write_file": WriteFileArgs,
+    "patch_file": PatchFileArgs,
+    "todo_add": TodoAddArgs,
+    "todo_update": TodoUpdateArgs,
+    "todo_list": TodoListArgs,
+    "agent": AgentArgs,
+    "send_message": SendMessageArgs,
+    "task_stop": TaskStopArgs,
+    "enter_plan_mode": EnterPlanModeArgs,
+    "exit_plan_mode": ExitPlanModeArgs,
+    "ask_user": AskUserArgs,
+}
 
 BASE_TOOL_SPECS = {
     "list_files": {
@@ -116,75 +151,45 @@ def tool_example(name):
 def validate_tool(agent, name, args):
     args = args or {}
 
+    schema_cls = _TOOL_SCHEMAS.get(name)
+    if schema_cls is not None:
+        try:
+            schema_cls.model_validate(args)
+        except ValidationError as exc:
+            raise ValueError(first_error_message(exc)) from exc
+
+    # Workspace-aware checks that require the agent (path safety, file state).
     if name == "list_files":
         path = agent.path(args.get("path", "."))
         if not path.is_dir():
             raise ValueError("path is not a directory")
-        return
 
-    if name == "read_file":
+    elif name == "read_file":
         path = agent.path(args["path"])
         if not path.is_file():
             raise ValueError("path is not a file")
-        start = int(args.get("start", 1))
-        end = int(args.get("end", 200))
-        if start < 1 or end < start:
-            raise ValueError("invalid line range")
-        return
 
-    if name == "search":
-        pattern = str(args.get("pattern", "")).strip()
-        if not pattern:
-            raise ValueError("pattern must not be empty")
+    elif name == "search":
         agent.path(args.get("path", "."))
-        return
 
-    if name == "run_shell":
-        command = str(args.get("command", "")).strip()
-        if not command:
-            raise ValueError("command must not be empty")
-        timeout = int(args.get("timeout", 20))
-        if timeout < 1 or timeout > 120:
-            raise ValueError("timeout must be in [1, 120]")
-        return
-
-    if name == "write_file":
+    elif name == "write_file":
         path = agent.path(args["path"])
         if path.exists() and path.is_dir():
             raise ValueError("path is a directory")
-        if "content" not in args:
-            raise ValueError("missing content")
-        return
 
-    if name == "patch_file":
+    elif name == "patch_file":
         # patch_file 故意做得很严格：old_text 必须精确命中且只能出现一次，
         # 这样修改行为才是确定的，失败原因也更容易解释。
         path = agent.path(args["path"])
         if not path.is_file():
             raise ValueError("path is not a file")
-        old_text = str(args.get("old_text", ""))
-        if not old_text:
-            raise ValueError("old_text must not be empty")
-        if "new_text" not in args:
-            raise ValueError("missing new_text")
         text = path.read_text(encoding="utf-8")
-        count = text.count(old_text)
+        count = text.count(str(args.get("old_text", "")))
         if count != 1:
             raise ValueError(f"old_text must occur exactly once, found {count}")
-        return
 
-    if name in AGENT_TOOL_NAMES:
-        validate_agent_tool(agent, name, args)
-        return
-    if name in PLAN_TOOL_SPECS:
-        validate_plan_tool(name, args)
-        return
-    if name in ASK_USER_TOOL_SPECS:
-        validate_ask_user_tool(name, args)
-        return
-    if name.startswith("todo_"):
-        validate_todo_tool(name, args)
-        return
+    elif name in AGENT_TOOL_NAMES:
+        validate_agent_runtime(agent, name, args)
 
 
 def tool_list_files(agent, args):
