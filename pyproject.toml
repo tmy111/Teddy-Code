@@ -20,6 +20,7 @@ pico-tui = "pico.tui.main:main"
 [dependency-groups]
 dev = [
   "pytest>=8.3.5",
+  "pytest-asyncio>=0.23.0",
   "ruff>=0.4.4",
 ]
 
