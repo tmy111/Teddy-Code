@@ -49,6 +49,9 @@ class WelcomeBanner(Static):
         color: #f1f3f8;
         border: round #5c7cfa;
     }
+    WelcomeBanner.hidden {
+        display: none;
+    }
     """
 
     def __init__(self, model_name: str = "", cwd: str = "", approval: str = "") -> None:
@@ -92,36 +95,51 @@ class WelcomeBanner(Static):
 class UserMessage(Static):
     DEFAULT_CSS = """
     UserMessage {
+        width: 100%;
         height: auto;
         margin: 0 0 1 0;
-        padding: 0 1;
-        color: #b7f5c1;
-        border-left: thick #2f9e44;
+        padding: 0;
+        background: #0f1117;
+        color: #d8f7df;
+        border-left: none;
+    }
+    UserMessage .message-label {
+        height: 1;
+        color: #7ce38b;
+        text-style: bold;
     }
     """
 
     def __init__(self, content: str) -> None:
-        super().__init__()
+        super().__init__("", markup=False)
         self.content = content
 
-    def render(self) -> Text:
-        return Text.assemble(
-            Text("> ", style="bold green"), Text(self.content, style="green")
-        )
+    def compose(self):
+        yield Static(f"> {self.content}", classes="message-label")
 
 
 class AssistantMessage(Static):
     DEFAULT_CSS = """
     AssistantMessage {
+        width: 100%;
         height: auto;
-        margin: 0 0 1 0;
-        padding: 0 1;
-        background: #15161c;
-        border-left: thick #495057;
+        margin: 0 0 2 0;
+        padding: 0;
+        background: #0f1117;
+        color: #edf2ff;
+        border-left: none;
+    }
+    AssistantMessage .message-label {
+        height: 1;
+        color: #9ec5fe;
+        text-style: bold;
     }
     AssistantMessage Markdown {
         height: auto;
         width: 100%;
+        padding: 0 0 0 2;
+        color: #edf2ff;
+        background: #0f1117;
     }
     """
 
@@ -130,6 +148,7 @@ class AssistantMessage(Static):
         self.content = content
 
     def compose(self):
+        yield Static("pico", classes="message-label")
         yield Markdown(self.content)
 
     def update_content(self, content: str) -> None:
@@ -143,11 +162,12 @@ class AssistantMessage(Static):
 class ToolCard(Static):
     DEFAULT_CSS = """
     ToolCard {
+        width: 100%;
         height: auto;
         margin: 0 0 1 0;
         padding: 0 1;
         background: #14171d;
-        border: round #4dabf7;
+        border: tall #273244;
     }
     ToolCard .tool-output {
         max-height: 14;
@@ -207,6 +227,7 @@ class ToolCard(Static):
 class ConfirmPrompt(Static):
     DEFAULT_CSS = """
     ConfirmPrompt {
+        width: 100%;
         height: auto;
         margin: 0 0 1 0;
         padding: 1 2;
@@ -247,6 +268,7 @@ class ConfirmPrompt(Static):
 class AskUserPrompt(Static):
     DEFAULT_CSS = """
     AskUserPrompt {
+        width: 100%;
         height: auto;
         margin: 0 0 1 0;
         padding: 1 2;
@@ -304,9 +326,18 @@ class ChatLog(VerticalScroll):
     DEFAULT_CSS = """
     ChatLog {
         height: 1fr;
-        padding: 1 1 0 1;
+        padding: 1 2 0 2;
         background: #0f1117;
-        scrollbar-size: 1 1;
+        overflow-x: hidden;
+        scrollbar-size-horizontal: 0;
+        scrollbar-size-vertical: 1;
+        scrollbar-background: #0f1117;
+        scrollbar-background-hover: #0f1117;
+        scrollbar-background-active: #0f1117;
+        scrollbar-color: #2a3142;
+        scrollbar-color-hover: #3c465e;
+        scrollbar-color-active: #6ea8fe;
+        scrollbar-corner-color: #0f1117;
     }
     """
 

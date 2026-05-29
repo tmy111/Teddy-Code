@@ -21,12 +21,6 @@ TODO_TOOL_EXAMPLES = {
 }
 
 
-def validate_todo_tool(name, args):
-    if name == "todo_add" and not str(args.get("content", "")).strip():
-        raise ValueError("content must not be empty")
-    if name == "todo_update" and not str(args.get("todo_id", "")).strip():
-        raise ValueError("todo_id must not be empty")
-
 
 def tool_todo_add(agent, args):
     item = agent.todo_ledger.add(

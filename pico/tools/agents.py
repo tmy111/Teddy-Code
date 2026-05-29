@@ -34,29 +34,12 @@ AGENT_TOOL_EXAMPLES = {
 }
 
 
-def validate_agent_tool(agent, name, args):
+def validate_agent_runtime(agent, name, args):
+    """Runtime-aware checks that can't be expressed in the Pydantic schema."""
     if name == "agent":
-        if not str(args.get("description", "")).strip():
-            raise ValueError("description must not be empty")
-        if not str(args.get("prompt", "")).strip():
-            raise ValueError("prompt must not be empty")
         subagent_type = str(args.get("subagent_type", "worker")).strip()
-        if subagent_type not in {"worker", "Explore"}:
-            raise ValueError("subagent_type must be worker or Explore")
         if agent.runtime_mode == "plan" and subagent_type != "Explore":
             raise ValueError("plan mode only allows Explore agents")
-        write_scope = args.get("write_scope", [])
-        if write_scope is not None and not isinstance(write_scope, (list, str)):
-            raise ValueError("write_scope must be a list of workspace paths")
-        return
-    if name == "send_message":
-        if not str(args.get("to", "")).strip():
-            raise ValueError("to must not be empty")
-        if not str(args.get("message", "")).strip():
-            raise ValueError("message must not be empty")
-        return
-    if name == "task_stop" and not str(args.get("task_id", "")).strip():
-        raise ValueError("task_id must not be empty")
 
 
 def tool_agent(agent, args):
