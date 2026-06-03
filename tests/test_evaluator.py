@@ -181,6 +181,7 @@ def test_run_task_anchors_paths_to_fixture_copy_even_inside_repo_workspace():
     row = evaluator.run_task(task)
 
     assert row["status"] == "pass"
+    assert row["report"]["prompt_metadata"]["tool_count"] == len(task["allowed_tools"])
     fixture_copy = Path(row["fixture_copy_relpath"])
     readme_path = fixture_copy / "README.md"
     assert "This fixture is a locked benchmark workspace." in readme_path.read_text(encoding="utf-8")

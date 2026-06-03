@@ -103,6 +103,7 @@ class Pico(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         model_client_factory=None,
         sandbox_config=None,
         ask_user_callback=None,
+        allowed_tools=None,
     ):
         self.model_client = model_client
         self.model_client_factory = model_client_factory
@@ -143,6 +144,7 @@ class Pico(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         self.auto_dream = bool(auto_dream)
         self.dream_interval_hours = float(dream_interval_hours)
         self.dream_min_sessions = int(dream_min_sessions)
+        self.allowed_tools = self._normalize_allowed_tools(allowed_tools)
         self.run_store = run_store or RunStore(
             Path(workspace.repo_root) / ".pico" / "runs"
         )
@@ -177,7 +179,7 @@ class Pico(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         self.todo_ledger = TodoLedger(self)
         self.worker_manager = WorkerManager(self)
         self.skills = skillslib.discover_skills(self.root)
-        self.tools = self.build_tools()
+        self.tools = self._apply_tool_allowlist(self.build_tools())
         self.tool_profiles = build_tool_profiles(self.tools)
         self._active_tool_profile_name = (
             "plan"
@@ -406,6 +408,24 @@ class Pico(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
 
     def build_tools(self):
         return toolkit.build_tool_registry(self)
+
+    @staticmethod
+    def _normalize_allowed_tools(allowed_tools):
+        if allowed_tools is None:
+            return None
+        normalized = tuple(str(name).strip() for name in allowed_tools)
+        if not normalized or any(not name for name in normalized):
+            raise ValueError("allowed_tools must be a non-empty sequence of tool names")
+        return normalized
+
+    def _apply_tool_allowlist(self, tools):
+        if self.allowed_tools is None:
+            return tools
+        unknown = [name for name in self.allowed_tools if name not in tools]
+        if unknown:
+            raise ValueError(f"unknown allowed tool: {', '.join(unknown)}")
+        allowed = set(self.allowed_tools)
+        return {name: tool for name, tool in tools.items() if name in allowed}
 
     @property
     def active_tool_profile(self):

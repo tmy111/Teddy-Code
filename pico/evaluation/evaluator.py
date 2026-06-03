@@ -471,6 +471,7 @@ class BenchmarkEvaluator:
             approval_policy="auto",
             max_steps=int(task["step_budget"]),
             max_new_tokens=self.max_new_tokens,
+            allowed_tools=task["allowed_tools"],
         )
         _apply_task_setup(agent, task, fixture_copy_root)
 
