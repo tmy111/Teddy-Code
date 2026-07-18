@@ -2,27 +2,27 @@
 
 ## Runner 定位
 
-`scripts/run_v3_human_scenario_gate.py` 是 Pico v3 真人场景 runner。它刻意走 Pico 的公开进程入口：
+`scripts/run_v3_human_scenario_gate.py` 是 TeddyCode v3 真人场景 runner。它刻意走 TeddyCode 的公开进程入口：
 
-- one-shot CLI：`uv run pico --cwd <workspace> "<prompt>"`
-- REPL：`uv run pico --cwd <workspace> --repl`
+- one-shot CLI：`uv run teddycode --cwd <workspace> "<prompt>"`
+- REPL：`uv run teddycode --cwd <workspace> --repl`
 - PTY-style stdin：模拟用户逐行输入 slash command
 - TTY smoke：验证默认 TTY 入口能进入 TUI
 
-runner 不 import `Pico`，也不直接调用 runtime 方法。它只创建临时 workspace、启动 Pico 进程、收集 stdout/stderr，然后读取 Pico 自己写出的 `.pico` artifacts。
+runner 不 import `TeddyCode`，也不直接调用 runtime 方法。它只创建临时 workspace、启动 TeddyCode 进程、收集 stdout/stderr，然后读取 TeddyCode 自己写出的 `.teddycode` artifacts。
 
 ## 输出目录
 
 默认输出目录：
 
 ```text
-/tmp/pico-v3-human-scenarios/<YYYYMMDD-HHMMSS>
+/tmp/teddycode-v3-human-scenarios/<YYYYMMDD-HHMMSS>
 ```
 
 macOS 上通常会显示为：
 
 ```text
-/private/tmp/pico-v3-human-scenarios/<YYYYMMDD-HHMMSS>
+/private/tmp/teddycode-v3-human-scenarios/<YYYYMMDD-HHMMSS>
 ```
 
 目录结构：
@@ -38,7 +38,7 @@ macOS 上通常会显示为：
   workspaces/
     s21/
       .git/
-      .pico/
+      .teddycode/
         runs/
           run_<timestamp>-<id>/
             task_state.json
@@ -51,7 +51,7 @@ macOS 上通常会显示为：
       README.md
 ```
 
-每个 scenario workspace 都会先 `git init -q`。这是必要的：Pico 会根据 git root 识别 workspace，如果把测试目录放在 Pico repo 内且不初始化独立 git root，Pico 会向上找到真实项目根目录，导致测试污染 repo。
+每个 scenario workspace 都会先 `git init -q`。这是必要的：TeddyCode 会根据 git root 识别 workspace，如果把测试目录放在 TeddyCode repo 内且不初始化独立 git root，TeddyCode 会向上找到真实项目根目录，导致测试污染 repo。
 
 ## 常用命令
 
@@ -77,16 +77,16 @@ uv run python scripts/run_v3_human_scenario_gate.py --suite full --scenario S21 
 使用指定配置：
 
 ```bash
-uv run python scripts/run_v3_human_scenario_gate.py --suite full --config /Users/martinlos/code/pico/.pico.toml
+uv run python scripts/run_v3_human_scenario_gate.py --suite full --config /Users/martinlos/code/teddycode/.teddycode.toml
 ```
 
 指定输出目录：
 
 ```bash
-uv run python scripts/run_v3_human_scenario_gate.py --suite full --output-dir /tmp/pico-v3-human-scenarios/manual-run
+uv run python scripts/run_v3_human_scenario_gate.py --suite full --output-dir /tmp/teddycode-v3-human-scenarios/manual-run
 ```
 
-`--output-dir` 不能位于 `/Users/martinlos/code/pico` 下面。runner 会直接拒绝这种路径。
+`--output-dir` 不能位于 `/Users/martinlos/code/teddycode` 下面。runner 会直接拒绝这种路径。
 
 ## Summary 怎么看
 
@@ -100,7 +100,7 @@ uv run python scripts/run_v3_human_scenario_gate.py --suite full --output-dir /t
   "failed": 0,
   "suite": "full",
   "provider": "deepseek",
-  "output_dir": "/private/tmp/pico-v3-human-scenarios/20260513-170838"
+  "output_dir": "/private/tmp/teddycode-v3-human-scenarios/20260513-170838"
 }
 ```
 
@@ -111,18 +111,18 @@ uv run python scripts/run_v3_human_scenario_gate.py --suite full --output-dir /t
 - `driver`：one-shot / REPL / PTY / slash 的入口方式
 - `status`：`passed` 或 `failed`
 - `checks`：具体验收项
-- `commands`：实际执行的 Pico 命令、return code、stdout/stderr 路径
+- `commands`：实际执行的 TeddyCode 命令、return code、stdout/stderr 路径
 - `evidence`：report、trace、events 路径
 
 `summary.md` 是给人快速浏览的表格，适合复盘时先扫失败场景和 evidence 路径。
 
 ## Evidence Adapter
 
-`pico/evaluation/run_evidence.py` 提供 `RunEvidence.latest(workspace)`，只从真实 artifacts 取证：
+`teddycode/evaluation/run_evidence.py` 提供 `RunEvidence.latest(workspace)`，只从真实 artifacts 取证：
 
-- `.pico/runs/run_*/report.json`
-- `.pico/runs/run_*/trace.jsonl`
-- `.pico/sessions/*.events.jsonl`
+- `.teddycode/runs/run_*/report.json`
+- `.teddycode/runs/run_*/trace.jsonl`
+- `.teddycode/sessions/*.events.jsonl`
 
 它封装的判断包括：
 
@@ -141,9 +141,9 @@ uv run python scripts/run_v3_human_scenario_gate.py --suite full --output-dir /t
 
 1. 打开 `<output-dir>/summary.md`，找到 `failed-check` 行。
 2. 打开对应 `logs/<scenario>.stdout.txt` 和 `logs/<scenario>.stderr.txt`，看用户可见行为。
-3. 打开 `workspaces/<scenario>/.pico/runs/<run_id>/report.json`，看 status、stop_reason、runtime_reminders。
+3. 打开 `workspaces/<scenario>/.teddycode/runs/<run_id>/report.json`，看 status、stop_reason、runtime_reminders。
 4. 打开 `trace.jsonl`，按 `tool_executed` 搜索 `tool_error_code`、`name`、`result`。
-5. 打开 `.pico/sessions/*.events.jsonl`，看 slash command、permission_decision、skill_invoked、worker 事件。
+5. 打开 `.teddycode/sessions/*.events.jsonl`，看 slash command、permission_decision、skill_invoked、worker 事件。
 6. 判断是产品问题、runner 取证问题，还是 live model 没按场景执行。
 
 处理原则：
@@ -167,11 +167,11 @@ uv run python scripts/run_v3_human_scenario_gate.py --suite full --output-dir /t
 最后一次干净 full suite：
 
 ```text
-/private/tmp/pico-v3-human-scenarios/20260513-170838
+/private/tmp/teddycode-v3-human-scenarios/20260513-170838
 ```
 
 最终命令输出：
 
 ```text
-{"failed": 0, "output_dir": "/private/tmp/pico-v3-human-scenarios/20260513-170838", "passed": 50, "status": "passed"}
+{"failed": 0, "output_dir": "/private/tmp/teddycode-v3-human-scenarios/20260513-170838", "passed": 50, "status": "passed"}
 ```

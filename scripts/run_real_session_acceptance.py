@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run deterministic real-session acceptance scenarios for Pico."""
+"""Run deterministic real-session acceptance scenarios for TeddyCode."""
 
 from __future__ import annotations
 
@@ -13,15 +13,15 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pico.testing import ScriptedModelClient  # noqa: E402
-from pico import Pico, SessionStore, WorkspaceContext  # noqa: E402
-from pico.config import resolve_provider_config  # noqa: E402
-from pico.features.skills_runtime import invoke_skill  # noqa: E402
-from pico.providers import AnthropicCompatibleModelClient, OpenAICompatibleModelClient, ProviderError  # noqa: E402
+from teddycode.testing import ScriptedModelClient  # noqa: E402
+from teddycode import TeddyCode, SessionStore, WorkspaceContext  # noqa: E402
+from teddycode.config import resolve_provider_config  # noqa: E402
+from teddycode.features.skills_runtime import invoke_skill  # noqa: E402
+from teddycode.providers import AnthropicCompatibleModelClient, OpenAICompatibleModelClient, ProviderError  # noqa: E402
 
 SUMMARY_JSON = "gate8-real-session-acceptance.json"
 SUMMARY_MARKDOWN = "gate8-real-session-acceptance.md"
-LIVE_ENV_FLAG = "PICO_ACCEPTANCE_LIVE"
+LIVE_ENV_FLAG = "TEDDYCODE_ACCEPTANCE_LIVE"
 
 
 def run_acceptance(output_dir, include_live=None):
@@ -121,7 +121,7 @@ def _scenario_bugfix_pytest(output_dir, workspace):
             '<tool>{"name":"read_file","args":{"path":"tests/test_calculator.py","start":1,"end":20}}</tool>',
             '<tool>{"name":"read_file","args":{"path":"src/calculator.py","start":1,"end":20}}</tool>',
             '<tool name="patch_file" path="src/calculator.py"><old_text>return a - b</old_text><new_text>return a + b</new_text></tool>',
-            '<tool>{"name":"run_shell","args":{"command":"uv run --with pytest python -m pytest -q","timeout":60}}</tool>',
+            '<tool>{"name":"run_shell","args":{"command":"python -m pytest -q -p no:asyncio","timeout":60}}</tool>',
             "<final>Bug fixed and tests pass.</final>",
         ],
         max_steps=6,
@@ -160,7 +160,7 @@ def _scenario_plan_todo_explore(output_dir, workspace):
             '<tool>{"name":"read_file","args":{"path":"README.md","start":1,"end":1}}</tool>',
             "<final>Fixture inspected.</final>",
             '<tool>{"name":"todo_update","args":{"todo_id":"todo_1","status":"done","note":"plan written"}}</tool>',
-            '<tool name="write_file" path=".pico/plans/gate8-plan.md"><content># Gate8 Plan\n- Evidence harness\n</content></tool>',
+            '<tool name="write_file" path=".teddycode/plans/gate8-plan.md"><content># Gate8 Plan\n- Evidence harness\n</content></tool>',
             "<final>Gate8 plan ready.</final>",
         ],
         max_steps=6,
@@ -174,7 +174,7 @@ def _scenario_plan_todo_explore(output_dir, workspace):
         "plan_todo_explore",
         checks=[
             _check("answer", answer == "Gate8 plan ready.", answer),
-            _check("plan_file", (workspace / ".pico" / "plans" / "gate8-plan.md").is_file()),
+            _check("plan_file", (workspace / ".teddycode" / "plans" / "gate8-plan.md").is_file()),
             _check("todo_done", agent.session["todos"]["items"][0]["status"] == "done"),
             _check("explore_worker", agent.session["workers"]["items"][0]["subagent_type"] == "Explore"),
         ],
@@ -183,7 +183,7 @@ def _scenario_plan_todo_explore(output_dir, workspace):
 
 def _scenario_skill_inline(output_dir, workspace):
     _write_readme(workspace, "Gate8 skill fixture.\n")
-    skill_dir = workspace / ".pico" / "skills" / "evidence"
+    skill_dir = workspace / ".teddycode" / "skills" / "evidence"
     skill_dir.mkdir(parents=True, exist_ok=True)
     (skill_dir / "SKILL.md").write_text(
         """---
@@ -250,8 +250,8 @@ def _scenario_worker_write_scope(output_dir, workspace):
 
 def _scenario_resume_continuation(output_dir, workspace):
     _write_readme(workspace, "Gate8 resume fixture.\n")
-    store = SessionStore(workspace / ".pico" / "sessions")
-    first = Pico(
+    store = SessionStore(workspace / ".teddycode" / "sessions")
+    first = TeddyCode(
         model_client=ScriptedModelClient(
             [
                 '<tool>{"name":"todo_add","args":{"content":"Resume continuation","status":"in_progress","priority":"high"}}</tool>',
@@ -264,7 +264,7 @@ def _scenario_resume_continuation(output_dir, workspace):
         max_steps=3,
     )
     first_answer = first.ask("Start a resumable task")
-    resumed = Pico.from_session(
+    resumed = TeddyCode.from_session(
         model_client=ScriptedModelClient(
             [
                 '<tool name="write_file" path="notes/resume.txt"><content>continued\n</content></tool>',
@@ -297,8 +297,8 @@ def _scenario_resume_continuation(output_dir, workspace):
 
 def _scenario_security_rejection(output_dir, workspace):
     _write_readme(workspace, "Gate8 security fixture.\n")
-    old_secret = os.environ.get("PICO_ACCEPTANCE_SECRET")
-    os.environ["PICO_ACCEPTANCE_SECRET"] = "pico-secret-value-123"
+    old_secret = os.environ.get("TEDDYCODE_ACCEPTANCE_SECRET")
+    os.environ["TEDDYCODE_ACCEPTANCE_SECRET"] = "teddycode-secret-value-123"
     agent = _build_agent(
         workspace,
         [
@@ -306,7 +306,7 @@ def _scenario_security_rejection(output_dir, workspace):
             '<tool>{"name":"agent","args":{"description":"Bad scoped write","prompt":"Write outside scope","subagent_type":"worker","write_scope":["allowed"]}}</tool>',
             '<tool name="write_file" path="blocked/out.txt"><content>nope\n</content></tool>',
             "<final>Blocked scoped write.</final>",
-            '<tool>{"name":"run_shell","args":{"command":"echo $PICO_ACCEPTANCE_SECRET","timeout":5}}</tool>',
+            '<tool>{"name":"run_shell","args":{"command":"echo $TEDDYCODE_ACCEPTANCE_SECRET","timeout":5}}</tool>',
             "<final>Path escape blocked.</final>",
         ],
         max_steps=5,
@@ -327,14 +327,14 @@ def _scenario_security_rejection(output_dir, workspace):
                 _check("write_scope_blocked", "write_scope_mismatch" in worker_error_codes),
                 _check("no_outside_file", not (output_dir / "outside.txt").exists()),
                 _check("no_blocked_write", not (workspace / "blocked" / "out.txt").exists()),
-                _check("secret_redacted", "pico-secret-value-123" not in trace_text),
+                _check("secret_redacted", "teddycode-secret-value-123" not in trace_text),
             ],
         )
     finally:
         if old_secret is None:
-            os.environ.pop("PICO_ACCEPTANCE_SECRET", None)
+            os.environ.pop("TEDDYCODE_ACCEPTANCE_SECRET", None)
         else:
-            os.environ["PICO_ACCEPTANCE_SECRET"] = old_secret
+            os.environ["TEDDYCODE_ACCEPTANCE_SECRET"] = old_secret
 
 
 def _scenario_context_pressure(output_dir, workspace):
@@ -375,7 +375,7 @@ def _scenario_context_pressure(output_dir, workspace):
 
 def _scenario_provider_error_recovery(output_dir, workspace):
     _write_readme(workspace, "Gate9 provider reliability fixture.\n")
-    agent = Pico(
+    agent = TeddyCode(
         model_client=ScriptedModelClient(
             [
                 ProviderError(
@@ -393,7 +393,7 @@ def _scenario_provider_error_recovery(output_dir, workspace):
             ]
         ),
         workspace=_scenario_workspace(workspace),
-        session_store=SessionStore(workspace / ".pico" / "sessions"),
+        session_store=SessionStore(workspace / ".teddycode" / "sessions"),
         approval_policy="auto",
         max_steps=2,
     )
@@ -441,14 +441,14 @@ def _scenario_live_provider_smoke(output_dir, workspace, include_live=None):
         )
     else:
         return _skipped_record(output_dir, workspace, "live_provider_smoke", f"unsupported protocol {config.protocol}")
-    agent = Pico(
+    agent = TeddyCode(
         model_client=model_client,
         workspace=_scenario_workspace(workspace),
-        session_store=SessionStore(workspace / ".pico" / "sessions"),
+        session_store=SessionStore(workspace / ".teddycode" / "sessions"),
         approval_policy="never",
         max_steps=1,
         max_new_tokens=64,
-        secret_env_names=["PICO_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "DEEPSEEK_API_KEY"],
+        secret_env_names=["TEDDYCODE_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "DEEPSEEK_API_KEY"],
     )
     answer = agent.ask("Return exactly this final answer and do not use tools: <final>live provider smoke ok</final>")
     return _finalize(
@@ -465,10 +465,10 @@ def _scenario_live_provider_smoke(output_dir, workspace, include_live=None):
 
 def _build_agent(workspace, outputs, max_steps=6):
     workspace_context = _scenario_workspace(workspace)
-    return Pico(
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs),
         workspace=workspace_context,
-        session_store=SessionStore(workspace / ".pico" / "sessions"),
+        session_store=SessionStore(workspace / ".teddycode" / "sessions"),
         approval_policy="auto",
         max_steps=max_steps,
     )
@@ -546,7 +546,7 @@ def _remove_tree(path):
 
 
 def build_arg_parser():
-    parser = argparse.ArgumentParser(description="Run Pico Gate8 deterministic real-session acceptance scenarios.")
+    parser = argparse.ArgumentParser(description="Run TeddyCode Gate8 deterministic real-session acceptance scenarios.")
     parser.add_argument("--output-dir", default="artifacts/gate8-real-session-acceptance", help="Directory for workspaces and summary artifacts.")
     parser.add_argument("--live-provider", action="store_true", help=f"Enable optional live provider smoke. Also enabled by {LIVE_ENV_FLAG}=1.")
     return parser

@@ -1,6 +1,6 @@
 # Skills
 
-Skill 是一段写在 markdown 文件里的可复用 prompt，可以通过 `/skill-name [args]` 调用。pico 把它展开成一次普通 session 请求，沿用同一套工具、审批和事件链路。
+Skill 是一段写在 markdown 文件里的可复用 prompt，可以通过 `/skill-name [args]` 调用。teddycode 把它展开成一次普通 session 请求，沿用同一套工具、审批和事件链路。
 
 ## 内置 skill
 
@@ -10,7 +10,7 @@ Skill 是一段写在 markdown 文件里的可复用 prompt，可以通过 `/ski
 - `/simplify` — 找代码冗余并修
 
 ```bash
-pico
+teddycode
 > /review
 ↳ Bash(git diff) ✓
 代码审查：3 处可简化，1 处有遗漏的错误处理...
@@ -20,13 +20,13 @@ pico
 
 后加载的同名 skill 覆盖前面的：
 
-1. **内置 skill** — pico 自带
-2. **用户 skill** — `~/.pico/skills/<name>/SKILL.md`
-3. **项目 skill** — `<repo>/skills/<name>/SKILL.md` 或 `<repo>/.pico/skills/<name>/SKILL.md`
+1. **内置 skill** — teddycode 自带
+2. **用户 skill** — `~/.teddycode/skills/<name>/SKILL.md`
+3. **项目 skill** — `<repo>/skills/<name>/SKILL.md` 或 `<repo>/.teddycode/skills/<name>/SKILL.md`
 
 ## 自定义一个 skill
 
-最小例子，新建 `~/.pico/skills/deploy/SKILL.md`：
+最小例子，新建 `~/.teddycode/skills/deploy/SKILL.md`：
 
 ```markdown
 ---
@@ -49,7 +49,7 @@ allowed-tools: read_file, search
 > /deploy staging
 ```
 
-`$ARGUMENTS` 会被替换为 `staging`。`${PICO_SKILL_DIR}` 会被替换为 skill 文件所在目录的绝对路径。
+`$ARGUMENTS` 会被替换为 `staging`。`${TEDDYCODE_SKILL_DIR}` 会被替换为 skill 文件所在目录的绝对路径。
 
 ## Frontmatter
 
@@ -92,4 +92,4 @@ paths: src/**/*.py, !src/legacy/**
 
 - `/skills` 列出所有可用 skill 和加载来源
 - skill 执行时，事件流里会有 `skill_invoked` / `skill_finished`
-- 用 `disable-model-invocation: true` 配合 `pico --tui` 可以在不发请求的情况下预览 skill 展开后的 prompt
+- 用 `disable-model-invocation: true` 配合 `teddycode --tui` 可以在不发请求的情况下预览 skill 展开后的 prompt

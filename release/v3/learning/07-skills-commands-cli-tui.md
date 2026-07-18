@@ -1,28 +1,28 @@
-# Skills、命令、CLI 和 TUI：人怎么驱动 Pico
+# Skills、命令、CLI 和 TUI：人怎么驱动 TeddyCode
 
-Pico 的交互层分两条线。CLI/REPL/TUI 负责把人的输入送进 runtime，skills 和 slash commands 负责把常见行为变成可触发的工作流。它们都不是主循环本身，但会直接影响模型看到什么、能做什么。
+TeddyCode 的交互层分两条线。CLI/REPL/TUI 负责把人的输入送进 runtime，skills 和 slash commands 负责把常见行为变成可触发的工作流。它们都不是主循环本身，但会直接影响模型看到什么、能做什么。
 
-![人如何驱动 Pico](assets/07-skills-commands-cli-tui.png)
+![人如何驱动 TeddyCode](assets/07-skills-commands-cli-tui.png)
 
 ## CLI 是启动装配层
 
-`pico/cli.py` 做三件事：
+`teddycode/cli.py` 做三件事：
 
 1. 解析参数。
 2. 解析 provider、sandbox、secret env、session resume、memory dir。
-3. 调 `build_agent()` 装配出 `Pico`。
+3. 调 `build_agent()` 装配出 `TeddyCode`。
 
 然后根据 `interaction_mode()` 选择：
 
 - one-shot：把 prompt 直接交给 `agent.ask()`。
 - plain REPL：循环读 input。
-- TUI：启动 `PicoTuiApp`。
+- TUI：启动 `TeddyCodeTuiApp`。
 
 这个边界很清楚。CLI 不直接实现 agent loop，它只负责把启动参数翻译成 runtime 对象图。
 
 ## Slash commands 是本地控制命令
 
-`pico/commands/slash.py` 定义命令元信息，`handle_repl_command()` 执行具体行为。常用命令包括：
+`teddycode/commands/slash.py` 定义命令元信息，`handle_repl_command()` 执行具体行为。常用命令包括：
 
 - `/memory`
 - `/working-memory`
@@ -45,11 +45,11 @@ Pico 的交互层分两条线。CLI/REPL/TUI 负责把人的输入送进 runtime
 
 ## Skills 是 prompt-driven 工作流
 
-`pico/features/skills.py` 的 skill loader 会从三类路径加载：
+`teddycode/features/skills.py` 的 skill loader 会从三类路径加载：
 
-- `~/.pico/skills`
+- `~/.teddycode/skills`
 - 项目 `skills/`
-- 项目 `.pico/skills/`
+- 项目 `.teddycode/skills/`
 
 内置技能来自 `features/skills_bundled.py`。外部 skill 用 Markdown frontmatter：
 
@@ -63,7 +63,7 @@ user-invocable: true
 Audit $ARGUMENTS for risky changes.
 ```
 
-Pico 支持的 metadata 更丰富，包括 context、allowed_tools、argument_hint、disable_model_invocation、model、paths 等。当前核心路径仍然是 prompt-driven：skill 被选中后变成 prompt 指令，告诉模型如何组合已有工具。
+TeddyCode 支持的 metadata 更丰富，包括 context、allowed_tools、argument_hint、disable_model_invocation、model、paths 等。当前核心路径仍然是 prompt-driven：skill 被选中后变成 prompt 指令，告诉模型如何组合已有工具。
 
 这点和常见的 skill 文档机制很接近。Skill 不给 Agent 新工具，它告诉 Agent 怎样用已有工具完成一类任务。
 
@@ -77,15 +77,15 @@ Available skills:
 - /test: ...
 ```
 
-Pico 的默认策略是先暴露可用入口，不把所有 skill 正文都塞进 prompt。具体 skill 执行在 `features/skills_runtime.py`，由 slash command `/skill <name> [args]` 或直接 `/skill-name` 路径触发。
+TeddyCode 的默认策略是先暴露可用入口，不把所有 skill 正文都塞进 prompt。具体 skill 执行在 `features/skills_runtime.py`，由 slash command `/skill <name> [args]` 或直接 `/skill-name` 路径触发。
 
 Claude Code 在这层更成熟。它有 `SkillTool`、`loadSkillsDir.ts`、bundled skills、dynamic skill discovery prefetch、plugins 贡献 skills，以及更明确的 progressive disclosure。也就是启动时不把所有正文塞进去，模型或用户需要时再展开。
 
-Pico 目前已经有 progressive disclosure 的雏形，但还没有做到 Claude Code 那种技能发现、工具执行、插件系统、动态目录触发的一整套闭环。
+TeddyCode 目前已经有 progressive disclosure 的雏形，但还没有做到 Claude Code 那种技能发现、工具执行、插件系统、动态目录触发的一整套闭环。
 
 ## TUI 是 presentation layer
 
-`pico/tui/app.py` 用 Textual 包了一层 UI。它不重新实现运行时，而是调用同一个 `agent.engine.run_turn()` generator。运行时事件会被映射成：
+`teddycode/tui/app.py` 用 Textual 包了一层 UI。它不重新实现运行时，而是调用同一个 `agent.engine.run_turn()` generator。运行时事件会被映射成：
 
 - model requested -> thinking detail
 - model parsed -> thinking detail
@@ -100,9 +100,9 @@ Pico 目前已经有 progressive disclosure 的雏形，但还没有做到 Claud
 
 Claude Code 的交互层是 React/Ink，加上 bridge、remote、desktop handoff、voice、vim mode、MCP 管理、plugin UI 等。`commands.ts` 管大量 slash command，`components/` 管完整终端 UI，`bridge/` 管 IDE 和远程会话。
 
-Pico 当前范围小很多：
+TeddyCode 当前范围小很多：
 
-| 维度 | Pico | Claude Code |
+| 维度 | TeddyCode | Claude Code |
 | --- | --- | --- |
 | CLI | argparse + one-shot/REPL/TUI | Commander.js + React/Ink + SDK/headless |
 | 命令 | 小型 slash registry | 约几十个命令，覆盖配置、MCP、review、commit、memory、remote |
@@ -112,7 +112,7 @@ Pico 当前范围小很多：
 
 ## 当前取舍
 
-Pico 的交互层应该保持轻。它要展示本地 harness 的关键反馈：当前模型、approval、工具调用、工具结果、worker notification、context usage、session 状态。
+TeddyCode 的交互层应该保持轻。它要展示本地 harness 的关键反馈：当前模型、approval、工具调用、工具结果、worker notification、context usage、session 状态。
 
 后续如果补强 skills，优先做两件事：一是 skill 正文按需展开，而不是只列入口；二是 skill metadata 和 tool profile 绑定，比如某些 skill 只能用只读工具，某些 skill 可以开 worker。这样 skills 才会从 prompt 文档变成可治理的 workflow。
 
@@ -120,7 +120,7 @@ Pico 的交互层应该保持轻。它要展示本地 harness 的关键反馈：
 
 CLI、slash command、skill、TUI 看起来像产品外壳，但在 agent 系统里，它们会直接改变 runtime 行为。入口层如果设计不好，模型会拿不到正确上下文，用户也不知道系统处在什么状态。
 
-Pico v3 的入口层可以分成四类：
+TeddyCode v3 的入口层可以分成四类：
 
 ```text
 CLI: 启动和配置装配
@@ -131,7 +131,7 @@ TUI: runtime event presentation and callbacks
 
 ### CLI 是 object graph assembler
 
-`pico/cli.py` 不应该实现 agent loop。它的职责是把用户启动参数翻译成 runtime object graph：
+`teddycode/cli.py` 不应该实现 agent loop。它的职责是把用户启动参数翻译成 runtime object graph：
 
 - provider config
 - sandbox config
@@ -147,7 +147,7 @@ TUI: runtime event presentation and callbacks
 
 ### slash command 分两类
 
-Pico 的 slash command 不是都给模型看的。它们可以分成两类：
+TeddyCode 的 slash command 不是都给模型看的。它们可以分成两类：
 
 | 类型 | 例子 | 行为 |
 | --- | --- | --- |
@@ -167,7 +167,7 @@ Skill 的设计重点不是“能不能加载 Markdown”，而是：
 - metadata 能限制工具面、模型、paths、context 模式。
 - skill invocation 应该进入 trace 或 session event，方便复盘。
 
-Pico 现在已有 progressive disclosure 的雏形：prompt section 先列技能入口，具体 skill 由 runtime invoke 展开。下一步应该把 `allowed-tools` 和 tool profile 接起来，让 skill 不只是提示词，而是可治理 workflow。
+TeddyCode 现在已有 progressive disclosure 的雏形：prompt section 先列技能入口，具体 skill 由 runtime invoke 展开。下一步应该把 `allowed-tools` 和 tool profile 接起来，让 skill 不只是提示词，而是可治理 workflow。
 
 ### TUI 必须消费 runtime events
 
@@ -195,7 +195,7 @@ TUI 的关键原则是：UI 不做 runtime 决策。
 - context visualization。
 - cost/usage display。
 
-Pico 不需要一次性复制这些，但可以学习一个原则：所有入口最终都应该落到同一个 runtime event contract。CLI 打印、TUI 渲染、report 生成、测试断言都消费同一条事件流。
+TeddyCode 不需要一次性复制这些，但可以学习一个原则：所有入口最终都应该落到同一个 runtime event contract。CLI 打印、TUI 渲染、report 生成、测试断言都消费同一条事件流。
 
 ### 失败模式和防线
 

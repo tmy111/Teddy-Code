@@ -18,7 +18,7 @@
 
 ### Features
 
-- Textual TUI 界面 - `pico-tui` 命令启动 (`7fd5654`)
+- Textual TUI 界面 - `teddycode-tui` 命令启动 (`7fd5654`)
 - Skills / slash workflow 系统 - 可扩展的技能注册 (`4267888`, `a56b871`)
 - File-based memory + auto-dream - 后台整理会话记忆 (`92a2de3`, `ff93384`)
 - Task ledger 工具 - 结构化任务追踪 (`461702d`)

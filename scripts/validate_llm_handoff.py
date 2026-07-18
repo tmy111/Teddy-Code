@@ -12,10 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pico import Pico, SessionStore, WorkspaceContext
-from pico.core.context_budget_summary import context_budget_summary
-from pico.core.context_manager import ContextManager
-from pico.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode.core.context_budget_summary import context_budget_summary
+from teddycode.core.context_manager import ContextManager
+from teddycode.testing import ScriptedModelClient
 
 
 HANDOFF_LLM_OUTPUT = """## Goal
@@ -284,10 +284,10 @@ def _build_agent(tmp_path, responses, *, context_window):
         "provider_model": "test-model",
         "provider_base_url": "http://localhost",
     }
-    return Pico(
+    return TeddyCode(
         model_client=client,
         workspace=WorkspaceContext.build(tmp_path),
-        session_store=SessionStore(tmp_path / ".pico" / "sessions"),
+        session_store=SessionStore(tmp_path / ".teddycode" / "sessions"),
         approval_policy="auto",
     )
 
@@ -347,7 +347,7 @@ def _events(agent, event_name):
 def _tmp_path(tmp_path):
     if tmp_path is not None:
         return Path(tmp_path)
-    return Path(tempfile.mkdtemp(prefix="pico-llm-handoff-"))
+    return Path(tempfile.mkdtemp(prefix="teddycode-llm-handoff-"))
 
 
 if __name__ == "__main__":

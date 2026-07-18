@@ -1,8 +1,8 @@
-# Pico v3 真人场景测试包
+# TeddyCode v3 真人场景测试包
 
-这个目录把 Pico v3 相对 `main` 的真人使用场景测试整理成一个可以复盘、重跑、继续扩展的测试包。
+这个目录把 TeddyCode v3 相对 `main` 的真人使用场景测试整理成一个可以复盘、重跑、继续扩展的测试包。
 
-它不是单元测试说明，也不是 pytest 清单。它记录的是：像真实用户一样从 `uv run pico`、`--repl`、slash command、resume、provider profile、skills、worker、memory 等入口使用 Pico，然后只读检查 `.pico/runs` 和 `.pico/sessions` 产物。
+它不是单元测试说明，也不是 pytest 清单。它记录的是：像真实用户一样从 `uv run teddycode`、`--repl`、slash command、resume、provider profile、skills、worker、memory 等入口使用 TeddyCode，然后只读检查 `.teddycode/runs` 和 `.teddycode/sessions` 产物。
 
 ## 目录结构
 
@@ -18,7 +18,7 @@
 | 路径 | 说明 |
 |---|---|
 | `scripts/run_v3_human_scenario_gate.py` | 真实 CLI/REPL 场景 runner |
-| `pico/evaluation/run_evidence.py` | 从真实 `.pico/runs`、`.pico/sessions` 读取证据 |
+| `teddycode/evaluation/run_evidence.py` | 从真实 `.teddycode/runs`、`.teddycode/sessions` 读取证据 |
 | `tests/test_run_evidence.py` | evidence adapter 的回归测试 |
 | `tests/test_tool_policy_acceptance.py` | 重复工具调用、read-before-write 等产品回归 |
 | `tests/test_permissions_acceptance.py` | plan mode 和 permission gate 产品回归 |
@@ -29,7 +29,7 @@
 
 ```text
 uv run python scripts/run_v3_human_scenario_gate.py --suite full
-{"failed": 0, "output_dir": "/private/tmp/pico-v3-human-scenarios/20260513-170838", "passed": 50, "status": "passed"}
+{"failed": 0, "output_dir": "/private/tmp/teddycode-v3-human-scenarios/20260513-170838", "passed": 50, "status": "passed"}
 ```
 
 代码验证：
@@ -62,10 +62,10 @@ uv run python scripts/run_v3_human_scenario_gate.py --suite full
 uv run python scripts/run_v3_human_scenario_gate.py --suite full --scenario S21 --scenario S23
 ```
 
-指定输出目录时必须放在 Pico repo 外：
+指定输出目录时必须放在 TeddyCode repo 外：
 
 ```bash
-uv run python scripts/run_v3_human_scenario_gate.py --suite full --output-dir /tmp/pico-v3-human-scenarios/manual-run
+uv run python scripts/run_v3_human_scenario_gate.py --suite full --output-dir /tmp/teddycode-v3-human-scenarios/manual-run
 ```
 
 ## 复盘顺序
@@ -77,8 +77,8 @@ uv run python scripts/run_v3_human_scenario_gate.py --suite full --output-dir /t
 
 ## 关键原则
 
-- 场景必须从用户入口驱动 Pico，不能 import `Pico` 直接调 runtime。
-- 验证器可以读文件，但只能读 Pico 自己写出的 artifacts 和 scenario workspace。
-- 输出目录必须在 repo 外，避免 Pico 向上发现真实 repo root。
-- live provider 默认用 DeepSeek，配置来自项目 `.pico.toml`，不把 key 写进文档或产物。
+- 场景必须从用户入口驱动 TeddyCode，不能 import `TeddyCode` 直接调 runtime。
+- 验证器可以读文件，但只能读 TeddyCode 自己写出的 artifacts 和 scenario workspace。
+- 输出目录必须在 repo 外，避免 TeddyCode 向上发现真实 repo root。
+- live provider 默认用 DeepSeek，配置来自项目 `.teddycode.toml`，不把 key 写进文档或产物。
 - 发现产品问题时先修产品，再补 narrow regression；不要通过放宽场景断言掩盖问题。

@@ -1,12 +1,12 @@
 # Session、Run 和 Evaluation：系统怎么恢复、复盘和证明
 
-Pico 的证据层有三个层次：session 让系统能继续工作，run artifacts 让一次请求能被复盘，evaluation 让版本之间能比较。没有这三层，agent 项目很容易变成演示能跑、出了问题说不清。
+TeddyCode 的证据层有三个层次：session 让系统能继续工作，run artifacts 让一次请求能被复盘，evaluation 让版本之间能比较。没有这三层，agent 项目很容易变成演示能跑、出了问题说不清。
 
 ![恢复、复盘和证明](assets/08-session-run-evaluation.png)
 
 ## SessionStore 管可恢复会话
 
-`pico/core/session_store.py` 负责 `.pico/sessions/<id>.json` 和 `.events.jsonl` 路径。session JSON 保存的是会话级状态：
+`teddycode/core/session_store.py` 负责 `.teddycode/sessions/<id>.json` 和 `.events.jsonl` 路径。session JSON 保存的是会话级状态：
 
 - history
 - memory
@@ -18,7 +18,7 @@ Pico 的证据层有三个层次：session 让系统能继续工作，run artifa
 
 `latest()`、`list_sessions()`、`load()`、`save()` 支持 `/resume` 和 `/history`。写入用临时文件加 `os.replace()`，避免留下半截 JSON。
 
-Claude Code 对这层更激进。它会在用户消息进入 query loop 前先写 transcript，防止进程在 API 返回前被杀时无法 resume。Pico 目前也有 session 和 event 文件，但中途持久化策略没有 Claude Code 那么细。
+Claude Code 对这层更激进。它会在用户消息进入 query loop 前先写 transcript，防止进程在 API 返回前被杀时无法 resume。TeddyCode 目前也有 session 和 event 文件，但中途持久化策略没有 Claude Code 那么细。
 
 ## SessionEventBus 管事件流
 
@@ -38,10 +38,10 @@ Runtime 会把 session 事件写到 `.events.jsonl`。这些事件包括：
 
 ## RunStore 管单次请求工件
 
-`pico/core/run_store.py` 每次 `ask()` 开一个 run 目录：
+`teddycode/core/run_store.py` 每次 `ask()` 开一个 run 目录：
 
 ```text
-.pico/runs/<run_id>/
+.teddycode/runs/<run_id>/
   task_state.json
   trace.jsonl
   report.json
@@ -58,7 +58,7 @@ Runtime 会把 session 事件写到 `.events.jsonl`。这些事件包括：
 
 ## TaskState 是运行状态机
 
-`pico/core/task_state.py` 记录：
+`teddycode/core/task_state.py` 记录：
 
 - `run_id`
 - `task_id`
@@ -81,7 +81,7 @@ Runtime 会把 session 事件写到 `.events.jsonl`。这些事件包括：
 
 ## Evaluation 是 deterministic harness
 
-`pico/evaluation/evaluator.py` 用固定 benchmark、fixture repo 和 `ScriptedModelClient` 跑 deterministic 任务。它验证 runtime 行为是否稳定，不把模型能力混进来。
+`teddycode/evaluation/evaluator.py` 用固定 benchmark、fixture repo 和 `ScriptedModelClient` 跑 deterministic 任务。它验证 runtime 行为是否稳定，不把模型能力混进来。
 
 benchmark task 包含：
 
@@ -96,7 +96,7 @@ benchmark task 包含：
 
 `ScriptedModelClient` 让模型输出固定 `<tool>` 和 `<final>`，从而把测试焦点放在 runtime、工具策略、权限、记忆、checkpoint 和 report 上。
 
-`metrics.py` 再从 benchmark artifact 和 `.pico/runs/` 聚合：
+`metrics.py` 再从 benchmark artifact 和 `.teddycode/runs/` 聚合：
 
 - pass rate
 - tool steps
@@ -114,9 +114,9 @@ benchmark task 包含：
 
 Claude Code 的证据层更接近产品观测系统。它有 transcript、SDK messages、cost tracker、usage、token budget、telemetry、feature flags、query profiling、compact boundary、remote session 事件、tool progress messages。
 
-Pico 的证据层更适合本地 harness：
+TeddyCode 的证据层更适合本地 harness：
 
-| 维度 | Pico | Claude Code |
+| 维度 | TeddyCode | Claude Code |
 | --- | --- | --- |
 | 会话恢复 | session JSON + events JSONL | transcript + session storage + SDK message adapter |
 | 单次 run | task_state / trace / report | query events、tool progress、usage、telemetry |
@@ -126,7 +126,7 @@ Pico 的证据层更适合本地 harness：
 
 ## 当前取舍
 
-Pico 已经有很清楚的本地证据链。它可以回答三类问题：这次任务为什么停下，哪个工具改了什么，某个 runtime 改动有没有破坏固定 benchmark。
+TeddyCode 已经有很清楚的本地证据链。它可以回答三类问题：这次任务为什么停下，哪个工具改了什么，某个 runtime 改动有没有破坏固定 benchmark。
 
 下一步可以补两件更像成熟系统的能力：一是把 run artifacts 和 session transcript 的恢复语义再打通，让中断恢复更稳；二是给模型/provider 变更建立 release checklist，把 benchmark、metrics、provider metadata 和 failure category 串成固定检查流程。
 
@@ -143,7 +143,7 @@ Agent 项目最容易出现的假象是“看起来跑完了”。真正的 harn
 - 停下后能不能恢复。
 - 这个版本是否比上个版本更稳定。
 
-Pico v3 的 session/run/evaluation 三层就是为这些问题服务。
+TeddyCode v3 的 session/run/evaluation 三层就是为这些问题服务。
 
 ### Session 和 Run 的区别
 
@@ -221,20 +221,20 @@ run
 
 pytest 验证函数和合同。Evaluation 验证 agent 行为。
 
-Pico 的 `ScriptedModelClient` 很关键，因为它让测试可以控制模型输出，从而验证 runtime：
+TeddyCode 的 `ScriptedModelClient` 很关键，因为它让测试可以控制模型输出，从而验证 runtime：
 
 - 模型要求读文件时，工具是否执行。
 - 模型重复调用时，guard 是否生效。
 - 模型 malformed 时，retry 是否生效。
 - 模型 final 后，report 是否写入。
 
-Human scenario gate 则补上另一层：从真实 CLI/REPL/provider 路径驱动 Pico，再读 artifacts 做验收。它证明系统不是只在 import-level 单测里工作。
+Human scenario gate 则补上另一层：从真实 CLI/REPL/provider 路径驱动 TeddyCode，再读 artifacts 做验收。它证明系统不是只在 import-level 单测里工作。
 
 ### 与托管 agent 生命周期的对应
 
 Managed Agents 把 session、event stream、outcomes、memory store、dream lifecycle 都做成 API 资源。这说明 agent 的“运行过程”本身就是产品对象。
 
-Pico 是本地项目，但也应该保留同样的观念：
+TeddyCode 是本地项目，但也应该保留同样的观念：
 
 - session 是资源。
 - run 是资源。
@@ -242,7 +242,7 @@ Pico 是本地项目，但也应该保留同样的观念：
 - dream/report/evaluation 是资源。
 - status 和 error 要可查询。
 
-这也是为什么 `.pico/runs` 和 `.pico/sessions` 不只是 debug 文件夹，而是系统证据层。
+这也是为什么 `.teddycode/runs` 和 `.teddycode/sessions` 不只是 debug 文件夹，而是系统证据层。
 
 ### 失败模式和防线
 

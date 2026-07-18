@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run business-shaped Pico dogfood scenarios against a real provider."""
+"""Run business-shaped TeddyCode dogfood scenarios against a real provider."""
 
 from __future__ import annotations
 
@@ -13,10 +13,10 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pico import Pico, SessionStore, WorkspaceContext  # noqa: E402
-from pico.config import resolve_provider_config  # noqa: E402
-from pico.features.skills_runtime import invoke_skill  # noqa: E402
-from pico.providers import AnthropicCompatibleModelClient, OpenAICompatibleModelClient  # noqa: E402
+from teddycode import TeddyCode, SessionStore, WorkspaceContext  # noqa: E402
+from teddycode.config import resolve_provider_config  # noqa: E402
+from teddycode.features.skills_runtime import invoke_skill  # noqa: E402
+from teddycode.providers import AnthropicCompatibleModelClient, OpenAICompatibleModelClient  # noqa: E402
 
 SUMMARY_JSON = "business-scenario-dogfood.json"
 SUMMARY_MARKDOWN = "business-scenario-dogfood.md"
@@ -86,7 +86,7 @@ def run_dogfood(
 def render_markdown(summary):
     provider = summary.get("provider", {})
     lines = [
-        "# Pico Business Scenario Dogfood",
+        "# TeddyCode Business Scenario Dogfood",
         "",
         f"- status: `{summary['status']}`",
         f"- scenarios: `{summary['scenario_count']}`",
@@ -172,7 +172,7 @@ def _scenario_release_readiness_review(output_dir, workspace, client_factory, ma
     (workspace / "README.md").write_text("# Billing API\n\nRelease candidate for tenant billing.\n", encoding="utf-8")
     (workspace / ".env.example").write_text("DATABASE_URL=\nSTRIPE_API_KEY=\n", encoding="utf-8")
     (workspace / "deploy.md").write_text("- migrations applied\n- rollback owner assigned\n", encoding="utf-8")
-    skill_dir = workspace / ".pico" / "skills" / "release"
+    skill_dir = workspace / ".teddycode" / "skills" / "release"
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text(
         """---
@@ -227,8 +227,8 @@ def _scenario_incident_resume_fix(output_dir, workspace, client_factory, max_ste
         "    assert classify_latency(1500) == 'page'\n",
         encoding="utf-8",
     )
-    store = SessionStore(workspace / ".pico" / "sessions")
-    first = Pico(
+    store = SessionStore(workspace / ".teddycode" / "sessions")
+    first = TeddyCode(
         model_client=client_factory(),
         workspace=_scenario_workspace(workspace),
         session_store=store,
@@ -243,7 +243,7 @@ def _scenario_incident_resume_fix(output_dir, workspace, client_factory, max_ste
         "3) read_file src/incident_router.py start=1 end=80。"
         "4) final，说明已定位，等待恢复继续。不要改代码。"
     )
-    resumed = Pico.from_session(
+    resumed = TeddyCode.from_session(
         model_client=client_factory(),
         workspace=_scenario_workspace(workspace),
         session_store=store,
@@ -278,10 +278,10 @@ def _scenario_incident_resume_fix(output_dir, workspace, client_factory, max_ste
 
 
 def _build_agent(workspace, client_factory, max_steps=8, max_new_tokens=1024):
-    return Pico(
+    return TeddyCode(
         model_client=client_factory(),
         workspace=_scenario_workspace(workspace),
-        session_store=SessionStore(workspace / ".pico" / "sessions"),
+        session_store=SessionStore(workspace / ".teddycode" / "sessions"),
         approval_policy="auto",
         max_steps=max_steps,
         max_new_tokens=max_new_tokens,
@@ -302,7 +302,7 @@ def _build_client_factory(*, config_path=None, provider=None, model=None, base_u
         api_key=api_key,
     )
     if not config.api_key:
-        raise ValueError(f"provider {config.name!r} has no api key; configure .pico.toml or pass --api-key")
+        raise ValueError(f"provider {config.name!r} has no api key; configure .teddycode.toml or pass --api-key")
 
     def factory():
         if config.protocol == "openai":
@@ -401,14 +401,14 @@ def _remove_tree(path):
 
 
 def build_arg_parser():
-    parser = argparse.ArgumentParser(description="Run Pico business scenario dogfood against a real provider.")
-    parser.add_argument("--output-dir", default="/tmp/pico-business-scenario-dogfood", help="Directory for workspaces and summary artifacts.")
-    parser.add_argument("--config", default=None, help="Path to a Pico TOML config file.")
+    parser = argparse.ArgumentParser(description="Run TeddyCode business scenario dogfood against a real provider.")
+    parser.add_argument("--output-dir", default="/tmp/teddycode-business-scenario-dogfood", help="Directory for workspaces and summary artifacts.")
+    parser.add_argument("--config", default=None, help="Path to a TeddyCode TOML config file.")
     parser.add_argument("--provider", default=None, help="Provider profile to use.")
     parser.add_argument("--api-key", default=None, help="API key override for the selected provider profile.")
     parser.add_argument("--base-url", default=None, help="Base URL override for the selected provider profile.")
     parser.add_argument("--model", default=None, help="Model override for the selected provider profile.")
-    parser.add_argument("--max-steps", type=int, default=8, help="Max Pico steps per scenario turn.")
+    parser.add_argument("--max-steps", type=int, default=8, help="Max TeddyCode steps per scenario turn.")
     parser.add_argument("--max-new-tokens", type=int, default=1024, help="Max provider output tokens per model turn.")
     return parser
 

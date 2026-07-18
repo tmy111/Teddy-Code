@@ -1,6 +1,6 @@
 # Sandbox
 
-pico 的 `run_shell` 工具可以在 [bubblewrap](https://github.com/containers/bubblewrap) 沙盒里执行命令，把模型的影响范围控制在仓库目录里。
+teddycode 的 `run_shell` 工具可以在 [bubblewrap](https://github.com/containers/bubblewrap) 沙盒里执行命令，把模型的影响范围控制在仓库目录里。
 
 ## 三种模式
 
@@ -11,8 +11,8 @@ pico 的 `run_shell` 工具可以在 [bubblewrap](https://github.com/containers/
 | `required` | 必须有 bubblewrap，否则 `run_shell` 直接报错拒绝 |
 
 ```bash
-pico --sandbox best_effort
-pico --sandbox required
+teddycode --sandbox best_effort
+teddycode --sandbox required
 ```
 
 ## 安装 bubblewrap
@@ -33,7 +33,7 @@ sudo pacman -S bubblewrap          # Arch
 - **写** — 仅限仓库目录和系统 tmp
 - **网络** — 默认允许（如需关闭，参考下方 advanced）
 
-## 在 .pico.toml 里配置
+## 在 .teddycode.toml 里配置
 
 ```toml
 [sandbox]
@@ -63,6 +63,6 @@ deny_write = []            # 显式拒绝写入的路径
 
 ## 推荐配置
 
-- 在不熟悉的项目里跑 pico：`--sandbox best_effort --approval ask`
+- 在不熟悉的项目里跑 teddycode：`--sandbox best_effort --approval ask`
 - 在自己长期维护的项目：`--sandbox off --approval auto`
 - 跑 CI 或自动化场景：`--sandbox required --approval never`

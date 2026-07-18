@@ -1,4 +1,4 @@
-# Pico v3 release pack
+# TeddyCode v3 release pack
 
 This folder keeps the v3 release material in one place. Project-facing docs stay
 in `docs/`; release evidence, review notes, and learning notes live here.
@@ -19,5 +19,5 @@ in `docs/`; release evidence, review notes, and learning notes live here.
 2. Read `TESTING.md` for the acceptance result and rerun path.
 3. Use `REVIEW.md` for architecture review and replay evidence.
 4. Use `learning/00-reading-map.md` when preparing a deeper walkthrough.
-5. Use `learning/10-module-learning-guide.md` to study why each Pico module exists.
+5. Use `learning/10-module-learning-guide.md` to study why each TeddyCode module exists.
 6. Use `learning/11-dream-memory-consolidation.md` for the background memory consolidation design.

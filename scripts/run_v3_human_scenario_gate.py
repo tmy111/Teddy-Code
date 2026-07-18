@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Run the prioritized Pico v3 human-scenario gate.
+"""Run the prioritized TeddyCode v3 human-scenario gate.
 
-The runner intentionally drives Pico through its public CLI entrypoint. It does
-not import the Pico runtime; verification reads only the files Pico writes.
+The runner intentionally drives TeddyCode through its public CLI entrypoint. It does
+not import the TeddyCode runtime; verification reads only the files TeddyCode writes.
 """
 
 from __future__ import annotations
@@ -21,11 +21,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from pico.evaluation.run_evidence import RunEvidence
+from teddycode.evaluation.run_evidence import RunEvidence
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CONFIG = ROOT / ".pico.toml"
+DEFAULT_CONFIG = ROOT / ".teddycode.toml"
 SUMMARY_JSON = "summary.json"
 SUMMARY_MD = "summary.md"
 
@@ -58,10 +58,10 @@ class HumanScenarioRunner:
     def __init__(self, args: argparse.Namespace):
         self.args = args
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.output_dir = Path(args.output_dir or Path("/tmp") / "pico-v3-human-scenarios" / stamp).resolve()
+        self.output_dir = Path(args.output_dir or Path("/tmp") / "teddycode-v3-human-scenarios" / stamp).resolve()
         if _is_relative_to(self.output_dir, ROOT):
             raise ValueError(
-                "output-dir must be outside the Pico repo; otherwise Pico discovers "
+                "output-dir must be outside the TeddyCode repo; otherwise TeddyCode discovers "
                 "the parent git root and the scenario no longer runs in an isolated workspace"
             )
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -173,7 +173,7 @@ class HumanScenarioRunner:
             "3) run_shell `uv run --with pytest python -m pytest -q`。"
             "4) 测试 passed 后 final。不要改其他文件。"
         )
-        command = self.run_pico("R01", workspace, prompt=prompt, max_steps=10, max_new_tokens=2048, timeout=420)
+        command = self.run_teddycode("R01", workspace, prompt=prompt, max_steps=10, max_new_tokens=2048, timeout=420)
         checks = [
             check("command_exit_0", command.returncode == 0),
             check("students_py_exists", (workspace / "students.py").is_file()),
@@ -210,7 +210,7 @@ class HumanScenarioRunner:
             "4) run_shell `uv run --with pytest python -m pytest -q`。"
             "5) 测试 passed 后 final。不要改其他文件。"
         )
-        command = self.run_pico("R02", workspace, prompt=prompt, max_steps=9, max_new_tokens=1536, timeout=420)
+        command = self.run_teddycode("R02", workspace, prompt=prompt, max_steps=9, max_new_tokens=1536, timeout=420)
         checks = [
             check("command_exit_0", command.returncode == 0),
             check("pricing_fixed", "subtotal - discount + tax" in (src / "order_pricing.py").read_text(encoding="utf-8")),
@@ -224,7 +224,7 @@ class HumanScenarioRunner:
         (workspace / "README.md").write_text("# Billing API\n\nRelease candidate.\n", encoding="utf-8")
         (workspace / ".env.example").write_text("DATABASE_URL=\nSTRIPE_API_KEY=\n", encoding="utf-8")
         (workspace / "deploy.md").write_text("- migrations applied\n- rollback owner assigned\n", encoding="utf-8")
-        skill_dir = workspace / ".pico" / "skills" / "release"
+        skill_dir = workspace / ".teddycode" / "skills" / "release"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
             """---
@@ -241,7 +241,7 @@ allowed-tools: read_file, write_file
 """,
             encoding="utf-8",
         )
-        command = self.run_pico("R03", workspace, repl_input="/release billing-api\n/exit\n", max_steps=8, max_new_tokens=1536, timeout=420)
+        command = self.run_teddycode("R03", workspace, repl_input="/release billing-api\n/exit\n", max_steps=8, max_new_tokens=1536, timeout=420)
         report = workspace / "reports" / "release-readiness.md"
         text = report.read_text(encoding="utf-8") if report.exists() else ""
         checks = [
@@ -280,7 +280,7 @@ allowed-tools: read_file, write_file
             "3) read_file src/incident_router.py start=1 end=80。"
             "4) final，说明已定位，等待恢复继续。不要改代码。"
         )
-        first = self.run_pico("R04-first", workspace, prompt=first_prompt, max_steps=6, max_new_tokens=1536, timeout=360)
+        first = self.run_teddycode("R04-first", workspace, prompt=first_prompt, max_steps=6, max_new_tokens=1536, timeout=360)
         first_session = self.latest_session_id(workspace)
         second_prompt = (
             "继续刚才的事故修复。严格按步骤执行，每次只返回一个 <tool> 或最后一个 <final>："
@@ -290,7 +290,7 @@ allowed-tools: read_file, write_file
             "3) todo_update todo_id='todo_1' status='done' note='threshold fixed and tests verified'。"
             "4) 测试 passed 后 final。不要改其他文件。"
         )
-        second = self.run_pico(
+        second = self.run_teddycode(
             "R04-resume",
             workspace,
             prompt=second_prompt,
@@ -321,7 +321,7 @@ allowed-tools: read_file, write_file
             "3) run_shell `uv run --with pytest python -m pytest -q`。"
             "4) 测试 passed 后 final。不要改其他文件。"
         )
-        command = self.run_pico(
+        command = self.run_teddycode(
             "R05",
             workspace,
             prompt=prompt,
@@ -342,7 +342,7 @@ allowed-tools: read_file, write_file
 
     def s07_repl_help(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s07")
-        command = self.run_pico("S07", workspace, repl_input="/help\n/exit\n", timeout=120)
+        command = self.run_teddycode("S07", workspace, repl_input="/help\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
         checks = [
             check("command_exit_0", command.returncode == 0),
@@ -354,21 +354,21 @@ allowed-tools: read_file, write_file
 
     def s06_tty_default_tui(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s06")
-        command = self.run_pico_tty_smoke("S06", workspace, timeout=6)
+        command = self.run_teddycode_tty_smoke("S06", workspace, timeout=6)
         stdout = self.read_log(command.stdout_path)
         stderr = self.read_log(command.stderr_path)
         checks = [
             check("tui_process_started", command.returncode in {0, -2, 130, 143, 124}, command.returncode),
             check("no_traceback", "Traceback" not in stdout + stderr),
-            check("mentions_pico_or_tui", "pico" in (stdout + stderr).lower() or "Textual" in stdout + stderr),
+            check("mentions_teddycode_or_tui", "teddycode" in (stdout + stderr).lower() or "Textual" in stdout + stderr),
         ]
         return self.result("S06", "TTY 默认进入 TUI", "PTY TUI smoke", workspace, [command], checks)
 
     def s08_prompt_one_shot(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s08")
-        (workspace / "README.md").write_text("# One shot\n\nPico one-shot fixture.\n", encoding="utf-8")
+        (workspace / "README.md").write_text("# One shot\n\nTeddyCode one-shot fixture.\n", encoding="utf-8")
         prompt = "请只读 README 并返回 final。先 read_file README.md start=1 end=20，然后 <final>one-shot ok</final>。"
-        command = self.run_pico("S08", workspace, prompt=prompt, max_steps=4, max_new_tokens=768, timeout=240)
+        command = self.run_teddycode("S08", workspace, prompt=prompt, max_steps=4, max_new_tokens=768, timeout=240)
         checks = [
             check("command_exit_0", command.returncode == 0),
             check("stdout_has_answer", "one-shot" in self.read_log(command.stdout_path).lower()),
@@ -379,7 +379,7 @@ allowed-tools: read_file, write_file
 
     def s09_piped_stdin_repl(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s09")
-        command = self.run_pico("S09", workspace, repl_input="/help\n/exit\n", timeout=120)
+        command = self.run_teddycode("S09", workspace, repl_input="/help\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
         checks = [
             check("command_exit_0", command.returncode == 0),
@@ -393,7 +393,7 @@ allowed-tools: read_file, write_file
         command = self.run_python(
             "S10",
             workspace,
-            "from pico.commands.slash import suggest_commands\n"
+            "from teddycode.commands.slash import suggest_commands\n"
             "items = suggest_commands('/sub')\n"
             "print(items[0].name if items else '')\n",
         )
@@ -406,7 +406,7 @@ allowed-tools: read_file, write_file
 
     def s11_session_status(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s11")
-        command = self.run_pico("S11", workspace, repl_input="/plan refactor-auth\n/session\n/exit\n", timeout=120)
+        command = self.run_teddycode("S11", workspace, repl_input="/plan refactor-auth\n/session\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
         checks = [
             check("command_exit_0", command.returncode == 0),
@@ -418,7 +418,7 @@ allowed-tools: read_file, write_file
 
     def s12_usage_metadata(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s12")
-        first = self.run_pico(
+        first = self.run_teddycode(
             "S12-task",
             workspace,
             prompt="不要调用工具，直接返回 <final>usage seed</final>。",
@@ -426,7 +426,7 @@ allowed-tools: read_file, write_file
             max_new_tokens=512,
             timeout=180,
         )
-        second = self.run_pico("S12-usage", workspace, repl_input="/usage\n/exit\n", extra=["--resume", "latest"], timeout=120)
+        second = self.run_teddycode("S12-usage", workspace, repl_input="/usage\n/exit\n", extra=["--resume", "latest"], timeout=120)
         stdout = self.read_log(second.stdout_path)
         checks = [
             check("task_exit_0", first.returncode == 0),
@@ -438,18 +438,18 @@ allowed-tools: read_file, write_file
 
     def s13_model_runtime_switch(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s13")
-        command = self.run_pico("S13", workspace, repl_input="/model gpt-test-local\n/model\n/exit\n", timeout=120)
+        command = self.run_teddycode("S13", workspace, repl_input="/model gpt-test-local\n/model\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
         checks = [
             check("command_exit_0", command.returncode == 0),
             check("model_switched", "model: gpt-test-local" in stdout),
-            check("no_workspace_config_written", not (workspace / ".pico.toml").exists()),
+            check("no_workspace_config_written", not (workspace / ".teddycode.toml").exists()),
         ]
         return self.result("S13", "/model 只改当前 runtime", "PTY REPL slash command", workspace, [command], checks)
 
     def s14_clear_new_session(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s14")
-        command = self.run_pico("S14", workspace, repl_input="/session\n/clear\n/session\n/exit\n", timeout=120)
+        command = self.run_teddycode("S14", workspace, repl_input="/session\n/clear\n/session\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
         session_ids = [line.split("session id:", 1)[1].strip() for line in stdout.splitlines() if "session id:" in line]
         checks = [
@@ -464,20 +464,20 @@ allowed-tools: read_file, write_file
         prompt = (
             "请验证 plan mode 写保护。你必须先返回这个工具调用，不要解释："
             "<tool name=\"write_file\" path=\"src/auth.py\"><content>print('no')\\n</content></tool>"
-            "如果被拒绝，再写 active plan artifact .pico/plans/auth-refactor-plan.md，内容为 # Plan。最后 final。"
+            "如果被拒绝，再写 active plan artifact .teddycode/plans/auth-refactor-plan.md，内容为 # Plan。最后 final。"
         )
         repl = f"/plan auth-refactor\n{prompt}\n/exit\n"
-        command = self.run_pico("S15", workspace, repl_input=repl, max_steps=5, max_new_tokens=1536, timeout=420)
+        command = self.run_teddycode("S15", workspace, repl_input=repl, max_steps=5, max_new_tokens=1536, timeout=420)
         commands = [command]
-        plan_path = workspace / ".pico" / "plans" / "auth-refactor-plan.md"
+        plan_path = workspace / ".teddycode" / "plans" / "auth-refactor-plan.md"
         if not plan_path.is_file():
             continue_prompt = (
                 "继续上一个 plan mode。不要再写 src/auth.py。"
-                "只调用一次 write_file，path 必须是 .pico/plans/auth-refactor-plan.md，"
+                "只调用一次 write_file，path 必须是 .teddycode/plans/auth-refactor-plan.md，"
                 "content 为 `# Plan\\n- Verified plan mode write guard.\\n`。然后 final。"
             )
             commands.append(
-                self.run_pico(
+                self.run_teddycode(
                     "S15-resume",
                     workspace,
                     prompt=continue_prompt,
@@ -501,11 +501,11 @@ allowed-tools: read_file, write_file
         workspace = self._fresh_workspace("s16")
         prompt = (
             "先只返回 <final>plan verbally complete</final>。如果 runtime 提醒不能 final，"
-            "再 write_file .pico/plans/cache-plan.md，内容为 # Cache Plan，然后 final。"
+            "再 write_file .teddycode/plans/cache-plan.md，内容为 # Cache Plan，然后 final。"
         )
-        command = self.run_pico("S16", workspace, repl_input=f"/plan cache\n{prompt}\n/exit\n", max_steps=5, max_new_tokens=1024, timeout=360)
+        command = self.run_teddycode("S16", workspace, repl_input=f"/plan cache\n{prompt}\n/exit\n", max_steps=5, max_new_tokens=1024, timeout=360)
         stdout = self.read_log(command.stdout_path)
-        plan_path = workspace / ".pico" / "plans" / "cache-plan.md"
+        plan_path = workspace / ".teddycode" / "plans" / "cache-plan.md"
         checks = [
             check("command_exit_0", command.returncode == 0),
             check("plan_gate_satisfied", "requires writing the active plan artifact" in stdout or plan_path.is_file()),
@@ -515,9 +515,9 @@ allowed-tools: read_file, write_file
 
     def s17_absolute_plan_path(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s17")
-        absolute_plan = workspace / ".pico" / "plans" / "student-plan.md"
-        prompt = "write_file .pico/plans/student-plan.md，内容为 # Student Plan，然后 final。"
-        command = self.run_pico(
+        absolute_plan = workspace / ".teddycode" / "plans" / "student-plan.md"
+        prompt = "write_file .teddycode/plans/student-plan.md，内容为 # Student Plan，然后 final。"
+        command = self.run_teddycode(
             "S17",
             workspace,
             repl_input=f"/plan student {absolute_plan}\n{prompt}\n/exit\n",
@@ -528,19 +528,19 @@ allowed-tools: read_file, write_file
         stdout = self.read_log(command.stdout_path)
         checks = [
             check("command_exit_0", command.returncode == 0),
-            check("absolute_path_normalized", "plan path: .pico/plans/student-plan.md" in stdout),
+            check("absolute_path_normalized", "plan path: .teddycode/plans/student-plan.md" in stdout),
             check("plan_written", absolute_plan.is_file()),
         ]
         return self.result("S17", "absolute plan path 自动归一", "PTY REPL / DeepSeek", workspace, [command], checks)
 
     def s18_plan_path_escape_rejected(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s18")
-        command = self.run_pico("S18", workspace, repl_input="/plan student .pico/plans/../escape.md\n/exit\n", timeout=120)
+        command = self.run_teddycode("S18", workspace, repl_input="/plan student .teddycode/plans/../escape.md\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
         checks = [
             check("command_exit_0", command.returncode == 0),
-            check("escape_rejected", "plan path must stay under .pico/plans/" in stdout),
-            check("outside_not_written", not (workspace / ".pico" / "escape.md").exists()),
+            check("escape_rejected", "plan path must stay under .teddycode/plans/" in stdout),
+            check("outside_not_written", not (workspace / ".teddycode" / "escape.md").exists()),
         ]
         return self.result("S18", "越界 plan path 被拒", "PTY REPL slash command", workspace, [command], checks)
 
@@ -551,7 +551,7 @@ allowed-tools: read_file, write_file
             "严格按步骤执行：先调用 agent 工具，description='Inspect README'，"
             "prompt='Read README.md and summarize it.'，subagent_type='Explore'。然后 final。"
         )
-        command = self.run_pico("S19", workspace, repl_input=f"/plan payments\n{prompt}\n/exit\n", max_steps=4, max_new_tokens=1536, timeout=420)
+        command = self.run_teddycode("S19", workspace, repl_input=f"/plan payments\n{prompt}\n/exit\n", max_steps=4, max_new_tokens=1536, timeout=420)
         report = self.evidence(workspace).report
         workers = ((report.get("workers") or {}).get("items") or [])
         checks = [
@@ -564,7 +564,7 @@ allowed-tools: read_file, write_file
 
     def s20_plan_rejects_worker_write(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s20")
-        command = self.run_pico(
+        command = self.run_teddycode(
             "S20",
             workspace,
             repl_input="/plan payments\n/subagent worker --scope src change code\n/exit\n",
@@ -583,16 +583,16 @@ allowed-tools: read_file, write_file
         (workspace / "README.md").write_text("hello world\n", encoding="utf-8")
         prompt = (
             "验证改文件前必须先读。严格按步骤执行，每次只返回一个 <tool> 或最后一个 <final>："
-            "1) 先尝试 patch_file README.md old_text='world' new_text='pico'，不要先 read_file。"
+            "1) 先尝试 patch_file README.md old_text='world' new_text='teddycode'，不要先 read_file。"
             "2) 如果被拒绝，再 read_file README.md start=1 end=1。"
-            "3) 再 patch_file README.md old_text='world' new_text='pico'。"
+            "3) 再 patch_file README.md old_text='world' new_text='teddycode'。"
             "4) final。"
         )
-        command = self.run_pico("S21", workspace, prompt=prompt, max_steps=7, max_new_tokens=1536, timeout=420)
+        command = self.run_teddycode("S21", workspace, prompt=prompt, max_steps=7, max_new_tokens=1536, timeout=420)
         text = (workspace / "README.md").read_text(encoding="utf-8")
         checks = [
             check("command_exit_0", command.returncode == 0),
-            check("readme_patched_after_read", text == "hello pico\n", text),
+            check("readme_patched_after_read", text == "hello teddycode\n", text),
         ]
         checks.extend(self.report_has_runtime_reminder(workspace, "prior_read_required"))
         return self.result("S21", "改文件前必须先读", "one-shot CLI / DeepSeek", workspace, [command], checks)
@@ -606,7 +606,7 @@ allowed-tools: read_file, write_file
             "3) 如果被拒绝，read_file README.md start=1 end=5。"
             "4) 再 write_file README.md 内容 overwrite。5) final。"
         )
-        command = self.run_pico("S22", workspace, prompt=prompt, max_steps=8, max_new_tokens=1536, timeout=420)
+        command = self.run_teddycode("S22", workspace, prompt=prompt, max_steps=8, max_new_tokens=1536, timeout=420)
         notes_text = (workspace / "notes.txt").read_text(encoding="utf-8") if (workspace / "notes.txt").exists() else ""
         checks = [
             check("command_exit_0", command.returncode == 0),
@@ -622,7 +622,7 @@ allowed-tools: read_file, write_file
             "严格按步骤执行：1) write_file scripts/check.py 内容 `VALUE = False\\n`。"
             "2) patch_file scripts/check.py old_text='False' new_text='True'。3) final。"
         )
-        command = self.run_pico("S23", workspace, prompt=prompt, max_steps=5, max_new_tokens=1024, timeout=300)
+        command = self.run_teddycode("S23", workspace, prompt=prompt, max_steps=5, max_new_tokens=1024, timeout=300)
         target = workspace / "scripts" / "check.py"
         text = target.read_text(encoding="utf-8") if target.exists() else ""
         checks = [
@@ -636,7 +636,7 @@ allowed-tools: read_file, write_file
         workspace = self._fresh_workspace("s24")
         (workspace / "README.md").write_text("TODO: search target\n", encoding="utf-8")
         prompt = "严格先调用 run_shell 命令 `grep -R TODO .`。如果被拒绝，调用 search pattern='TODO' path='.'，然后 final。"
-        command = self.run_pico("S24", workspace, prompt=prompt, max_steps=5, max_new_tokens=1024, timeout=300)
+        command = self.run_teddycode("S24", workspace, prompt=prompt, max_steps=5, max_new_tokens=1024, timeout=300)
         checks = [
             check("command_exit_0", command.returncode == 0),
             check("shell_search_rejected", "shell_search_should_use_tool" in self.evidence(workspace).tool_error_codes("run_shell")),
@@ -651,7 +651,7 @@ allowed-tools: read_file, write_file
             "严格调用 run_shell 执行这个输出管理命令，然后 final："
             f"<tool>{{\"name\":\"run_shell\",\"args\":{{\"command\":{json.dumps(command_text)},\"timeout\":20}}}}</tool>"
         )
-        command = self.run_pico("S25", workspace, prompt=prompt, max_steps=3, max_new_tokens=768, timeout=240)
+        command = self.run_teddycode("S25", workspace, prompt=prompt, max_steps=3, max_new_tokens=768, timeout=240)
         trace_text, _ = self.latest_trace_and_report_text(workspace)
         checks = [
             check("command_exit_0", command.returncode == 0),
@@ -667,7 +667,7 @@ allowed-tools: read_file, write_file
             "严格返回 run_shell 工具调用执行这个命令，然后 final："
             f"<tool>{{\"name\":\"run_shell\",\"args\":{{\"command\":{json.dumps(command_text)},\"timeout\":20}}}}</tool>"
         )
-        command = self.run_pico("S26", workspace, prompt=prompt, max_steps=3, max_new_tokens=1024, timeout=240)
+        command = self.run_teddycode("S26", workspace, prompt=prompt, max_steps=3, max_new_tokens=1024, timeout=240)
         artifact = self.latest_full_output_artifact(workspace)
         full_text = (workspace / artifact).read_text(encoding="utf-8") if artifact and (workspace / artifact).exists() else ""
         checks = [
@@ -680,7 +680,7 @@ allowed-tools: read_file, write_file
     def s27_approval_never_rejects_risky_tool(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s27")
         prompt = "严格调用 write_file denied.txt 内容 no，然后 final。"
-        command = self.run_pico("S27", workspace, prompt=prompt, approval="never", max_steps=3, max_new_tokens=768, timeout=240)
+        command = self.run_teddycode("S27", workspace, prompt=prompt, approval="never", max_steps=3, max_new_tokens=768, timeout=240)
         checks = [
             check("command_exit_0", command.returncode == 0),
             check("file_not_written", not (workspace / "denied.txt").exists()),
@@ -691,7 +691,7 @@ allowed-tools: read_file, write_file
     def s28_sandbox_required_fails_closed(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s28")
         prompt = "严格调用 run_shell `echo hi`，然后 final。"
-        command = self.run_pico(
+        command = self.run_teddycode(
             "S28",
             workspace,
             prompt=prompt,
@@ -711,7 +711,7 @@ allowed-tools: read_file, write_file
     def s29_sandbox_best_effort_degrades(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s29")
         prompt = "严格调用 run_shell `echo hi`，然后 final。"
-        command = self.run_pico(
+        command = self.run_teddycode(
             "S29",
             workspace,
             prompt=prompt,
@@ -730,18 +730,18 @@ allowed-tools: read_file, write_file
 
     def s30_skills_list_local(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s30")
-        command = self.run_pico("S30", workspace, repl_input="/skills\n/exit\n", timeout=120)
+        command = self.run_teddycode("S30", workspace, repl_input="/skills\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
         checks = [
             check("command_exit_0", command.returncode == 0),
             check("skills_listed", "/review" in stdout and "/test" in stdout and "/commit" in stdout),
-            check("no_run_created", not any((workspace / ".pico" / "runs").glob("run_*")) if (workspace / ".pico" / "runs").exists() else True),
+            check("no_run_created", not any((workspace / ".teddycode" / "runs").glob("run_*")) if (workspace / ".teddycode" / "runs").exists() else True),
         ]
         return self.result("S30", "/skills 不调用模型", "PTY REPL slash command", workspace, [command], checks)
 
     def s31_builtin_review_with_arguments(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s31")
-        command = self.run_pico(
+        command = self.run_teddycode(
             "S31",
             workspace,
             repl_input="/review focus auth\n/exit\n",
@@ -759,7 +759,7 @@ allowed-tools: read_file, write_file
 
     def s32_project_skill_arguments(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s32")
-        skill_dir = workspace / ".pico" / "skills" / "deploy"
+        skill_dir = workspace / ".teddycode" / "skills" / "deploy"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
             """---
@@ -767,11 +767,11 @@ name: deploy
 description: Deploy checklist
 argument-hint: target
 ---
-请只返回 <final>deploy checked $ARGUMENTS from ${PICO_SKILL_DIR}</final>，不要调用工具。
+请只返回 <final>deploy checked $ARGUMENTS from ${TEDDYCODE_SKILL_DIR}</final>，不要调用工具。
 """,
             encoding="utf-8",
         )
-        command = self.run_pico("S32", workspace, repl_input="/deploy staging\n/exit\n", max_steps=3, max_new_tokens=512, timeout=240)
+        command = self.run_teddycode("S32", workspace, repl_input="/deploy staging\n/exit\n", max_steps=3, max_new_tokens=512, timeout=240)
         stdout = self.read_log(command.stdout_path)
         checks = [
             check("command_exit_0", command.returncode == 0),
@@ -783,7 +783,7 @@ argument-hint: target
 
     def s33_skill_allowed_tools_restricts_write(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s33")
-        skill_dir = workspace / ".pico" / "skills" / "readonly"
+        skill_dir = workspace / ".teddycode" / "skills" / "readonly"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
             """---
@@ -795,7 +795,7 @@ allowed-tools: read_file
 """,
             encoding="utf-8",
         )
-        command = self.run_pico("S33", workspace, repl_input="/readonly now\n/exit\n", max_steps=5, max_new_tokens=1024, timeout=300)
+        command = self.run_teddycode("S33", workspace, repl_input="/readonly now\n/exit\n", max_steps=5, max_new_tokens=1024, timeout=300)
         checks = [
             check("command_exit_0", command.returncode == 0),
             check("blocked_file_absent", not (workspace / "blocked.txt").exists()),
@@ -805,7 +805,7 @@ allowed-tools: read_file
 
     def s34_fork_skill_keeps_parent_history(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s34")
-        skill_dir = workspace / ".pico" / "skills" / "inspect"
+        skill_dir = workspace / ".teddycode" / "skills" / "inspect"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
             """---
@@ -817,8 +817,8 @@ context: fork
 """,
             encoding="utf-8",
         )
-        first = self.run_pico("S34-first", workspace, prompt="不要调用工具，直接返回 <final>parent seed</final>。", max_steps=2, max_new_tokens=512, timeout=180)
-        second = self.run_pico("S34-skill", workspace, repl_input="/inspect README.md\n/exit\n", extra=["--resume", "latest"], max_steps=2, max_new_tokens=512, timeout=240)
+        first = self.run_teddycode("S34-first", workspace, prompt="不要调用工具，直接返回 <final>parent seed</final>。", max_steps=2, max_new_tokens=512, timeout=180)
+        second = self.run_teddycode("S34-skill", workspace, repl_input="/inspect README.md\n/exit\n", extra=["--resume", "latest"], max_steps=2, max_new_tokens=512, timeout=240)
         events = self.evidence(workspace).session_events
         checks = [
             check("first_exit_0", first.returncode == 0),
@@ -829,7 +829,7 @@ context: fork
 
     def s35_prompt_only_skill(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s35")
-        skill_dir = workspace / ".pico" / "skills" / "template"
+        skill_dir = workspace / ".teddycode" / "skills" / "template"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
             """---
@@ -841,22 +841,22 @@ hello $ARGUMENTS from prompt only
 """,
             encoding="utf-8",
         )
-        command = self.run_pico("S35", workspace, repl_input="/template world\n/exit\n", timeout=120)
+        command = self.run_teddycode("S35", workspace, repl_input="/template world\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
         checks = [
             check("command_exit_0", command.returncode == 0),
             check("rendered_without_model", "hello world from prompt only" in stdout),
-            check("no_run_created", not any((workspace / ".pico" / "runs").glob("run_*")) if (workspace / ".pico" / "runs").exists() else True),
+            check("no_run_created", not any((workspace / ".teddycode" / "runs").glob("run_*")) if (workspace / ".teddycode" / "runs").exists() else True),
             check("skill_completed_prompt_only", self.evidence(workspace).has_session_event("skill_completed", status="prompt_only")),
         ]
         return self.result("S35", "prompt-only skill 不发模型请求", "PTY REPL prompt-only skill", workspace, [command], checks)
 
     def s36_invalid_skill_frontmatter_diagnostic(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s36")
-        skill_dir = workspace / ".pico" / "skills" / "bad"
+        skill_dir = workspace / ".teddycode" / "skills" / "bad"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text("---\nname: bad\n---\nBad skill still loadable.\n", encoding="utf-8")
-        command = self.run_pico("S36", workspace, repl_input="/skills\n/exit\n", timeout=120)
+        command = self.run_teddycode("S36", workspace, repl_input="/skills\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
         checks = [
             check("command_exit_0", command.returncode == 0),
@@ -873,7 +873,7 @@ hello $ARGUMENTS from prompt only
             "1) agent description='Inspect README' prompt='Read README.md and summarize it in one sentence.' subagent_type='Explore'。"
             "2) 等待 worker notification 后 final。"
         )
-        command = self.run_pico("S37", workspace, prompt=prompt, max_steps=5, max_new_tokens=1536, timeout=420)
+        command = self.run_teddycode("S37", workspace, prompt=prompt, max_steps=5, max_new_tokens=1536, timeout=420)
         report = self.latest_report(workspace) or {}
         workers = ((report.get("workers") or {}).get("items") or [])
         checks = [
@@ -890,7 +890,7 @@ hello $ARGUMENTS from prompt only
             "严格调用 agent 工具：description='Write notes'，subagent_type='worker'，write_scope=['notes']，"
             "prompt='write_file notes/first.txt content first\\n and final'。然后 final。"
         )
-        command = self.run_pico("S38", workspace, prompt=prompt, max_steps=4, max_new_tokens=1536, timeout=420)
+        command = self.run_teddycode("S38", workspace, prompt=prompt, max_steps=4, max_new_tokens=1536, timeout=420)
         report = self.evidence(workspace).report
         workers = ((report.get("workers") or {}).get("items") or [])
         checks = [
@@ -909,7 +909,7 @@ hello $ARGUMENTS from prompt only
             "2) send_message to='agent_1' message='write_file notes/second.txt content second\\n then final'。"
             "3) final。"
         )
-        command = self.run_pico("S39", workspace, prompt=prompt, max_steps=6, max_new_tokens=1536, timeout=540)
+        command = self.run_teddycode("S39", workspace, prompt=prompt, max_steps=6, max_new_tokens=1536, timeout=540)
         report = self.evidence(workspace).report
         workers = ((report.get("workers") or {}).get("items") or [])
         checks = [
@@ -927,7 +927,7 @@ hello $ARGUMENTS from prompt only
             "prompt='run_shell python -c \"import time; time.sleep(5); print(1)\" then final'。"
             "2) 立刻 send_message to='agent_1' message='continue now'。3) final。"
         )
-        command = self.run_pico("S40", workspace, prompt=prompt, max_steps=5, max_new_tokens=1536, timeout=420)
+        command = self.run_teddycode("S40", workspace, prompt=prompt, max_steps=5, max_new_tokens=1536, timeout=420)
         trace_text, report_text = self.latest_trace_and_report_text(workspace)
         checks = [
             check("command_exit_0", command.returncode == 0),
@@ -943,7 +943,7 @@ hello $ARGUMENTS from prompt only
             "prompt='run_shell python -c \"import time; time.sleep(10)\" then final'。"
             "2) task_stop task_id='agent_1'。3) final。"
         )
-        command = self.run_pico("S41", workspace, prompt=prompt, max_steps=5, max_new_tokens=1536, timeout=420)
+        command = self.run_teddycode("S41", workspace, prompt=prompt, max_steps=5, max_new_tokens=1536, timeout=420)
         report = self.evidence(workspace).report
         workers = ((report.get("workers") or {}).get("items") or [])
         checks = [
@@ -955,7 +955,7 @@ hello $ARGUMENTS from prompt only
 
     def s42_clear_stops_worker(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s42")
-        first = self.run_pico(
+        first = self.run_teddycode(
             "S42-start",
             workspace,
             prompt=(
@@ -966,7 +966,7 @@ hello $ARGUMENTS from prompt only
             max_new_tokens=1024,
             timeout=240,
         )
-        second = self.run_pico("S42-clear", workspace, repl_input="/clear\n/agents\n/exit\n", extra=["--resume", "latest"], timeout=120)
+        second = self.run_teddycode("S42-clear", workspace, repl_input="/clear\n/agents\n/exit\n", extra=["--resume", "latest"], timeout=120)
         stdout = self.read_log(second.stdout_path)
         checks = [
             check("start_exit_0", first.returncode == 0),
@@ -977,8 +977,8 @@ hello $ARGUMENTS from prompt only
 
     def s43_remember_daily_log(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s43")
-        command = self.run_pico("S43", workspace, repl_input="/remember 这个项目用 pytest，不用 unittest\n/exit\n", timeout=120)
-        logs = list((workspace / ".pico" / "memory" / "logs").rglob("*.md"))
+        command = self.run_teddycode("S43", workspace, repl_input="/remember 这个项目用 pytest，不用 unittest\n/exit\n", timeout=120)
+        logs = list((workspace / ".teddycode" / "memory" / "logs").rglob("*.md"))
         text = "\n".join(path.read_text(encoding="utf-8") for path in logs)
         checks = [
             check("command_exit_0", command.returncode == 0),
@@ -992,13 +992,13 @@ hello $ARGUMENTS from prompt only
         workspace = self._fresh_workspace("s44")
         repl = (
             "/remember Project convention: use pytest for tests\n"
-            "/remember Decision: keep Pico artifacts under .pico/runs\n"
+            "/remember Decision: keep TeddyCode artifacts under .teddycode/runs\n"
             "/remember Project convention: prefer small files\n"
             "/dream\n"
             "/exit\n"
         )
-        command = self.run_pico("S44", workspace, repl_input=repl, max_steps=5, max_new_tokens=2048, timeout=420)
-        memory_root = workspace / ".pico" / "memory"
+        command = self.run_teddycode("S44", workspace, repl_input=repl, max_steps=5, max_new_tokens=2048, timeout=420)
+        memory_root = workspace / ".teddycode" / "memory"
         memory_text = "\n".join(path.read_text(encoding="utf-8") for path in memory_root.rglob("*.md")) if memory_root.exists() else ""
         checks = [
             check("command_exit_0", command.returncode == 0),
@@ -1014,8 +1014,8 @@ hello $ARGUMENTS from prompt only
             "<final>Dependency: API key is sk-live-secret-abc.\n"
             "Project convention: Use pytest for tests.</final>"
         )
-        command = self.run_pico("S45", workspace, prompt=prompt, max_steps=2, max_new_tokens=1024, timeout=240)
-        memory_root = workspace / ".pico" / "memory"
+        command = self.run_teddycode("S45", workspace, prompt=prompt, max_steps=2, max_new_tokens=1024, timeout=240)
+        memory_root = workspace / ".teddycode" / "memory"
         memory_text = "\n".join(path.read_text(encoding="utf-8") for path in memory_root.rglob("*.md")) if memory_root.exists() else ""
         report = self.evidence(workspace).report
         checks = [
@@ -1028,7 +1028,7 @@ hello $ARGUMENTS from prompt only
     def s46_manual_compact(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s46")
         long_turns = "\n".join(f"第 {i} 轮：{'padding ' * 60}" for i in range(8))
-        command = self.run_pico(
+        command = self.run_teddycode(
             "S46",
             workspace,
             repl_input=f"{long_turns}\n/compact\n/exit\n",
@@ -1046,7 +1046,7 @@ hello $ARGUMENTS from prompt only
 
     def s47_resume_workspace_mismatch(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s47")
-        first = self.run_pico(
+        first = self.run_teddycode(
             "S47-first",
             workspace,
             prompt="read_file README.md start=1 end=20，然后 final。",
@@ -1055,7 +1055,7 @@ hello $ARGUMENTS from prompt only
             timeout=240,
         )
         (workspace / "README.md").write_text("# changed after checkpoint\n", encoding="utf-8")
-        second = self.run_pico(
+        second = self.run_teddycode(
             "S47-resume",
             workspace,
             prompt="不要改文件，只返回 <final>resume checked</final>。",
@@ -1077,7 +1077,7 @@ hello $ARGUMENTS from prompt only
         commands = []
         checks = []
         for provider in ("openai", "anthropic", "deepseek"):
-            command = self.run_pico(
+            command = self.run_teddycode(
                 f"S48-{provider}",
                 workspace,
                 prompt="/usage",
@@ -1095,7 +1095,7 @@ hello $ARGUMENTS from prompt only
 
     def s49_provider_error_metadata(self) -> ScenarioResult:
         workspace = self._fresh_workspace("s49")
-        command = self.run_pico(
+        command = self.run_teddycode(
             "S49",
             workspace,
             prompt="不要调用工具，直接返回 <final>provider ok</final>。",
@@ -1124,12 +1124,12 @@ hello $ARGUMENTS from prompt only
             "3) final 时只说 safety checked，不要复述 secret。"
         )
         env = dict(os.environ)
-        env["PICO_HUMAN_SECRET"] = secret
-        command = self.run_pico(
+        env["TEDDYCODE_HUMAN_SECRET"] = secret
+        command = self.run_teddycode(
             "S50",
             workspace,
             prompt=prompt,
-            extra=["--secret-env-name", "PICO_HUMAN_SECRET"],
+            extra=["--secret-env-name", "TEDDYCODE_HUMAN_SECRET"],
             env=env,
             max_steps=5,
             max_new_tokens=1536,
@@ -1144,7 +1144,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S50", "path traversal 与 secret redaction", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def run_pico(
+    def run_teddycode(
         self,
         name: str,
         workspace: Path,
@@ -1162,7 +1162,7 @@ hello $ARGUMENTS from prompt only
         args = [
             "uv",
             "run",
-            "pico",
+            "teddycode",
             "--cwd",
             str(workspace),
             "--config",
@@ -1236,11 +1236,11 @@ hello $ARGUMENTS from prompt only
             stderr_path=self._rel(stderr_path),
         )
 
-    def run_pico_tty_smoke(self, name: str, workspace: Path, *, timeout: int = 6) -> CommandRecord:
+    def run_teddycode_tty_smoke(self, name: str, workspace: Path, *, timeout: int = 6) -> CommandRecord:
         args = [
             "uv",
             "run",
-            "pico",
+            "teddycode",
             "--cwd",
             str(workspace),
             "--config",
@@ -1455,7 +1455,7 @@ hello $ARGUMENTS from prompt only
         return read_jsonl(path) if path else []
 
     def latest_events_path(self, workspace: Path) -> Path | None:
-        events = sorted((workspace / ".pico" / "sessions").glob("*.events.jsonl"), key=lambda path: path.stat().st_mtime)
+        events = sorted((workspace / ".teddycode" / "sessions").glob("*.events.jsonl"), key=lambda path: path.stat().st_mtime)
         return events[-1] if events else None
 
     def latest_events_jsonl(self, workspace: Path) -> list[dict]:
@@ -1463,7 +1463,7 @@ hello $ARGUMENTS from prompt only
         return read_jsonl(path) if path else []
 
     def latest_run_dir(self, workspace: Path) -> Path | None:
-        runs_dir = workspace / ".pico" / "runs"
+        runs_dir = workspace / ".teddycode" / "runs"
         if not runs_dir.exists():
             return None
         runs = [path for path in runs_dir.iterdir() if path.is_dir()]
@@ -1475,7 +1475,7 @@ hello $ARGUMENTS from prompt only
         return RunEvidence.latest(workspace)
 
     def latest_session_id(self, workspace: Path) -> str:
-        sessions = sorted((workspace / ".pico" / "sessions").glob("*.json"), key=lambda path: path.stat().st_mtime)
+        sessions = sorted((workspace / ".teddycode" / "sessions").glob("*.json"), key=lambda path: path.stat().st_mtime)
         return sessions[-1].stem if sessions else ""
 
     def read_log(self, rel_path: str) -> str:
@@ -1589,7 +1589,7 @@ def to_jsonable(result: ScenarioResult) -> dict:
 
 def render_markdown(summary: dict) -> str:
     lines = [
-        "# Pico v3 Human Scenario Gate",
+        "# TeddyCode v3 Human Scenario Gate",
         "",
         f"- status: `{summary['status']}`",
         f"- suite: `{summary['suite']}`",
@@ -1612,11 +1612,11 @@ def render_markdown(summary: dict) -> str:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run Pico v3 human-scenario release gate.")
+    parser = argparse.ArgumentParser(description="Run TeddyCode v3 human-scenario release gate.")
     parser.add_argument("--suite", choices=("gate", "full"), default="gate", help="Run the 12-scenario release gate or all 50 designed scenarios.")
     parser.add_argument("--output-dir", default="", help="Output directory for logs, workspaces, and summary. Must be outside this git repo.")
-    parser.add_argument("--config", default=str(DEFAULT_CONFIG), help="Pico config file. Defaults to this repo's ignored .pico.toml.")
-    parser.add_argument("--provider", default="deepseek", help="Provider profile to pass to Pico.")
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG), help="TeddyCode config file. Defaults to this repo's ignored .teddycode.toml.")
+    parser.add_argument("--provider", default="deepseek", help="Provider profile to pass to TeddyCode.")
     parser.add_argument("--scenario", dest="scenarios", action="append", default=[], help="Run only one scenario id, repeatable.")
     return parser
 

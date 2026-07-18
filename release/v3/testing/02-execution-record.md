@@ -1,4 +1,4 @@
-# Pico v3 真人场景全量执行记录
+# TeddyCode v3 真人场景全量执行记录
 
 执行日期：2026-05-13  
 执行分支：`v3`  
@@ -7,16 +7,16 @@
 
 ## 最终结论
 
-50 个真人使用场景已经用进程级 Pico 入口执行完成，最终结果为：
+50 个真人使用场景已经用进程级 TeddyCode 入口执行完成，最终结果为：
 
 - Human scenario full suite：`50 passed / 0 failed`
-- Runner 输出目录：`/private/tmp/pico-v3-human-scenarios/20260513-170838`
-- Summary JSON：`/private/tmp/pico-v3-human-scenarios/20260513-170838/summary.json`
-- Summary Markdown：`/private/tmp/pico-v3-human-scenarios/20260513-170838/summary.md`
+- Runner 输出目录：`/private/tmp/teddycode-v3-human-scenarios/20260513-170838`
+- Summary JSON：`/private/tmp/teddycode-v3-human-scenarios/20260513-170838/summary.json`
+- Summary Markdown：`/private/tmp/teddycode-v3-human-scenarios/20260513-170838/summary.md`
 - 代码验证：`uv run ruff check .` 通过
 - 回归测试：`uv run pytest tests -q` -> `224 passed, 2 skipped`
 
-这次不是只改测试代码。过程中暴露出的 runtime 行为问题已经修在产品代码里，runner 只承担“像人一样跑 Pico 并收集证据”的职责。
+这次不是只改测试代码。过程中暴露出的 runtime 行为问题已经修在产品代码里，runner 只承担“像人一样跑 TeddyCode 并收集证据”的职责。
 
 ## 本次新增 / 修改
 
@@ -27,11 +27,11 @@
 | `release/v3/testing/03-runner-and-evidence.md` | runner、证据目录、重跑方法和排错说明 |
 | `release/v3/testing/04-scenario-checklist.md` | 50 个场景的复盘检查清单 |
 | `scripts/run_v3_human_scenario_gate.py` | 进程级场景 runner，支持 `--suite gate/full` 和按场景筛选 |
-| `pico/evaluation/run_evidence.py` | 从 `.pico/runs`、`.pico/sessions` 读取真实运行证据的复用适配层 |
-| `pico/core/tool_repetition.py` | 重复工具调用守卫，按当前用户轮次和工具语义判断 |
-| `pico/core/tool_executor.py` | 在 permission / policy 前拦截重复调用，避免重复坏调用打满 step |
-| `pico/core/runtime.py` | 接入重复调用守卫，保持 runtime 主体行数预算 |
-| `pico/cli.py` | `/plan <topic> <bad_path>` 不再让 REPL 崩溃，改为用户可见错误 |
+| `teddycode/evaluation/run_evidence.py` | 从 `.teddycode/runs`、`.teddycode/sessions` 读取真实运行证据的复用适配层 |
+| `teddycode/core/tool_repetition.py` | 重复工具调用守卫，按当前用户轮次和工具语义判断 |
+| `teddycode/core/tool_executor.py` | 在 permission / policy 前拦截重复调用，避免重复坏调用打满 step |
+| `teddycode/core/runtime.py` | 接入重复调用守卫，保持 runtime 主体行数预算 |
+| `teddycode/cli.py` | `/plan <topic> <bad_path>` 不再让 REPL 崩溃，改为用户可见错误 |
 | `tests/test_tool_policy_acceptance.py` | 覆盖“被拒后补 read 可重试”和“成功写入后不能同参重放” |
 | `tests/test_permissions_acceptance.py` | 覆盖 plan mode 坏写入重复拦截 |
 | `tests/test_run_evidence.py` | 覆盖 run evidence 读取逻辑 |
@@ -54,23 +54,23 @@
 - `logs/<scenario>.command.json`
 - `logs/<scenario>.stdout.txt`
 - `logs/<scenario>.stderr.txt`
-- `workspaces/<scenario>/.pico/runs/<run_id>/report.json`
-- `workspaces/<scenario>/.pico/runs/<run_id>/trace.jsonl`
-- `workspaces/<scenario>/.pico/sessions/*.events.jsonl`
+- `workspaces/<scenario>/.teddycode/runs/<run_id>/report.json`
+- `workspaces/<scenario>/.teddycode/runs/<run_id>/trace.jsonl`
+- `workspaces/<scenario>/.teddycode/sessions/*.events.jsonl`
 
 ## 过程中发现的问题与处理
 
-### 1. 场景 workspace 不能放在 Pico repo 内
+### 1. 场景 workspace 不能放在 TeddyCode repo 内
 
-现象：早期 runner 把 workspace 放在 repo 子目录时，Pico 向上发现 `/Users/martinlos/code/pico/.git`，导致场景文件可能写进真实项目。
+现象：早期 runner 把 workspace 放在 repo 子目录时，TeddyCode 向上发现 `/Users/martinlos/code/teddycode/.git`，导致场景文件可能写进真实项目。
 
 根因：`WorkspaceContext.build()` 会向上找 git root，测试 workspace 放在当前 repo 下会破坏隔离。
 
 处理：
 
 - runner 默认输出到 `/tmp` / `/private/tmp` 下。
-- 每个 scenario workspace 内部执行 `git init -q`，让 Pico 识别到隔离 repo root。
-- runner 拒绝把 `--output-dir` 放在 Pico repo 内。
+- 每个 scenario workspace 内部执行 `git init -q`，让 TeddyCode 识别到隔离 repo root。
+- runner 拒绝把 `--output-dir` 放在 TeddyCode repo 内。
 
 ### 2. 重复坏工具调用会打满 step
 
@@ -95,7 +95,7 @@
 - 读类工具：同一轮允许一次复查，第三次同参才拒绝。
 - `write_file/patch_file`：同一轮成功执行后，同参重放直接拒绝，避免回滚后续修改。
 - `write_file/patch_file`：如果上一次同参调用是错误结果，并且之后补了同路径成功 `read_file`，允许重试。
-- 逻辑抽到 `pico/core/tool_repetition.py`，避免继续膨胀 `runtime.py`。
+- 逻辑抽到 `teddycode/core/tool_repetition.py`，避免继续膨胀 `runtime.py`。
 
 ### 4. `/plan` 非法路径会让 REPL 崩溃
 
@@ -103,7 +103,7 @@
 
 根因：slash command handler 没有把 plan path 校验异常转换成用户可见错误。
 
-处理：`handle_repl_command()` 捕获 `ValueError`，返回 `error: plan path must stay under .pico/plans/`。
+处理：`handle_repl_command()` 捕获 `ValueError`，返回 `error: plan path must stay under .teddycode/plans/`。
 
 ### 5. Runner 的 evidence 判断要读真实 artifacts
 
@@ -111,10 +111,10 @@
 
 - trace 的工具名字段是 `name`，不是旧 harness 里的 `tool_name`。
 - 长 shell 输出 artifact 写在 `trace.jsonl` 的 `full_output_artifact`。
-- “没有启动模型 run”不能用 `.pico/runs` 目录是否存在判断，只能看是否存在 `run_*`。
-- REPL 输出里 session id 可能带 `pico>` prompt 前缀。
+- “没有启动模型 run”不能用 `.teddycode/runs` 目录是否存在判断，只能看是否存在 `run_*`。
+- REPL 输出里 session id 可能带 `teddycode>` prompt 前缀。
 
-处理：新增 `RunEvidence`，统一从真实 `.pico/runs` 和 `.pico/sessions` 读取证据，runner 不再散落 ad hoc JSON 读取逻辑。
+处理：新增 `RunEvidence`，统一从真实 `.teddycode/runs` 和 `.teddycode/sessions` 读取证据，runner 不再散落 ad hoc JSON 读取逻辑。
 
 ## 最终验证命令
 
@@ -127,7 +127,7 @@ uv run pytest tests -q
 最终输出：
 
 ```text
-{"failed": 0, "output_dir": "/private/tmp/pico-v3-human-scenarios/20260513-170838", "passed": 50, "status": "passed"}
+{"failed": 0, "output_dir": "/private/tmp/teddycode-v3-human-scenarios/20260513-170838", "passed": 50, "status": "passed"}
 All checks passed!
 224 passed, 2 skipped, 6 warnings in 68.50s
 ```
