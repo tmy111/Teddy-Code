@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.evaluation.context_cost import generate_report, run_paired_experiment
+from teddycode.evaluation.context_cost import generate_report, run_paired_experiment
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -83,7 +83,7 @@ def test_live_mode_routes_through_provider_client_factory(tmp_path):
 
     def provider_client_factory(*, provider, task, variant, repeat):
         calls.append((provider, task["id"], variant, repeat))
-        from pico.evaluation.context_cost import _LongSessionScriptedClient
+        from teddycode.evaluation.context_cost import _LongSessionScriptedClient
 
         return _LongSessionScriptedClient(task["scripted_outputs"])
 
@@ -104,7 +104,7 @@ def test_live_mode_routes_through_provider_client_factory(tmp_path):
 
 
 def test_live_mode_without_provider_config_reports_clear_blocked_error(monkeypatch, tmp_path):
-    import pico.evaluation.context_cost as context_cost
+    import teddycode.evaluation.context_cost as context_cost
 
     monkeypatch.setattr(
         context_cost,

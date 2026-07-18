@@ -1,14 +1,14 @@
 import json
 
-from pico import Pico, SessionStore, WorkspaceContext
-from pico.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode.testing import ScriptedModelClient
 
 
 def build_agent(tmp_path, outputs):
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
-    return Pico(
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs),
         workspace=workspace,
         session_store=store,
@@ -49,9 +49,9 @@ def test_retrieval_trace_event_records_selected_and_rejected_without_prompt_leak
 
 def test_memory_file_read_trace_event_records_memory_paths(tmp_path):
     agent = build_agent(tmp_path, ["<final>Done.</final>"])
-    topic_dir = tmp_path / ".pico" / "memory" / "topics"
+    topic_dir = tmp_path / ".teddycode" / "memory" / "topics"
     topic_dir.mkdir(parents=True, exist_ok=True)
-    (tmp_path / ".pico" / "memory" / "MEMORY.md").write_text(
+    (tmp_path / ".teddycode" / "memory" / "MEMORY.md").write_text(
         "# Durable Memory Index\n\n- [test-topic](topics/test-topic.md): Test Topic\n",
         encoding="utf-8",
     )
@@ -63,6 +63,6 @@ def test_memory_file_read_trace_event_records_memory_paths(tmp_path):
     file_reads = [event for event in trace_events if event["event"] == "memory.file_read"]
     assert {event["reason"] for event in file_reads} == {"retrieval"}
     assert {event["path"] for event in file_reads} >= {
-        ".pico/memory/MEMORY.md",
-        ".pico/memory/topics/test-topic.md",
+        ".teddycode/memory/MEMORY.md",
+        ".teddycode/memory/topics/test-topic.md",
     }

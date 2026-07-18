@@ -1,15 +1,15 @@
-from pico import Pico, SessionStore, WorkspaceContext
-from pico.core.compact import CompactPlan
-from pico.core.context_manager import ContextManager
-from pico.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode.core.compact import CompactPlan
+from teddycode.core.context_manager import ContextManager
+from teddycode.testing import ScriptedModelClient
 
 
 def build_agent(tmp_path, outputs=None):
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
-    return Pico(
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs or []),
         workspace=WorkspaceContext.build(tmp_path),
-        session_store=SessionStore(tmp_path / ".pico" / "sessions"),
+        session_store=SessionStore(tmp_path / ".teddycode" / "sessions"),
         approval_policy="auto",
     )
 
@@ -63,7 +63,7 @@ def test_llm_compact_creates_handoff_summary_and_records_usage(tmp_path):
 Ship LLM handoff compaction.
 
 ## Files Read
-- pico/core/compact.py
+- teddycode/core/compact.py
 
 ## Key Decisions
 - Use complete_model.
@@ -97,7 +97,7 @@ Ship LLM handoff compaction.
         "provider": "openai",
     }
     assert "## Goal\nShip LLM handoff compaction." in agent.session["history"][0]["content"]
-    assert "- pico/core/compact.py" in agent.session["history"][0]["content"]
+    assert "- teddycode/core/compact.py" in agent.session["history"][0]["content"]
     assert "compact_call_usage" not in agent.session["compactions"][-1]
 
 
@@ -239,7 +239,7 @@ def test_deterministic_compact_extracts_mixed_language_evidence(tmp_path):
         {
             "role": "tool",
             "name": "read_file",
-            "args": {"path": "pico/core/compact.py"},
+            "args": {"path": "teddycode/core/compact.py"},
             "content": "class CompactManager: ...",
             "artifact_ref": "artifact://read/compact",
         }
@@ -264,5 +264,5 @@ def test_deterministic_compact_extracts_mixed_language_evidence(tmp_path):
     assert "Decided to use rules because deterministic" in summary
     assert "Tried LLM but doesn't work" in summary
     assert "KeyError: input_tokens" in summary
-    assert "pico/core/compact.py" in summary
+    assert "teddycode/core/compact.py" in summary
     assert "artifact://read/compact" in summary

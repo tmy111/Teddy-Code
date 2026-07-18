@@ -3,10 +3,12 @@ import shlex
 import sys
 from unittest.mock import patch
 
-from pico.testing import ScriptedModelClient
-from pico import Pico, SessionStore, WorkspaceContext
-from pico import cli as pico_cli
-from pico.core.task_state import TaskState
+import pytest
+
+from teddycode.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode import cli as teddycode_cli
+from teddycode.core.task_state import TaskState
 
 
 def build_workspace(tmp_path):
@@ -16,9 +18,9 @@ def build_workspace(tmp_path):
 
 def build_agent(tmp_path, outputs, **kwargs):
     workspace = build_workspace(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
     approval_policy = kwargs.pop("approval_policy", "auto")
-    return Pico(
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs),
         workspace=workspace,
         session_store=store,
@@ -39,7 +41,10 @@ def test_workspace_escape_is_rejected(tmp_path):
 def test_symlink_path_traversal_is_rejected(tmp_path):
     outside = tmp_path.parent / f"{tmp_path.name}-outside.txt"
     outside.write_text("outside\n", encoding="utf-8")
-    (tmp_path / "linked.txt").symlink_to(outside)
+    try:
+        (tmp_path / "linked.txt").symlink_to(outside)
+    except OSError as exc:
+        pytest.skip(f"symlink unavailable: {exc}")
     agent = build_agent(tmp_path, [])
 
     result = agent.run_tool("read_file", {"path": "linked.txt"})
@@ -66,10 +71,10 @@ def test_cli_build_agent_wires_secret_env_names_from_parser(tmp_path):
 
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
     with patch.dict(os.environ, {"GITHUB_PAT": "ghp-1", "GH_PAT": "ghp-2"}, clear=True), patch(
-        "pico.cli.OpenAICompatibleModelClient",
+        "teddycode.cli.OpenAICompatibleModelClient",
         DummyModelClient,
     ):
-        args = pico_cli.build_arg_parser().parse_args(
+        args = teddycode_cli.build_arg_parser().parse_args(
             [
                 "--cwd",
                 str(tmp_path),
@@ -81,7 +86,7 @@ def test_cli_build_agent_wires_secret_env_names_from_parser(tmp_path):
                 "GH_PAT",
             ]
         )
-        agent = pico_cli.build_agent(args)
+        agent = teddycode_cli.build_agent(args)
         assert set(agent.secret_env_summary()["secret_env_names"]) == {"GITHUB_PAT", "GH_PAT"}
 
 
@@ -96,11 +101,11 @@ def test_cli_build_agent_uses_default_configured_secret_names(tmp_path):
 
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
     with patch.dict(os.environ, {"GH_PAT": "ghp-default-1"}, clear=True), patch(
-        "pico.cli.OpenAICompatibleModelClient",
+        "teddycode.cli.OpenAICompatibleModelClient",
         DummyModelClient,
     ):
-        args = pico_cli.build_arg_parser().parse_args(["--cwd", str(tmp_path), "--approval", "auto"])
-        agent = pico_cli.build_agent(args)
+        args = teddycode_cli.build_arg_parser().parse_args(["--cwd", str(tmp_path), "--approval", "auto"])
+        agent = teddycode_cli.build_agent(args)
         assert agent.secret_env_summary()["secret_env_names"] == ["GH_PAT"]
 
 
@@ -114,11 +119,11 @@ def test_cli_build_agent_loads_project_env_secrets_before_redaction_setup(tmp_pa
             raise AssertionError("model should not be invoked")
 
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
-    (tmp_path / ".env").write_text("PICO_DEEPSEEK_API_KEY=sk-project-secret\n", encoding="utf-8")
-    with patch.dict(os.environ, {}, clear=True), patch("pico.cli.AnthropicCompatibleModelClient", DummyModelClient):
-        args = pico_cli.build_arg_parser().parse_args(["--cwd", str(tmp_path), "--provider", "deepseek"])
-        agent = pico_cli.build_agent(args)
-        assert agent.secret_env_summary()["secret_env_names"] == ["PICO_DEEPSEEK_API_KEY"]
+    (tmp_path / ".env").write_text("TEDDYCODE_DEEPSEEK_API_KEY=sk-project-secret\n", encoding="utf-8")
+    with patch.dict(os.environ, {}, clear=True), patch("teddycode.cli.AnthropicCompatibleModelClient", DummyModelClient):
+        args = teddycode_cli.build_arg_parser().parse_args(["--cwd", str(tmp_path), "--provider", "deepseek"])
+        agent = teddycode_cli.build_agent(args)
+        assert agent.secret_env_summary()["secret_env_names"] == ["TEDDYCODE_DEEPSEEK_API_KEY"]
 
 
 def test_cli_build_agent_reads_secret_names_from_environment_config(tmp_path):
@@ -134,14 +139,14 @@ def test_cli_build_agent_reads_secret_names_from_environment_config(tmp_path):
     with patch.dict(
         os.environ,
         {
-            "PICO_CUSTOM_SECRET": "custom-secret-value",
-            "PICO_SECRET_ENV_NAMES": "PICO_CUSTOM_SECRET",
+            "TEDDYCODE_CUSTOM_SECRET": "custom-secret-value",
+            "TEDDYCODE_SECRET_ENV_NAMES": "TEDDYCODE_CUSTOM_SECRET",
         },
         clear=True,
-    ), patch("pico.cli.OpenAICompatibleModelClient", DummyModelClient):
-        args = pico_cli.build_arg_parser().parse_args(["--cwd", str(tmp_path), "--approval", "auto"])
-        agent = pico_cli.build_agent(args)
-        assert agent.secret_env_summary()["secret_env_names"] == ["PICO_CUSTOM_SECRET"]
+    ), patch("teddycode.cli.OpenAICompatibleModelClient", DummyModelClient):
+        args = teddycode_cli.build_arg_parser().parse_args(["--cwd", str(tmp_path), "--approval", "auto"])
+        agent = teddycode_cli.build_agent(args)
+        assert agent.secret_env_summary()["secret_env_names"] == ["TEDDYCODE_CUSTOM_SECRET"]
 
 
 def test_run_shell_uses_allowlisted_environment_only(tmp_path):
@@ -160,7 +165,7 @@ def test_run_shell_uses_allowlisted_environment_only(tmp_path):
 def test_bound_tool_methods_call_tools_module(tmp_path):
     agent = build_agent(tmp_path, [], approval_policy="auto")
 
-    with patch("pico.tools.registry.subprocess.run") as fake_run:
+    with patch("teddycode.tools.registry.subprocess.run") as fake_run:
         fake_run.return_value = type(
             "Result",
             (),
@@ -170,7 +175,7 @@ def test_bound_tool_methods_call_tools_module(tmp_path):
 
     assert "toolkit-shell" in shell_result
     fake_run.assert_called_once()
-    assert agent.tool_run_shell.__func__.__module__ == "pico.core.runtime"
+    assert agent.tool_run_shell.__func__.__module__ == "teddycode.core.runtime"
 
 
 def test_configured_secret_env_names_are_redacted_in_trace_and_report(tmp_path):

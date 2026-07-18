@@ -2,7 +2,7 @@ import json
 import subprocess
 import sys
 
-from pico.evaluation.context_cost import (
+from teddycode.evaluation.context_cost import (
     CostUsage,
     ExperimentRow,
     ProviderPricing,

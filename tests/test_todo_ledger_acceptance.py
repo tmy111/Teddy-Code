@@ -2,17 +2,17 @@
 
 import json
 
-from pico.testing import ScriptedModelClient
-from pico import Pico, SessionStore, WorkspaceContext
+from teddycode.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
 
 
 def build_agent(tmp_path, outputs=None, **kwargs):
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
-    return Pico(
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs or []),
         workspace=workspace,
-        session_store=SessionStore(tmp_path / ".pico" / "sessions"),
+        session_store=SessionStore(tmp_path / ".teddycode" / "sessions"),
         approval_policy="auto",
         **kwargs,
     )

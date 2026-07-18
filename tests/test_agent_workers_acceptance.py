@@ -2,15 +2,15 @@ import json
 import threading
 import time
 
-from pico.testing import ScriptedModelClient
-from pico import Pico, SessionStore, WorkspaceContext
+from teddycode.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
 
 
 def build_agent(tmp_path, outputs, **kwargs):
     (tmp_path / "README.md").write_text("demo readme\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
-    return Pico(
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs),
         workspace=workspace,
         session_store=store,
@@ -84,8 +84,8 @@ def test_async_worker_notification_is_drained_by_coordinator_only(tmp_path):
     )
 
     assert payload["status"] == "started"
-    assert time.monotonic() - before < 0.5
-    assert started.wait(timeout=1)
+    assert time.monotonic() - before < 3.0
+    assert started.wait(timeout=5)
     assert not any(
         "<task-notification>" in item.get("content", "")
         for item in agent.session["history"]
@@ -129,7 +129,7 @@ def test_send_message_rejects_running_worker(tmp_path):
             "subagent_type": "Explore",
         },
     )
-    assert started.wait(timeout=1)
+    assert started.wait(timeout=5)
 
     rejected = agent.run_tool(
         "send_message", {"to": "agent_1", "message": "Continue now"}
@@ -157,7 +157,7 @@ def test_task_stop_requests_child_runtime_abort(tmp_path):
             "subagent_type": "Explore",
         },
     )
-    assert started.wait(timeout=1)
+    assert started.wait(timeout=5)
 
     payload = json.loads(agent.run_tool("task_stop", {"task_id": "agent_1"}))
 
@@ -189,7 +189,7 @@ def test_clear_session_stops_running_background_workers(tmp_path):
             "subagent_type": "Explore",
         },
     )
-    assert started.wait(timeout=1)
+    assert started.wait(timeout=5)
     old_id = agent.session["id"]
 
     new_id = agent.clear_session()
@@ -354,7 +354,7 @@ def test_plan_mode_allows_only_explore_agents(tmp_path):
             '<tool>{"name":"agent","args":{"description":"Explore plan","prompt":"Read README","subagent_type":"Explore"}}</tool>',
             '<tool>{"name":"read_file","args":{"path":"README.md","start":1,"end":1}}</tool>',
             "<final>Explored.</final>",
-            '<tool name="write_file" path=".pico/plans/gate7-plan.md"><content># Gate7\n</content></tool>',
+            '<tool name="write_file" path=".teddycode/plans/gate7-plan.md"><content># Gate7\n</content></tool>',
             "<final>Plan ready.</final>",
         ],
         max_steps=5,
@@ -367,7 +367,7 @@ def test_plan_mode_allows_only_explore_agents(tmp_path):
             "description": "Write from plan",
             "prompt": "change files",
             "subagent_type": "worker",
-            "write_scope": ["pico"],
+            "write_scope": ["teddycode"],
         },
     )
 

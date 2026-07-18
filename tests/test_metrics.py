@@ -1,7 +1,7 @@
 import os
 from unittest.mock import patch
 
-from pico.evaluation.metrics import (
+from teddycode.evaluation.metrics import (
     _provider_profile,
     main as metrics_main,
     run_context_ablation_v2,
@@ -36,9 +36,9 @@ def test_metrics_cli_context_ab_writes_artifacts(tmp_path, monkeypatch):
     assert (tmp_path / "artifacts" / "context-ab-v1" / "report.md").is_file()
 
 
-def test_provider_profile_uses_project_toml_before_legacy_pico_env(tmp_path, monkeypatch):
+def test_provider_profile_uses_project_toml_before_legacy_teddycode_env(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    (tmp_path / ".pico.toml").write_text(
+    (tmp_path / ".teddycode.toml").write_text(
         "\n".join(
             [
                 "[providers.deepseek]",
@@ -55,9 +55,9 @@ def test_provider_profile_uses_project_toml_before_legacy_pico_env(tmp_path, mon
     with patch.dict(
         os.environ,
         {
-            "PICO_DEEPSEEK_API_KEY": "sk-legacy-deepseek",
-            "PICO_DEEPSEEK_MODEL": "legacy-deepseek-model",
-            "PICO_DEEPSEEK_API_BASE": "https://legacy.deepseek.example/anthropic",
+            "TEDDYCODE_DEEPSEEK_API_KEY": "sk-legacy-deepseek",
+            "TEDDYCODE_DEEPSEEK_MODEL": "legacy-deepseek-model",
+            "TEDDYCODE_DEEPSEEK_API_BASE": "https://legacy.deepseek.example/anthropic",
         },
         clear=True,
     ):
@@ -184,7 +184,7 @@ def test_write_benchmark_core_report_marks_resume_safe_metrics(tmp_path):
         encoding="utf-8",
     )
 
-    report_path = tmp_path / "docs" / "metrics" / "pico-benchmark-core-report.md"
+    report_path = tmp_path / "docs" / "metrics" / "teddycode-benchmark-core-report.md"
     report_text = write_benchmark_core_report(
         report_path=report_path,
         harness_artifact_path=harness_artifact_path,
@@ -207,7 +207,7 @@ def test_write_benchmark_core_report_marks_resume_safe_metrics(tmp_path):
 
 
 def test_write_benchmark_core_report_includes_optional_context_ab(tmp_path):
-    from pico.evaluation.context_cost import run_deterministic_prompt_experiment, write_experiment_artifacts
+    from teddycode.evaluation.context_cost import run_deterministic_prompt_experiment, write_experiment_artifacts
 
     run_context_ablation_v2(tmp_path / "artifacts" / "context-ablation-v2.json", repetitions=1)
     run_memory_ablation_v2(tmp_path / "artifacts" / "memory-ablation-v2.json", repetitions=1)
@@ -225,7 +225,7 @@ def test_write_benchmark_core_report_includes_optional_context_ab(tmp_path):
     )
 
     report_text = write_benchmark_core_report(
-        report_path=tmp_path / "docs" / "metrics" / "pico-benchmark-core-report.md",
+        report_path=tmp_path / "docs" / "metrics" / "teddycode-benchmark-core-report.md",
         harness_artifact_path=harness_artifact_path,
         context_artifact_path=tmp_path / "artifacts" / "context-ablation-v2.json",
         memory_artifact_path=tmp_path / "artifacts" / "memory-ablation-v2.json",

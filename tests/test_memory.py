@@ -3,9 +3,9 @@ import hashlib
 import subprocess
 from datetime import date
 
-from pico import Pico, SessionStore, WorkspaceContext
-from pico.features.memory_lint import SECRET_PATTERNS
-from pico.features.memory import (
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode.features.memory_lint import SECRET_PATTERNS
+from teddycode.features.memory import (
     LayeredMemory,
     append_to_daily_log,
     build_dream_prompt,
@@ -21,15 +21,15 @@ from pico.features.memory import (
     try_acquire_lock,
     workspace_fingerprint,
 )
-from pico.testing import ScriptedModelClient
+from teddycode.testing import ScriptedModelClient
 
 
 def build_runtime_agent(tmp_path, outputs, **kwargs):
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
-    return Pico(
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs),
         workspace=WorkspaceContext.build(tmp_path),
-        session_store=SessionStore(tmp_path / ".pico" / "sessions"),
+        session_store=SessionStore(tmp_path / ".teddycode" / "sessions"),
         approval_policy="auto",
         **kwargs,
     )
@@ -223,7 +223,7 @@ def test_process_notes_keep_kind_and_latest_duplicate_wins():
 
 
 def test_durable_memory_index_and_topic_notes_are_loaded_and_retrieved(tmp_path):
-    memory_root = tmp_path / ".pico" / "memory"
+    memory_root = tmp_path / ".teddycode" / "memory"
     topics_dir = memory_root / "topics"
     topics_dir.mkdir(parents=True)
     (memory_root / "MEMORY.md").write_text(
@@ -241,7 +241,7 @@ def test_durable_memory_index_and_topic_notes_are_loaded_and_retrieved(tmp_path)
         "- updated_at: 2026-04-12T08:14:49+00:00\n\n"
         "## Notes\n"
         "- Use constrained tools instead of guessing.\n"
-        "- Preserve local agent state under .pico/.\n",
+        "- Preserve local agent state under .teddycode/.\n",
         encoding="utf-8",
     )
 
@@ -255,7 +255,7 @@ def test_durable_memory_index_and_topic_notes_are_loaded_and_retrieved(tmp_path)
 
 
 def test_structured_durable_sidecar_migration_preserves_topic_markdown(tmp_path):
-    memory_root = tmp_path / ".pico" / "memory"
+    memory_root = tmp_path / ".teddycode" / "memory"
     topics_dir = memory_root / "topics"
     topics_dir.mkdir(parents=True)
     (memory_root / "MEMORY.md").write_text(
@@ -274,7 +274,7 @@ def test_structured_durable_sidecar_migration_preserves_topic_markdown(tmp_path)
         "- updated_at: 2026-04-12T08:14:49+00:00\n\n"
         "## Notes\n"
         "- Use constrained tools instead of guessing.\n"
-        "- Preserve local agent state under .pico/.\n"
+        "- Preserve local agent state under .teddycode/.\n"
     )
     topic_path.write_text(original_text, encoding="utf-8")
 
@@ -292,7 +292,7 @@ def test_structured_durable_sidecar_migration_preserves_topic_markdown(tmp_path)
 
 
 def test_structured_durable_sidecar_ignores_unparsed_topic_sections(tmp_path):
-    memory_root = tmp_path / ".pico" / "memory"
+    memory_root = tmp_path / ".teddycode" / "memory"
     topics_dir = memory_root / "topics"
     topics_dir.mkdir(parents=True)
     (memory_root / "MEMORY.md").write_text(
@@ -324,19 +324,19 @@ def test_structured_durable_promote_records_supersede_metadata(tmp_path):
 
     promoted, superseded = memory.promote_durable(
         [
-            ("project-conventions", "Pico uses unittest."),
-            ("project-conventions", "Pico uses pytest."),
+            ("project-conventions", "TeddyCode uses unittest."),
+            ("project-conventions", "TeddyCode uses pytest."),
         ]
     )
 
     assert promoted == [
-        "project-conventions: Pico uses unittest.",
-        "project-conventions: Pico uses pytest.",
+        "project-conventions: TeddyCode uses unittest.",
+        "project-conventions: TeddyCode uses pytest.",
     ]
-    assert superseded == ["project-conventions: Pico uses unittest. -> Pico uses pytest."]
+    assert superseded == ["project-conventions: TeddyCode uses unittest. -> TeddyCode uses pytest."]
     rows = [
         json.loads(line)
-        for line in (tmp_path / ".pico" / "memory" / "topics" / "project-conventions.metadata.jsonl")
+        for line in (tmp_path / ".teddycode" / "memory" / "topics" / "project-conventions.metadata.jsonl")
         .read_text(encoding="utf-8")
         .splitlines()
     ]
@@ -352,7 +352,7 @@ def test_stale_evidence_rejects_durable_note_when_anchor_changes(tmp_path):
     anchor.write_text("old\n", encoding="utf-8")
     memory = LayeredMemory(workspace_root=tmp_path)
     memory.promote_durable([("project-conventions", "Anchor fact uses alpha.")])
-    metadata_path = tmp_path / ".pico" / "memory" / "topics" / "project-conventions.metadata.jsonl"
+    metadata_path = tmp_path / ".teddycode" / "memory" / "topics" / "project-conventions.metadata.jsonl"
     rows = [json.loads(line) for line in metadata_path.read_text(encoding="utf-8").splitlines()]
     rows[0]["evidence"]["source_path"] = "anchor.txt"
     rows[0]["evidence"]["evidence_anchor_hash"] = compute_anchor_hash(anchor)
@@ -380,7 +380,7 @@ def test_quarantined_durable_note_is_rejected_after_promotion(tmp_path):
 
 
 def test_kairos_daily_log_index_policy_and_memory_tag_helpers(tmp_path):
-    memory_root = tmp_path / ".pico" / "memory"
+    memory_root = tmp_path / ".teddycode" / "memory"
 
     ensure_memory_dir(memory_root)
     append_to_daily_log(memory_root, "Prefer repo-local memory assets.", today=date(2026, 5, 12))
@@ -404,7 +404,7 @@ def test_kairos_daily_log_index_policy_and_memory_tag_helpers(tmp_path):
 
 
 def test_kairos_memory_system_section_defines_file_contract_and_forget_policy(tmp_path):
-    memory_root = tmp_path / ".pico" / "memory"
+    memory_root = tmp_path / ".teddycode" / "memory"
 
     policy = build_memory_system_section(memory_root)
 
@@ -423,9 +423,9 @@ def test_kairos_memory_system_section_defines_file_contract_and_forget_policy(tm
 
 
 def test_dream_prompt_targets_repo_local_memory_assets(tmp_path):
-    memory_root = tmp_path / ".pico" / "memory"
+    memory_root = tmp_path / ".teddycode" / "memory"
 
-    prompt = build_dream_prompt(memory_root, transcript_dir=str(tmp_path / ".pico" / "sessions"), session_ids=["s1", "s2"])
+    prompt = build_dream_prompt(memory_root, transcript_dir=str(tmp_path / ".teddycode" / "sessions"), session_ids=["s1", "s2"])
 
     assert "Dream: Memory Consolidation" in prompt
     assert str(memory_root) in prompt
@@ -435,8 +435,8 @@ def test_dream_prompt_targets_repo_local_memory_assets(tmp_path):
 
 
 def test_dream_prompt_uses_four_phase_filesystem_maintenance_flow(tmp_path):
-    memory_root = tmp_path / ".pico" / "memory"
-    transcript_dir = tmp_path / ".pico" / "sessions"
+    memory_root = tmp_path / ".teddycode" / "memory"
+    transcript_dir = tmp_path / ".teddycode" / "sessions"
 
     prompt = build_dream_prompt(memory_root, transcript_dir=str(transcript_dir), session_ids=["s1"])
 
@@ -458,14 +458,14 @@ def test_dream_writes_quality_report_under_memory_dir(tmp_path):
     agent = build_runtime_agent(
         tmp_path,
         [
-            '<tool>{"name":"write_file","args":{"path":".pico/memory/topics/test-topic.md","content":"# Test Topic\\n\\n## Notes\\n- Pico keeps stable signal.\\n"}}</tool>',
+            '<tool>{"name":"write_file","args":{"path":".teddycode/memory/topics/test-topic.md","content":"# Test Topic\\n\\n## Notes\\n- TeddyCode keeps stable signal.\\n"}}</tool>',
             "<final>Dream consolidation complete.</final>",
         ],
         auto_dream=False,
     )
 
     result = agent.run_dream(session_ids=["s1"])
-    report = latest_dream_report(tmp_path / ".pico" / "memory")
+    report = latest_dream_report(tmp_path / ".teddycode" / "memory")
 
     assert result == "Dream consolidation complete."
     assert set(report) == {
@@ -485,14 +485,14 @@ def test_dream_writes_quality_report_under_memory_dir(tmp_path):
 
 def test_auto_dream_writes_quality_report_under_memory_dir(tmp_path):
     for index in range(2):
-        session_path = tmp_path / ".pico" / "sessions" / f"older-{index}.json"
+        session_path = tmp_path / ".teddycode" / "sessions" / f"older-{index}.json"
         session_path.parent.mkdir(parents=True, exist_ok=True)
         session_path.write_text("{}", encoding="utf-8")
     agent = build_runtime_agent(
         tmp_path,
         [
             "<final><memory>Project fact for auto dream.</memory></final>",
-            '<tool>{"name":"write_file","args":{"path":".pico/memory/topics/test-topic.md","content":"# Test Topic\\n\\n## Notes\\n- Project fact for auto dream.\\n"}}</tool>',
+            '<tool>{"name":"write_file","args":{"path":".teddycode/memory/topics/test-topic.md","content":"# Test Topic\\n\\n## Notes\\n- Project fact for auto dream.\\n"}}</tool>',
             "<final>Dreamed.</final>",
         ],
         dream_min_sessions=2,
@@ -500,16 +500,16 @@ def test_auto_dream_writes_quality_report_under_memory_dir(tmp_path):
     )
 
     assert agent.ask("finish") == "<memory>Project fact for auto dream.</memory>"
-    agent.wait_for_memory_maintenance(timeout=2)
+    agent.wait_for_memory_maintenance(timeout=10)
 
-    report = latest_dream_report(tmp_path / ".pico" / "memory")
+    report = latest_dream_report(tmp_path / ".teddycode" / "memory")
     assert report["notes_in_after"] == 1
     assert report["signal_retained"] == 1
     assert agent.last_memory_maintenance["auto_dream"]["status"] == "finished"
 
 
 def test_consolidation_lock_can_be_reacquired_after_release(tmp_path):
-    memory_root = tmp_path / ".pico" / "memory"
+    memory_root = tmp_path / ".teddycode" / "memory"
 
     assert try_acquire_lock(memory_root) is True
     release_lock(memory_root)
@@ -518,7 +518,7 @@ def test_consolidation_lock_can_be_reacquired_after_release(tmp_path):
 
 
 def test_session_scan_deduplicates_session_files_and_event_logs(tmp_path):
-    sessions_dir = tmp_path / ".pico" / "sessions"
+    sessions_dir = tmp_path / ".teddycode" / "sessions"
     sessions_dir.mkdir(parents=True)
     (sessions_dir / "s1.json").write_text("{}", encoding="utf-8")
     (sessions_dir / "s1.events.jsonl").write_text("", encoding="utf-8")

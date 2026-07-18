@@ -1,7 +1,7 @@
 import json
 
-from pico import Pico, SessionStore, WorkspaceContext
-from pico.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode.testing import ScriptedModelClient
 
 
 VALID_HANDOFF = """## Goal
@@ -17,10 +17,10 @@ Continue the task.
 
 def build_agent(tmp_path, outputs=None):
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
-    return Pico(
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs or []),
         workspace=WorkspaceContext.build(tmp_path),
-        session_store=SessionStore(tmp_path / ".pico" / "sessions"),
+        session_store=SessionStore(tmp_path / ".teddycode" / "sessions"),
         approval_policy="auto",
     )
 
@@ -31,7 +31,7 @@ def add_turn(agent, index):
 
 
 def compact_output(agent, command):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     handled, should_exit, output = handle_repl_command(agent, command)
 
@@ -98,7 +98,7 @@ def test_compact_cli_auto_tier3_uses_llm(tmp_path):
 
 
 def test_context_command_reports_llm_handoff_status(tmp_path):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     agent = build_agent(tmp_path)
     agent.last_prompt_metadata = {

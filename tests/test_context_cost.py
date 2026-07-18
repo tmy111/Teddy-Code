@@ -1,7 +1,7 @@
 import json
 from unittest.mock import patch
 
-from pico.providers.clients import AnthropicCompatibleModelClient
+from teddycode.providers.clients import AnthropicCompatibleModelClient
 
 
 def test_anthropic_client_records_usage_metadata():
@@ -44,7 +44,7 @@ def test_anthropic_client_records_usage_metadata():
 
 
 def test_deterministic_prompt_experiment_pairs_full_and_no_reduction(tmp_path):
-    from pico.evaluation.context_cost import run_deterministic_prompt_experiment
+    from teddycode.evaluation.context_cost import run_deterministic_prompt_experiment
 
     payload = run_deterministic_prompt_experiment(
         output_dir=tmp_path / "context-cost",
@@ -62,7 +62,7 @@ def test_deterministic_prompt_experiment_pairs_full_and_no_reduction(tmp_path):
 
 
 def test_summarize_paired_rows_rejects_quality_regression():
-    from pico.evaluation.context_cost import CostUsage, ExperimentRow, summarize_paired_rows
+    from teddycode.evaluation.context_cost import CostUsage, ExperimentRow, summarize_paired_rows
 
     def row(task_id, variant, verification_status, tokens):
         return ExperimentRow(
@@ -107,7 +107,7 @@ def test_summarize_paired_rows_rejects_quality_regression():
 
 
 def test_summarize_paired_rows_splits_actual_and_proxy():
-    from pico.evaluation.context_cost import CostUsage, ExperimentRow, summarize_paired_rows
+    from teddycode.evaluation.context_cost import CostUsage, ExperimentRow, summarize_paired_rows
 
     def row(task_id, variant, tokens, source):
         return ExperimentRow(
@@ -155,7 +155,7 @@ def test_summarize_paired_rows_splits_actual_and_proxy():
 
 
 def test_claimable_cost_win_rejects_unknown_verification_and_negative_compact_net():
-    from pico.evaluation.context_cost import CostUsage, ExperimentRow, summarize_paired_rows
+    from teddycode.evaluation.context_cost import CostUsage, ExperimentRow, summarize_paired_rows
 
     def row(variant, verification_status, compact_net=None):
         return ExperimentRow(
@@ -216,7 +216,7 @@ def test_claimable_cost_win_rejects_unknown_verification_and_negative_compact_ne
 
 
 def test_markdown_report_includes_net_benefit_section(tmp_path):
-    from pico.evaluation.context_cost import render_markdown_report, run_deterministic_prompt_experiment
+    from teddycode.evaluation.context_cost import render_markdown_report, run_deterministic_prompt_experiment
 
     payload = run_deterministic_prompt_experiment(
         output_dir=tmp_path / "context-cost",
@@ -232,7 +232,7 @@ def test_markdown_report_includes_net_benefit_section(tmp_path):
 
 
 def test_scripted_e2e_experiment_records_tool_use(tmp_path):
-    from pico.evaluation.context_cost import run_scripted_e2e_experiment
+    from teddycode.evaluation.context_cost import run_scripted_e2e_experiment
 
     payload = run_scripted_e2e_experiment(tmp_path / "context-cost", repetitions=1)
 
@@ -242,7 +242,7 @@ def test_scripted_e2e_experiment_records_tool_use(tmp_path):
 
 
 def test_write_experiment_artifacts_has_no_secret_markers(tmp_path):
-    from pico.evaluation.context_cost import run_deterministic_prompt_experiment, write_experiment_artifacts
+    from teddycode.evaluation.context_cost import run_deterministic_prompt_experiment, write_experiment_artifacts
 
     payload = run_deterministic_prompt_experiment(tmp_path / "context-cost", repetitions=1)
     written = write_experiment_artifacts(payload, tmp_path / "artifacts")

@@ -1,14 +1,14 @@
 import json
 
-from pico.testing import ScriptedModelClient
-from pico import Engine, Pico, SessionEventBus, SessionStore, WorkspaceContext
+from teddycode.testing import ScriptedModelClient
+from teddycode import Engine, TeddyCode, SessionEventBus, SessionStore, WorkspaceContext
 
 
 def build_agent(tmp_path, outputs, **kwargs):
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
-    return Pico(
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs),
         workspace=workspace,
         session_store=store,
@@ -43,7 +43,7 @@ def test_engine_drives_real_session_and_persists_event_timeline(tmp_path):
     assert agent.session_path.exists()
     assert (
         agent.session_event_bus.path
-        == tmp_path / ".pico" / "sessions" / f"{agent.session['id']}.events.jsonl"
+        == tmp_path / ".teddycode" / "sessions" / f"{agent.session['id']}.events.jsonl"
     )
     assert event_names(agent) == [
         "session_started",
@@ -85,7 +85,7 @@ def test_plan_mode_allows_only_the_active_plan_artifact_until_plan_is_written(tm
     agent = build_agent(
         tmp_path,
         [
-            '<tool name="write_file" path=".pico/plans/v3-plan.md"><content># Plan\n- Build Engine\n</content></tool>',
+            '<tool name="write_file" path=".teddycode/plans/v3-plan.md"><content># Plan\n- Build Engine\n</content></tool>',
             "<final>Plan ready.</final>",
         ],
         max_steps=3,
@@ -93,7 +93,7 @@ def test_plan_mode_allows_only_the_active_plan_artifact_until_plan_is_written(tm
 
     plan_path = agent.enter_plan_mode("v3")
 
-    assert plan_path == ".pico/plans/v3-plan.md"
+    assert plan_path == ".teddycode/plans/v3-plan.md"
     assert agent.runtime_mode == "plan"
     rejected = agent.run_tool(
         "write_file", {"path": "src.py", "content": "print('no')\n"}
@@ -106,7 +106,7 @@ def test_plan_mode_allows_only_the_active_plan_artifact_until_plan_is_written(tm
     assert answer == "Plan ready."
     assert agent.runtime_mode == "default"
     assert (
-        (tmp_path / ".pico" / "plans" / "v3-plan.md")
+        (tmp_path / ".teddycode" / "plans" / "v3-plan.md")
         .read_text(encoding="utf-8")
         .startswith("# Plan")
     )
@@ -119,7 +119,7 @@ def test_plan_mode_rejects_final_before_the_plan_artifact_exists(tmp_path):
         tmp_path,
         [
             "<final>Looks done.</final>",
-            '<tool name="write_file" path=".pico/plans/v3-plan.md"><content># Plan\n</content></tool>',
+            '<tool name="write_file" path=".teddycode/plans/v3-plan.md"><content># Plan\n</content></tool>',
             "<final>Now done.</final>",
         ],
         max_steps=3,
@@ -140,7 +140,7 @@ def test_plan_mode_tools_enter_and_exit_runtime_mode(tmp_path):
     entered = agent.run_tool("enter_plan_mode", {"topic": "Refactor Auth"})
 
     assert "mode: plan" in entered
-    assert ".pico/plans/refactor-auth-plan.md" in entered
+    assert ".teddycode/plans/refactor-auth-plan.md" in entered
     assert agent.runtime_mode == "plan"
     assert agent.active_tool_profile.name == "plan"
 
@@ -152,16 +152,16 @@ def test_plan_mode_tools_enter_and_exit_runtime_mode(tmp_path):
 
 
 def test_plan_path_accepts_absolute_path_inside_workspace(tmp_path):
-    """模型偶尔给绝对路径，如 /Users/u/repo/.pico/plans/foo —— 自动相对化，
+    """模型偶尔给绝对路径，如 /Users/u/repo/.teddycode/plans/foo —— 自动相对化，
     不应该让 agent 多走一次重试。"""
-    from pico.core.plan_mode import _plan_path
+    from teddycode.core.plan_mode import _plan_path
 
     assert (
-        _plan_path("Student Mgmt", "/Users/u/repo/.pico/plans/student-mgmt.md")
-        == ".pico/plans/student-mgmt.md"
+        _plan_path("Student Mgmt", "/Users/u/repo/.teddycode/plans/student-mgmt.md")
+        == ".teddycode/plans/student-mgmt.md"
     )
     assert (
-        _plan_path("X", "./.pico/plans/x-plan.md") == ".pico/plans/x-plan.md"
+        _plan_path("X", "./.teddycode/plans/x-plan.md") == ".teddycode/plans/x-plan.md"
     )
     # 真正越界的还是要拒
     import pytest
@@ -169,17 +169,17 @@ def test_plan_path_accepts_absolute_path_inside_workspace(tmp_path):
     with pytest.raises(ValueError, match="plan path must stay"):
         _plan_path("X", "/etc/passwd")
     with pytest.raises(ValueError, match="plan path must stay"):
-        _plan_path("X", ".pico/plans/../escape.md")
+        _plan_path("X", ".teddycode/plans/../escape.md")
 
 
 def test_provider_surface_allows_profiles_without_reintroducing_ollama_client():
-    import pico
+    import teddycode
 
-    parser = pico.build_arg_parser()
+    parser = teddycode.build_arg_parser()
     provider_action = next(
         action for action in parser._actions if action.dest == "provider"
     )
 
     assert provider_action.choices is None
-    assert not hasattr(pico, "OllamaModelClient")
+    assert not hasattr(teddycode, "OllamaModelClient")
     assert parser.parse_args(["--provider", "deepseek"]).provider == "deepseek"

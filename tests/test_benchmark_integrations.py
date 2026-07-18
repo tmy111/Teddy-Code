@@ -4,9 +4,11 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-from pico import cli
-from pico.evaluation.harnessbench import build_adapter_metadata, write_adapter_metadata
-from pico.testing import ScriptedModelClient
+import pytest
+
+from teddycode import cli
+from teddycode.evaluation.harnessbench import build_adapter_metadata, write_adapter_metadata
+from teddycode.testing import ScriptedModelClient
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -17,7 +19,7 @@ def test_prompt_file_reads_prompt_and_runs_one_shot(tmp_path, capsys):
     prompt.write_text("Return final.", encoding="utf-8")
 
     with patch(
-        "pico.cli._build_model_client",
+        "teddycode.cli._build_model_client",
         return_value=ScriptedModelClient(["<final>prompt file ok</final>"]),
     ):
         code = cli.main(
@@ -71,11 +73,11 @@ def test_session_id_creates_and_reuses_fixed_session(tmp_path):
         "--non-interactive",
     ]
 
-    with patch("pico.cli._build_model_client", side_effect=clients):
+    with patch("teddycode.cli._build_model_client", side_effect=clients):
         assert cli.main(argv) == 0
         assert cli.main(argv) == 0
 
-    session_path = tmp_path / ".pico" / "sessions" / "bench-session.json"
+    session_path = tmp_path / ".teddycode" / "sessions" / "bench-session.json"
     session = json.loads(session_path.read_text(encoding="utf-8"))
     assert session["id"] == "bench-session"
     assert [
@@ -142,10 +144,10 @@ def test_non_interactive_requires_non_ask_approval_and_prompt(tmp_path, capsys):
     assert "--non-interactive requires a positional prompt or --prompt-file" in captured.err
 
 
-def test_harnessbench_metadata_points_to_pico_evidence(tmp_path):
+def test_harnessbench_metadata_points_to_teddycode_evidence(tmp_path):
     workspace = tmp_path
-    run_dir = workspace / ".pico" / "runs" / "run_1"
-    session_dir = workspace / ".pico" / "sessions"
+    run_dir = workspace / ".teddycode" / "runs" / "run_1"
+    session_dir = workspace / ".teddycode" / "sessions"
     run_dir.mkdir(parents=True)
     session_dir.mkdir(parents=True)
     for name in ("trace.jsonl", "report.json", "task_state.json"):
@@ -173,17 +175,17 @@ def test_harnessbench_metadata_points_to_pico_evidence(tmp_path):
     )
 
     assert metadata["returncode"] == 7
-    assert metadata["pico_evidence_available"] is True
-    assert metadata["pico_evidence_missing"] == []
-    assert metadata["pico_trace_path"] == str(run_dir / "trace.jsonl")
-    assert metadata["pico_report_path"] == str(run_dir / "report.json")
-    assert metadata["pico_task_state_path"] == str(run_dir / "task_state.json")
-    assert metadata["pico_session_path"] == str(session_dir / "bench-session.json")
-    assert metadata["pico_session_event_path"] == str(
+    assert metadata["teddycode_evidence_available"] is True
+    assert metadata["teddycode_evidence_missing"] == []
+    assert metadata["teddycode_trace_path"] == str(run_dir / "trace.jsonl")
+    assert metadata["teddycode_report_path"] == str(run_dir / "report.json")
+    assert metadata["teddycode_task_state_path"] == str(run_dir / "task_state.json")
+    assert metadata["teddycode_session_path"] == str(session_dir / "bench-session.json")
+    assert metadata["teddycode_session_event_path"] == str(
         session_dir / "bench-session.events.jsonl"
     )
     transcript_path = session_dir / "bench-session.process.jsonl"
-    assert metadata["pico_process_transcript_path"] == str(transcript_path)
+    assert metadata["teddycode_process_transcript_path"] == str(transcript_path)
     rows = [
         json.loads(line)
         for line in transcript_path.read_text(encoding="utf-8").splitlines()
@@ -192,17 +194,28 @@ def test_harnessbench_metadata_points_to_pico_evidence(tmp_path):
 
 
 def test_harnessbench_metadata_writer_creates_manifest(tmp_path):
-    output = tmp_path / "sandbox" / "pico-adapter-metadata.json"
+    output = tmp_path / "sandbox" / "teddycode-adapter-metadata.json"
 
     metadata = write_adapter_metadata(tmp_path, output, session_id="missing")
 
     written = json.loads(output.read_text(encoding="utf-8"))
     assert written == metadata
-    assert written["pico_evidence_available"] is False
-    assert "pico_trace_path" in written["pico_evidence_missing"]
+    assert written["teddycode_evidence_available"] is False
+    assert "teddycode_trace_path" in written["teddycode_evidence_missing"]
 
 
 def test_bench_script_env_max_steps_overrides_yaml_arg(tmp_path):
+    bash_check = subprocess.run(
+        ["bash", "-lc", "true"],
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        capture_output=True,
+        check=False,
+    )
+    if bash_check.returncode != 0:
+        pytest.skip("bash is unavailable")
+
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     fake_uv = fake_bin / "uv"
@@ -210,7 +223,7 @@ def test_bench_script_env_max_steps_overrides_yaml_arg(tmp_path):
         """#!/usr/bin/env bash
 set -euo pipefail
 printf '%s\\n' "$*" >> "$UV_LOG"
-if [[ "$*" == *"pico.evaluation.harnessbench"* ]]; then
+if [[ "$*" == *"teddycode.evaluation.harnessbench"* ]]; then
   output=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -245,13 +258,13 @@ exit 0
         "PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}",
         "UV_LOG": str(log_path),
         "CLAWBENCH_SANDBOX": str(sandbox),
-        "PICO_BENCH_MAX_STEPS": "32",
+        "TEDDYCODE_BENCH_MAX_STEPS": "32",
     }
 
     completed = subprocess.run(
         [
             "bash",
-            "scripts/bench-pico-v3.sh",
+            "scripts/bench-teddycode-v3.sh",
             "--workspace",
             str(workspace),
             "--prompt-file",
@@ -271,7 +284,7 @@ exit 0
     assert completed.returncode == 0, completed.stderr
     log_text = log_path.read_text(encoding="utf-8")
     assert "--max-steps 32" in log_text
-    effective_prompt = sandbox / "pico-benchmark-prompt.txt"
+    effective_prompt = sandbox / "teddycode-benchmark-prompt.txt"
     assert f"--prompt-file {effective_prompt}" in log_text
     assert "Benchmark artifact discipline" in effective_prompt.read_text(
         encoding="utf-8"

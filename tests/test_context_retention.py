@@ -1,5 +1,5 @@
-from pico.core.context_retention import ContextRetentionPolicy, RetentionContext
-from pico.core.turn_history import should_render_tool_inline
+from teddycode.core.context_retention import ContextRetentionPolicy, RetentionContext
+from teddycode.core.turn_history import should_render_tool_inline
 
 
 def retention_context(**overrides):

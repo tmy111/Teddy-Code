@@ -1,8 +1,9 @@
 import json
 import hashlib
 import subprocess
+import sys
 
-from pico.features.memory_lint import lint_memory_dir
+from teddycode.features.memory_lint import lint_memory_dir
 
 
 def _write_memory_fixture(root, note_texts, metadata_rows):
@@ -57,9 +58,11 @@ def test_memory_lint_dirty_fixture_reports_exactly_five_findings():
 
 def test_memory_lint_cli_returns_one_for_findings():
     result = subprocess.run(
-        ["uv", "run", "python", "-m", "pico.features.memory_lint", "tests/fixtures/memory_lint_dirty"],
+        [sys.executable, "-m", "teddycode.features.memory_lint", "tests/fixtures/memory_lint_dirty"],
         check=False,
         capture_output=True,
+        encoding="utf-8",
+        errors="replace",
         text=True,
     )
 
@@ -70,15 +73,15 @@ def test_memory_lint_cli_returns_one_for_findings():
 def test_memory_lint_duplicate_active_subject_positive_and_negative(tmp_path):
     _write_memory_fixture(
         tmp_path,
-        ["Pico uses pytest.", "Pico uses unittest."],
-        [_row("Pico uses pytest."), _row("Pico uses unittest.", status="superseded")],
+        ["TeddyCode uses pytest.", "TeddyCode uses unittest."],
+        [_row("TeddyCode uses pytest."), _row("TeddyCode uses unittest.", status="superseded")],
     )
     assert not [finding for finding in lint_memory_dir(tmp_path) if finding["rule"] == "duplicate_active_subject"]
 
     _write_memory_fixture(
         tmp_path / "dirty",
-        ["Pico uses pytest.", "Pico uses unittest."],
-        [_row("Pico uses pytest."), _row("Pico uses unittest.")],
+        ["TeddyCode uses pytest.", "TeddyCode uses unittest."],
+        [_row("TeddyCode uses pytest."), _row("TeddyCode uses unittest.")],
     )
     assert [finding for finding in lint_memory_dir(tmp_path / "dirty") if finding["rule"] == "duplicate_active_subject"]
 
@@ -100,16 +103,16 @@ def test_memory_lint_secret_shaped_positive_and_negative(tmp_path):
 
 
 def test_memory_lint_orphan_supersede_positive_and_negative(tmp_path):
-    _write_memory_fixture(tmp_path, ["Pico uses pytest."], [_row("Pico uses pytest.", supersedes=None)])
+    _write_memory_fixture(tmp_path, ["TeddyCode uses pytest."], [_row("TeddyCode uses pytest.", supersedes=None)])
     assert not [finding for finding in lint_memory_dir(tmp_path) if finding["rule"] == "orphan_supersede"]
 
-    _write_memory_fixture(tmp_path / "dirty", ["Pico uses pytest."], [_row("Pico uses pytest.", supersedes="missing")])
+    _write_memory_fixture(tmp_path / "dirty", ["TeddyCode uses pytest."], [_row("TeddyCode uses pytest.", supersedes="missing")])
     assert [finding for finding in lint_memory_dir(tmp_path / "dirty") if finding["rule"] == "orphan_supersede"]
 
 
 def test_memory_lint_missing_evidence_positive_and_negative(tmp_path):
-    _write_memory_fixture(tmp_path, ["Pico should keep evidence."], [_row("Pico should keep evidence.")])
+    _write_memory_fixture(tmp_path, ["TeddyCode should keep evidence."], [_row("TeddyCode should keep evidence.")])
     assert not [finding for finding in lint_memory_dir(tmp_path) if finding["rule"] == "missing_evidence"]
 
-    _write_memory_fixture(tmp_path / "dirty", ["Pico should keep evidence."], [_row("Pico should keep evidence.", session_id="")])
+    _write_memory_fixture(tmp_path / "dirty", ["TeddyCode should keep evidence."], [_row("TeddyCode should keep evidence.", session_id="")])
     assert [finding for finding in lint_memory_dir(tmp_path / "dirty") if finding["rule"] == "missing_evidence"]

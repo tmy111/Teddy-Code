@@ -2,18 +2,18 @@
 
 import json
 
-from pico import Pico, SessionStore, WorkspaceContext
-from pico.core.task_state import TaskState
-from pico.core.turn_transitions import emit_terminal_transition
-from pico.providers import ProviderError
-from pico.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode.core.task_state import TaskState
+from teddycode.core.turn_transitions import emit_terminal_transition
+from teddycode.providers import ProviderError
+from teddycode.testing import ScriptedModelClient
 
 
 def build_agent(tmp_path, outputs, **kwargs):
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
-    return Pico(
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs),
         workspace=workspace,
         session_store=store,
@@ -66,7 +66,7 @@ def test_engine_records_loop_transitions_without_changing_stream(tmp_path):
         "continue_count": 1,
         "terminal_count": 1,
         "terminal_reason": "final_answer_returned",
-        "schema_version": "pico.transition_summary.v1",
+        "schema_version": "teddycode.transition_summary.v1",
         "reasons": {
             "tool_batch_executed": 1,
             "final_answer_returned": 1,
@@ -286,7 +286,7 @@ def test_plan_notice_transition_preserves_runtime_notice_stream_order(tmp_path):
         tmp_path,
         [
             "<final>Looks done.</final>",
-            '<tool name="write_file" path=".pico/plans/v3-plan.md"><content># Plan\n</content></tool>',
+            '<tool name="write_file" path=".teddycode/plans/v3-plan.md"><content># Plan\n</content></tool>',
             "<final>Now done.</final>",
         ],
         max_steps=3,

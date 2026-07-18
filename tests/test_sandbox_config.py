@@ -1,6 +1,6 @@
 import pytest
 
-from pico.features.sandbox.config import SandboxConfig, resolve_sandbox_config
+from teddycode.features.sandbox.config import SandboxConfig, resolve_sandbox_config
 
 
 def test_sandbox_config_defaults_to_off():

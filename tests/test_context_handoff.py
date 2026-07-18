@@ -1,5 +1,5 @@
-from pico.core.context_handoff import HandoffAdapter, HandoffParser, HandoffSummary, render_handoff_summary
-from pico.testing import ScriptedModelClient
+from teddycode.core.context_handoff import HandoffAdapter, HandoffParser, HandoffSummary, render_handoff_summary
+from teddycode.testing import ScriptedModelClient
 
 
 VALID_HANDOFF = """## Goal
@@ -10,10 +10,10 @@ Implement context handoff compaction.
 - Do not change low-pressure prompts
 
 ## Files Read
-- pico/core/compact.py
+- teddycode/core/compact.py
 
 ## Files Modified
-- pico/core/context_handoff.py
+- teddycode/core/context_handoff.py
 
 ## Key Decisions
 - Use complete_model boundary
@@ -31,8 +31,8 @@ def test_parser_valid_output_extracts_sections():
 
     assert summary.goal == "Implement context handoff compaction."
     assert summary.constraints == ("Keep deterministic fallback", "Do not change low-pressure prompts")
-    assert summary.files_read == ("pico/core/compact.py",)
-    assert summary.files_modified == ("pico/core/context_handoff.py",)
+    assert summary.files_read == ("teddycode/core/compact.py",)
+    assert summary.files_modified == ("teddycode/core/context_handoff.py",)
     assert summary.key_decisions == ("Use complete_model boundary",)
     assert summary.blockers == ("None",)
     assert summary.next_steps == ("Wire CompactManager",)
@@ -69,7 +69,7 @@ def test_render_handoff_summary_preserves_critical_sections():
     text = render_handoff_summary(HandoffParser().parse(VALID_HANDOFF))
 
     assert "## Goal\nImplement context handoff compaction." in text
-    assert "- pico/core/compact.py" in text
+    assert "- teddycode/core/compact.py" in text
     assert "- Use complete_model boundary" in text
     assert "- Wire CompactManager" in text
 

@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pico"
+name = "teddycode"
 version = "0.3.0"
 description = "Small local coding agent for OpenAI-compatible, Anthropic-compatible, and DeepSeek models"
 requires-python = ">=3.10"
@@ -14,8 +14,8 @@ dependencies = [
 ]
 
 [project.scripts]
-pico = "pico.cli:main"
-pico-tui = "pico.tui.main:main"
+teddycode = "teddycode.cli:main"
+teddycode-tui = "teddycode.tui.main:main"
 
 [dependency-groups]
 dev = [
@@ -25,13 +25,13 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["pico*"]
+include = ["teddycode*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 norecursedirs = [
   ".git",
-  ".pico",
+  ".teddycode",
   ".venv",
   ".worktrees",
   "_local",

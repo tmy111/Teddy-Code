@@ -7,15 +7,15 @@ public release:
 2. **dream consolidation** — auto-dream produces non-empty topic files
 
 These tests use ScriptedModelClient (deterministic) by default so CI always runs.
-Set PICO_LIVE_SMOKE=1 with a provider configured to run them against a real model.
+Set TEDDYCODE_LIVE_SMOKE=1 with a provider configured to run them against a real model.
 """
 import os
 import textwrap
 
 import pytest
 
-from pico import Pico, SessionStore, WorkspaceContext
-from pico.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode.testing import ScriptedModelClient
 
 
 def _build_workspace(tmp_path):
@@ -28,8 +28,8 @@ def _build_workspace(tmp_path):
 
 def _build_agent(tmp_path, outputs):
     workspace = _build_workspace(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
-    return Pico(
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs),
         workspace=workspace,
         session_store=store,
@@ -44,8 +44,8 @@ def test_read_then_edit_completes_in_one_turn(tmp_path):
         tmp_path,
         [
             '<tool>{"name":"read_file","args":{"path":"README.md","start":1,"end":20}}</tool>',
-            '<tool>{"name":"patch_file","args":{"path":"README.md","old_text":"Quick Start coming soon.","new_text":"Quick Start: pico --help"}}</tool>',
-            "<final>已把 Quick Start 段从占位文本改成实际的 pico --help 提示。</final>",
+            '<tool>{"name":"patch_file","args":{"path":"README.md","old_text":"Quick Start coming soon.","new_text":"Quick Start: teddycode --help"}}</tool>',
+            "<final>已把 Quick Start 段从占位文本改成实际的 teddycode --help 提示。</final>",
         ],
     )
 
@@ -53,7 +53,7 @@ def test_read_then_edit_completes_in_one_turn(tmp_path):
 
     assert "Quick Start" in final
     updated = (tmp_path / "README.md").read_text(encoding="utf-8")
-    assert "pico --help" in updated
+    assert "teddycode --help" in updated
     assert "Quick Start coming soon" not in updated
 
 
@@ -97,7 +97,7 @@ def test_step_limit_default_can_handle_realistic_workflows(tmp_path):
 
 def test_empty_response_does_not_silently_stop(tmp_path):
     """empty_response 错误必须用户可见，不再'Stopped after model error' 静默。"""
-    from pico.providers.errors import ProviderError
+    from teddycode.providers.errors import ProviderError
 
     err = ProviderError(
         "empty",
@@ -119,23 +119,23 @@ def test_empty_response_does_not_silently_stop(tmp_path):
 
 def _has_live_provider():
     keys = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY")
-    return any(os.environ.get(k) for k in keys) and os.environ.get("PICO_LIVE_SMOKE") == "1"
+    return any(os.environ.get(k) for k in keys) and os.environ.get("TEDDYCODE_LIVE_SMOKE") == "1"
 
 
 @pytest.mark.skipif(
     not _has_live_provider(),
-    reason="set PICO_LIVE_SMOKE=1 and a provider API key to run against a real model",
+    reason="set TEDDYCODE_LIVE_SMOKE=1 and a provider API key to run against a real model",
 )
 def test_dream_produces_non_empty_topics_with_live_provider(tmp_path):
     """End-to-end: 真实 provider 跑一次 dream，topics/ 必须产出非空文件。"""
-    from pico.config import resolve_provider_config
-    from pico.providers import (
+    from teddycode.config import resolve_provider_config
+    from teddycode.providers import (
         AnthropicCompatibleModelClient,
         OpenAICompatibleModelClient,
     )
 
     workspace = _build_workspace(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
 
     config = resolve_provider_config(None, start=str(tmp_path))
     client_cls = (
@@ -149,7 +149,7 @@ def test_dream_produces_non_empty_topics_with_live_provider(tmp_path):
         timeout=180,
     )
 
-    log_path = tmp_path / ".pico" / "memory" / "logs" / "2026" / "05" / "2026-05-13.md"
+    log_path = tmp_path / ".teddycode" / "memory" / "logs" / "2026" / "05" / "2026-05-13.md"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text(
         textwrap.dedent(
@@ -164,7 +164,7 @@ def test_dream_produces_non_empty_topics_with_live_provider(tmp_path):
         encoding="utf-8",
     )
 
-    agent = Pico(
+    agent = TeddyCode(
         model_client=model,
         workspace=workspace,
         session_store=store,
@@ -174,9 +174,9 @@ def test_dream_produces_non_empty_topics_with_live_provider(tmp_path):
 
     agent.run_dream()
 
-    topics_dir = tmp_path / ".pico" / "memory" / "topics"
+    topics_dir = tmp_path / ".teddycode" / "memory" / "topics"
     written = [p for p in topics_dir.glob("*.md") if p.read_text(encoding="utf-8").strip()]
     assert written, "dream 必须至少产出一个非空 topic 文件"
 
-    index = (tmp_path / ".pico" / "memory" / "MEMORY.md").read_text(encoding="utf-8")
+    index = (tmp_path / ".teddycode" / "memory" / "MEMORY.md").read_text(encoding="utf-8")
     assert "topics/" in index

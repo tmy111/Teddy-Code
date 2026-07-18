@@ -4,16 +4,16 @@ import json
 import shlex
 import sys
 
-from pico.testing import ScriptedModelClient
-from pico import Pico, SessionStore, WorkspaceContext
-from pico.providers import ProviderError
+from teddycode.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode.providers import ProviderError
 
 
 def build_agent(tmp_path, outputs, **kwargs):
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
-    return Pico(
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs),
         workspace=workspace,
         session_store=store,
@@ -82,7 +82,7 @@ def test_engine_reports_context_budget_summary_from_prompt_metadata(tmp_path):
     )
     summary = report["evidence_summaries"]["context_budget_summary"]
     usage = report["prompt_metadata"]["context_usage"]
-    assert summary["schema_version"] == "pico.context_budget_summary.v1"
+    assert summary["schema_version"] == "teddycode.context_budget_summary.v1"
     assert summary["budget_unit"] == "tokens_estimated"
     assert summary["token_estimator"] == "context_usage_analyzer"
     assert summary["estimated_tokens"] == usage["total_estimated_tokens"]
@@ -188,7 +188,7 @@ def test_verification_signal_passes_after_workspace_verification(tmp_path):
         (agent.current_run_dir / "report.json").read_text(encoding="utf-8")
     )
     signal = report["evidence_summaries"]["verification_signal"]
-    assert signal["schema_version"] == "pico.verification_signal.v1"
+    assert signal["schema_version"] == "teddycode.verification_signal.v1"
     assert signal["state"] == "passed"
     assert signal["command"] == command
     assert signal["command_class"] == "compile"

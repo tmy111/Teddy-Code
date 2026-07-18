@@ -4,13 +4,13 @@ import urllib.request
 
 import pytest
 
-import pico.cli as pico_cli
-from pico.core.runtime import Pico
-from pico.core.model_router import ModelClientRouter
-from pico.core.session_store import SessionStore
-from pico.core.workspace import WorkspaceContext
-from pico.providers.clients import AnthropicCompatibleModelClient, OpenAICompatibleModelClient
-from pico.testing import ScriptedModelClient
+import teddycode.cli as teddycode_cli
+from teddycode.core.runtime import TeddyCode
+from teddycode.core.model_router import ModelClientRouter
+from teddycode.core.session_store import SessionStore
+from teddycode.core.workspace import WorkspaceContext
+from teddycode.providers.clients import AnthropicCompatibleModelClient, OpenAICompatibleModelClient
+from teddycode.testing import ScriptedModelClient
 
 
 PNG_BYTES = (
@@ -45,8 +45,8 @@ class RecordingVisionClient(ScriptedModelClient):
 def build_agent(tmp_path, model_client=None, model_client_router=None):
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
-    return Pico(
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
+    return TeddyCode(
         model_client=model_client or RecordingVisionClient(["A small red chart."]),
         workspace=workspace,
         session_store=store,
@@ -63,7 +63,7 @@ def write_png(tmp_path, name="chart.png"):
 
 
 def test_openai_client_sends_image_blocks_in_responses_payload(monkeypatch):
-    from pico.core.content_blocks import ImageBlock, ModelInput
+    from teddycode.core.content_blocks import ImageBlock, ModelInput
 
     captured = {}
 
@@ -100,7 +100,7 @@ def test_openai_client_sends_image_blocks_in_responses_payload(monkeypatch):
 
 
 def test_anthropic_client_sends_image_blocks_in_messages_payload(monkeypatch):
-    from pico.core.content_blocks import ImageBlock, ModelInput
+    from teddycode.core.content_blocks import ImageBlock, ModelInput
 
     captured = {}
 
@@ -137,7 +137,7 @@ def test_anthropic_client_sends_image_blocks_in_messages_payload(monkeypatch):
 
 
 def test_deepseek_profile_defaults_to_openai_vision_provider(tmp_path, monkeypatch):
-    from pico.config import resolve_provider_config
+    from teddycode.config import resolve_provider_config
 
     monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-deepseek")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
@@ -151,14 +151,14 @@ def test_deepseek_profile_defaults_to_openai_vision_provider(tmp_path, monkeypat
 
 
 def test_vision_provider_uses_vision_specific_env_overrides(tmp_path, monkeypatch):
-    from pico.config import resolve_vision_provider_config
+    from teddycode.config import resolve_vision_provider_config
 
-    monkeypatch.setenv("PICO_OPENAI_API_KEY", "sk-text")
-    monkeypatch.setenv("PICO_OPENAI_MODEL", "text-model")
-    monkeypatch.setenv("PICO_OPENAI_API_BASE", "https://text.example/v1")
-    monkeypatch.setenv("PICO_VISION_API_KEY", "sk-vision")
-    monkeypatch.setenv("PICO_VISION_MODEL", "vision-model")
-    monkeypatch.setenv("PICO_VISION_API_BASE", "https://vision.example/v1")
+    monkeypatch.setenv("TEDDYCODE_OPENAI_API_KEY", "sk-text")
+    monkeypatch.setenv("TEDDYCODE_OPENAI_MODEL", "text-model")
+    monkeypatch.setenv("TEDDYCODE_OPENAI_API_BASE", "https://text.example/v1")
+    monkeypatch.setenv("TEDDYCODE_VISION_API_KEY", "sk-vision")
+    monkeypatch.setenv("TEDDYCODE_VISION_MODEL", "vision-model")
+    monkeypatch.setenv("TEDDYCODE_VISION_API_BASE", "https://vision.example/v1")
 
     config = resolve_vision_provider_config("openai", start=tmp_path)
 
@@ -170,7 +170,7 @@ def test_vision_provider_uses_vision_specific_env_overrides(tmp_path, monkeypatc
 
 
 def test_build_agent_uses_separate_vision_provider_for_deepseek(tmp_path, monkeypatch):
-    args = pico_cli.build_arg_parser().parse_args(
+    args = teddycode_cli.build_arg_parser().parse_args(
         ["--cwd", str(tmp_path), "--provider", "deepseek"]
     )
     monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-deepseek")
@@ -179,9 +179,9 @@ def test_build_agent_uses_separate_vision_provider_for_deepseek(tmp_path, monkey
     monkeypatch.setenv("OPENAI_API_BASE", "https://vision.example/v1")
 
     with pytest.MonkeyPatch.context() as patcher:
-        patcher.setattr(pico_cli, "AnthropicCompatibleModelClient", lambda **kwargs: ("anthropic", kwargs))
-        patcher.setattr(pico_cli, "OpenAICompatibleModelClient", lambda **kwargs: ("openai", kwargs))
-        agent = pico_cli.build_agent(args)
+        patcher.setattr(teddycode_cli, "AnthropicCompatibleModelClient", lambda **kwargs: ("anthropic", kwargs))
+        patcher.setattr(teddycode_cli, "OpenAICompatibleModelClient", lambda **kwargs: ("openai", kwargs))
+        agent = teddycode_cli.build_agent(args)
         vision_client = agent.model_client_router.vision_client()
 
     assert agent.model_client[0] == "anthropic"
@@ -193,21 +193,21 @@ def test_build_agent_uses_separate_vision_provider_for_deepseek(tmp_path, monkey
 
 
 def test_build_agent_uses_vision_specific_client_overrides(tmp_path, monkeypatch):
-    args = pico_cli.build_arg_parser().parse_args(
+    args = teddycode_cli.build_arg_parser().parse_args(
         ["--cwd", str(tmp_path), "--provider", "deepseek", "--vision-timeout", "45"]
     )
     monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-deepseek")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-text")
     monkeypatch.setenv("OPENAI_MODEL", "text-model")
     monkeypatch.setenv("OPENAI_API_BASE", "https://text.example/v1")
-    monkeypatch.setenv("PICO_VISION_API_KEY", "sk-vision")
-    monkeypatch.setenv("PICO_VISION_MODEL", "vision-model")
-    monkeypatch.setenv("PICO_VISION_API_BASE", "https://vision.example/v1")
+    monkeypatch.setenv("TEDDYCODE_VISION_API_KEY", "sk-vision")
+    monkeypatch.setenv("TEDDYCODE_VISION_MODEL", "vision-model")
+    monkeypatch.setenv("TEDDYCODE_VISION_API_BASE", "https://vision.example/v1")
 
     with pytest.MonkeyPatch.context() as patcher:
-        patcher.setattr(pico_cli, "AnthropicCompatibleModelClient", lambda **kwargs: ("anthropic", kwargs))
-        patcher.setattr(pico_cli, "OpenAICompatibleModelClient", lambda **kwargs: ("openai", kwargs))
-        agent = pico_cli.build_agent(args)
+        patcher.setattr(teddycode_cli, "AnthropicCompatibleModelClient", lambda **kwargs: ("anthropic", kwargs))
+        patcher.setattr(teddycode_cli, "OpenAICompatibleModelClient", lambda **kwargs: ("openai", kwargs))
+        agent = teddycode_cli.build_agent(args)
         vision_client = agent.model_client_router.vision_client()
 
     assert agent.model_client[0] == "anthropic"
@@ -220,8 +220,8 @@ def test_build_agent_uses_vision_specific_client_overrides(tmp_path, monkeypatch
 
 
 def test_inspect_image_uses_separate_vision_model_when_configured(tmp_path):
-    from pico.core.content_blocks import ModelInput
-    from pico.core.task_state import TaskState
+    from teddycode.core.content_blocks import ModelInput
+    from teddycode.core.task_state import TaskState
 
     write_png(tmp_path)
     main_client = RecordingVisionClient(["unused main model output"])
@@ -244,7 +244,7 @@ def test_inspect_image_uses_separate_vision_model_when_configured(tmp_path):
 
 
 def test_inspect_image_keeps_medium_summary_inline(tmp_path):
-    from pico.core.task_state import TaskState
+    from teddycode.core.task_state import TaskState
 
     write_png(tmp_path)
     summary = "vision detail\n" * 180
@@ -262,7 +262,7 @@ def test_inspect_image_keeps_medium_summary_inline(tmp_path):
 
 
 def test_image_inspection_prompt_preserves_complete_ocr_extraction():
-    from pico.core.vision import image_inspection_prompt
+    from teddycode.core.vision import image_inspection_prompt
 
     prompt = image_inspection_prompt(
         "rows.png",
@@ -277,8 +277,8 @@ def test_image_inspection_prompt_preserves_complete_ocr_extraction():
 
 
 def test_vision_model_call_has_total_timeout(monkeypatch):
-    from pico.core.content_blocks import ModelInput
-    from pico.core.vision import complete_model_with_timeout
+    from teddycode.core.content_blocks import ModelInput
+    from teddycode.core.vision import complete_model_with_timeout
 
     class SlowClient:
         timeout = 0.01
@@ -286,14 +286,14 @@ def test_vision_model_call_has_total_timeout(monkeypatch):
     def slow_complete(*_args, **_kwargs):
         time.sleep(0.2)
 
-    monkeypatch.setattr("pico.core.vision.complete_model", slow_complete)
+    monkeypatch.setattr("teddycode.core.vision.complete_model", slow_complete)
 
     with pytest.raises(TimeoutError, match="vision provider request exceeded"):
         complete_model_with_timeout(SlowClient(), ModelInput(text="describe"), 64)
 
 
 def test_load_workspace_image_rejects_path_escape_and_records_safe_metadata(tmp_path):
-    from pico.core.media import load_workspace_image
+    from teddycode.core.media import load_workspace_image
 
     write_png(tmp_path)
     outside = tmp_path.parent / "outside.png"
@@ -311,7 +311,7 @@ def test_load_workspace_image_rejects_path_escape_and_records_safe_metadata(tmp_
 
 
 def test_load_workspace_image_rejects_fake_image_extension(tmp_path):
-    from pico.core.media import load_workspace_image
+    from teddycode.core.media import load_workspace_image
 
     (tmp_path / "fake.png").write_text("not really a png\n", encoding="utf-8")
     agent = build_agent(tmp_path)
@@ -321,7 +321,7 @@ def test_load_workspace_image_rejects_fake_image_extension(tmp_path):
 
 
 def test_run_store_writes_binary_artifact(tmp_path):
-    from pico.core.task_state import TaskState
+    from teddycode.core.task_state import TaskState
 
     agent = build_agent(tmp_path)
     task_state = TaskState.create(run_id="run_test", task_id="task_test", user_request="inspect")
@@ -333,8 +333,8 @@ def test_run_store_writes_binary_artifact(tmp_path):
 
 
 def test_inspect_image_tool_calls_model_with_model_input_and_records_media_refs(tmp_path):
-    from pico.core.content_blocks import ModelInput
-    from pico.core.task_state import TaskState
+    from teddycode.core.content_blocks import ModelInput
+    from teddycode.core.task_state import TaskState
 
     write_png(tmp_path)
     client = RecordingVisionClient(["The image contains a one-pixel chart."])

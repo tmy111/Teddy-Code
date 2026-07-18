@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from pico.features.sandbox.config import SandboxConfig
-from pico.features.sandbox.runner import SandboxRunner
+from teddycode.features.sandbox.config import SandboxConfig
+from teddycode.features.sandbox.runner import SandboxRunner
 
 
 def test_required_sandbox_rejects_when_backend_is_unavailable(tmp_path):
@@ -51,6 +51,11 @@ def test_best_effort_sandbox_records_degrade_and_runs_without_backend(tmp_path):
 def test_off_sandbox_keeps_plain_subprocess_behavior(tmp_path):
     runner = SandboxRunner(SandboxConfig(mode="off"), run=subprocess.run)
 
-    result = runner.run("pwd", cwd=tmp_path, env=os.environ.copy(), timeout=5)
+    result = runner.run(
+        f"{sys.executable} -c 'import os; print(os.getcwd())'",
+        cwd=tmp_path,
+        env=os.environ.copy(),
+        timeout=5,
+    )
 
     assert Path(result.stdout.strip()) == tmp_path

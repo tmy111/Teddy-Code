@@ -1,4 +1,4 @@
-from pico.core.context_budget_summary import context_budget_summary, update_from_orchestrator
+from teddycode.core.context_budget_summary import context_budget_summary, update_from_orchestrator
 
 
 def test_context_budget_summary_includes_compact_call_usage_and_net_benefit():

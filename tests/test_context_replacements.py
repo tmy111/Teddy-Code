@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
-from pico.core.context_replacements import commit_proposed_replacements
-from pico.core.turn_history import TurnHistoryBuilder
+from teddycode.core.context_replacements import commit_proposed_replacements
+from teddycode.core.turn_history import TurnHistoryBuilder
 
 
 def fake_agent(history, context_replacements=None, changed_paths=None):

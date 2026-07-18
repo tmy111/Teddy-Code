@@ -1,4 +1,4 @@
-from pico.core.context_pressure import ContextPressure, ContextPressureController
+from teddycode.core.context_pressure import ContextPressure, ContextPressureController
 
 
 def identity(**overrides):
@@ -127,19 +127,19 @@ def test_cache_tokens_are_not_current_when_identity_mismatches():
 
 
 def test_sanitized_provider_base_url_matches_without_secret_leak(tmp_path):
-    from pico import Pico, SessionStore, WorkspaceContext
-    from pico.core.context_manager import ContextManager
-    from pico.testing import ScriptedModelClient
+    from teddycode import TeddyCode, SessionStore, WorkspaceContext
+    from teddycode.core.context_manager import ContextManager
+    from teddycode.testing import ScriptedModelClient
 
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
     client = ScriptedModelClient([])
     client.provider = "openai"
     client.model = "gpt-test"
     client.base_url = "https://user:secret@example.test:8443/v1?api_key=sk-real-secret"
-    agent = Pico(
+    agent = TeddyCode(
         model_client=client,
         workspace=WorkspaceContext.build(tmp_path),
-        session_store=SessionStore(tmp_path / ".pico" / "sessions"),
+        session_store=SessionStore(tmp_path / ".teddycode" / "sessions"),
         approval_policy="auto",
     )
     _, first_metadata = ContextManager(agent).build("first")

@@ -1,7 +1,7 @@
-from pico.core.context_manager import SectionRender
-from pico.core.context_sections import CURRENT_REQUEST_SECTION, REDUCTION_ORDER, SECTION_ORDER
-from pico.core.context_report import ContextReportBuilder
-from pico.core.context_usage import ContextUsageAnalyzer
+from teddycode.core.context_manager import SectionRender
+from teddycode.core.context_sections import CURRENT_REQUEST_SECTION, REDUCTION_ORDER, SECTION_ORDER
+from teddycode.core.context_report import ContextReportBuilder
+from teddycode.core.context_usage import ContextUsageAnalyzer
 
 
 class DummyAgent:

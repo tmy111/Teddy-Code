@@ -11,4 +11,4 @@
 - user said hi again
 - assistant acknowledged the message
 - hello from the user
-- Pico memory fidelity evaluates irrelevant injection, supersede, secret, stale, and poison cases.
+- TeddyCode memory fidelity evaluates irrelevant injection, supersede, secret, stale, and poison cases.

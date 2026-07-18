@@ -2,7 +2,7 @@
 
 import pytest
 
-from pico.core.turn_transitions import (
+from teddycode.core.turn_transitions import (
     CONTINUE_TOOL_BATCH_EXECUTED,
     TERMINAL_FINAL_ANSWER_RETURNED,
     build_transition,
@@ -42,7 +42,7 @@ def test_reduce_transition_summary_allows_only_one_terminal_transition():
             stop_reason=TERMINAL_FINAL_ANSWER_RETURNED,
         ),
     )
-    assert summary["schema_version"] == "pico.transition_summary.v1"
+    assert summary["schema_version"] == "teddycode.transition_summary.v1"
 
     with pytest.raises(ValueError, match="terminal transition"):
         reduce_transition_summary(

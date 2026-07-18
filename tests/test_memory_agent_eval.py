@@ -1,7 +1,7 @@
 import json
 
-from pico.evaluation.memory_agent_eval import run_memory_agent_eval_v1
-from pico.evaluation.metrics import main as metrics_main, write_benchmark_core_report
+from teddycode.evaluation.memory_agent_eval import run_memory_agent_eval_v1
+from teddycode.evaluation.metrics import main as metrics_main, write_benchmark_core_report
 
 
 def _write_json(path, payload):
@@ -176,7 +176,7 @@ def test_memory_report_does_not_present_contract_as_benchmark(tmp_path):
     assert "memory_on_vs_memory_off" in text
     assert "8/8" in text
     assert "不能把 contract pass rate 当作长期记忆能力得分" in text
-    assert "Pico 长期记忆能力达到 100%" not in text
+    assert "TeddyCode 长期记忆能力达到 100%" not in text
 
 
 def test_metrics_cli_memory_challenge_and_core_report(tmp_path, monkeypatch):

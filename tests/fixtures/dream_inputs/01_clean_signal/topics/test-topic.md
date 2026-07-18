@@ -6,6 +6,6 @@
 - updated_at: 2026-06-01T10:00:00+00:00
 
 ## Notes
-- Pico benchmark reports must separate deterministic and live-provider evidence.
+- TeddyCode benchmark reports must separate deterministic and live-provider evidence.
 - Memory evaluation artifacts live under _local/benchmark/artifacts.
 - Roadmap PRs should keep unrelated refactors out.

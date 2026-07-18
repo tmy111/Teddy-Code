@@ -2,24 +2,24 @@ from pathlib import Path
 import json
 import pytest
 
-from pico.testing import ScriptedModelClient
-from pico import Pico, SessionStore, WorkspaceContext
+from teddycode.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
 
 
 def build_agent(tmp_path, outputs=None, **kwargs):
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
-    return Pico(
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs or []),
         workspace=workspace,
-        session_store=SessionStore(tmp_path / ".pico" / "sessions"),
+        session_store=SessionStore(tmp_path / ".teddycode" / "sessions"),
         approval_policy="auto",
         **kwargs,
     )
 
 
 def test_usage_command_reports_provider_model_and_last_usage(tmp_path):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     agent = build_agent(tmp_path, ["<final>Done.</final>"])
     agent.model_client.model = "gpt-test"
@@ -44,7 +44,7 @@ def test_usage_command_reports_provider_model_and_last_usage(tmp_path):
 
 
 def test_usage_command_sanitizes_base_url_host(tmp_path):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     agent = build_agent(tmp_path, [])
     agent.model_client.base_url = "https://user:secret@example.com:8443/v1?api_key=sk-real"
@@ -58,7 +58,7 @@ def test_usage_command_sanitizes_base_url_host(tmp_path):
 
 
 def test_usage_command_handles_malformed_sanitized_base_url(tmp_path):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     agent = build_agent(tmp_path, [])
     agent.model_client.base_url = "http://user:secret@[::1/v1?api_key=x#frag"
@@ -72,7 +72,7 @@ def test_usage_command_handles_malformed_sanitized_base_url(tmp_path):
 
 
 def test_usage_command_optionally_reports_context_pressure_fields(tmp_path):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     agent = build_agent(tmp_path, [])
     agent.last_prompt_metadata = {
@@ -95,7 +95,7 @@ def test_usage_command_optionally_reports_context_pressure_fields(tmp_path):
 
 
 def test_usage_command_optionally_reports_context_orchestrator_fields(tmp_path):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     agent = build_agent(tmp_path, [])
     agent.last_prompt_metadata = {
@@ -121,7 +121,7 @@ def test_usage_command_optionally_reports_context_orchestrator_fields(tmp_path):
 
 
 def test_context_command_reports_usage_and_orchestrator_payload(tmp_path):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     agent = build_agent(tmp_path, [])
 
@@ -134,7 +134,7 @@ def test_context_command_reports_usage_and_orchestrator_payload(tmp_path):
 
 
 def test_usage_command_omits_optional_context_pressure_fields_when_absent(tmp_path):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     agent = build_agent(tmp_path, [])
     agent.last_prompt_metadata = {
@@ -154,7 +154,7 @@ def test_usage_command_omits_optional_context_pressure_fields_when_absent(tmp_pa
 
 
 def test_model_command_updates_current_runtime_only(tmp_path):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     agent = build_agent(tmp_path, [])
     agent.model_client.model = "old-model"
@@ -164,17 +164,17 @@ def test_model_command_updates_current_runtime_only(tmp_path):
     assert handled is True
     assert output == "model: new-model"
     assert agent.model_client.model == "new-model"
-    assert not (Path(tmp_path) / ".pico.toml").exists()
+    assert not (Path(tmp_path) / ".teddycode.toml").exists()
 
 
 def test_session_history_resume_and_clear_commands(tmp_path):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     first = build_agent(tmp_path, ["<final>First.</final>"])
     assert first.ask("first request") == "First."
     first_id = first.session["id"]
 
-    second = Pico.from_session(
+    second = TeddyCode.from_session(
         model_client=ScriptedModelClient(["<final>Second.</final>"]),
         workspace=first.workspace,
         session_store=first.session_store,
@@ -205,7 +205,7 @@ def test_session_history_resume_and_clear_commands(tmp_path):
 
 
 def test_resume_rejects_path_traversal_session_id(tmp_path):
-    from pico.cli import handle_repl_command
+    from teddycode.cli import handle_repl_command
 
     agent = build_agent(tmp_path, [])
 
@@ -216,7 +216,7 @@ def test_resume_rejects_path_traversal_session_id(tmp_path):
 
 
 def test_session_store_rejects_path_traversal_ids(tmp_path):
-    store = SessionStore(tmp_path / ".pico" / "sessions")
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
 
     with pytest.raises(ValueError, match="invalid session id"):
         store.load("../outside")

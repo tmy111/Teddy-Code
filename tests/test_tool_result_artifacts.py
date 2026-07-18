@@ -5,18 +5,18 @@ import json
 import shlex
 import sys
 
-from pico import Pico, SessionStore, WorkspaceContext
-from pico.core.context_manager import ContextManager
-from pico.core.run_store import RunStore
-from pico.testing import ScriptedModelClient
-from pico.tools.base import RegisteredTool
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode.core.context_manager import ContextManager
+from teddycode.core.run_store import RunStore
+from teddycode.testing import ScriptedModelClient
+from teddycode.tools.base import RegisteredTool
 
 
 def build_agent(tmp_path, outputs=None, **kwargs):
     (tmp_path / "README.md").write_text("hello world\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
-    return Pico(
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs or []),
         workspace=workspace,
         session_store=store,

@@ -1,12 +1,12 @@
 import json
 
-from pico.evaluation.run_evidence import RunEvidence
+from teddycode.evaluation.run_evidence import RunEvidence
 
 
 def test_run_evidence_reads_trace_report_and_session_artifacts(tmp_path):
     workspace = tmp_path
-    run_dir = workspace / ".pico" / "runs" / "run_1"
-    session_dir = workspace / ".pico" / "sessions"
+    run_dir = workspace / ".teddycode" / "runs" / "run_1"
+    session_dir = workspace / ".teddycode" / "sessions"
     run_dir.mkdir(parents=True)
     session_dir.mkdir(parents=True)
     (run_dir / "report.json").write_text(
@@ -14,7 +14,7 @@ def test_run_evidence_reads_trace_report_and_session_artifacts(tmp_path):
             {
                 "status": "completed",
                 "stop_reason": "final_answer_returned",
-                "runtime_reminders": [{"artifact_path": ".pico/runs/run_1/artifacts/fallback.txt"}],
+                "runtime_reminders": [{"artifact_path": ".teddycode/runs/run_1/artifacts/fallback.txt"}],
                 "artifact_graph": {"changed_paths": ["src/app.py"]},
             }
         ),
@@ -31,7 +31,7 @@ def test_run_evidence_reads_trace_report_and_session_artifacts(tmp_path):
                     {
                         "event": "tool_executed",
                         "name": "run_shell",
-                        "full_output_artifact": ".pico/runs/run_1/artifacts/output.txt",
+                        "full_output_artifact": ".teddycode/runs/run_1/artifacts/output.txt",
                     }
                 ),
                 json.dumps({"event": "tool_executed", "tool_name": "patch_file"}),
@@ -53,7 +53,7 @@ def test_run_evidence_reads_trace_report_and_session_artifacts(tmp_path):
     assert evidence.changed_paths() == ["src/app.py"]
     assert evidence.has_tools("run_shell", "patch_file")
     assert evidence.full_output_artifacts() == [
-        ".pico/runs/run_1/artifacts/output.txt",
-        ".pico/runs/run_1/artifacts/fallback.txt",
+        ".teddycode/runs/run_1/artifacts/output.txt",
+        ".teddycode/runs/run_1/artifacts/fallback.txt",
     ]
     assert evidence.has_session_event("permission_decision", reason="allow")

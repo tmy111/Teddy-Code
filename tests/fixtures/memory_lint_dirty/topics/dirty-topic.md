@@ -6,8 +6,8 @@
 - updated_at: 2026-06-24T00:00:00+00:00
 
 ## Notes
-- Pico uses pytest.
-- Pico uses unittest.
+- TeddyCode uses pytest.
+- TeddyCode uses unittest.
 - Review the memory audit tomorrow.
 - Store api key sk-AAAAAAAAAAAAAAAAAAAAAA for service.
 - Orphan chain is active.

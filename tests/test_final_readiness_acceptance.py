@@ -4,15 +4,15 @@ import json
 import shlex
 import sys
 
-from pico import Pico, SessionStore, WorkspaceContext
-from pico.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode.testing import ScriptedModelClient
 
 
 def build_agent(tmp_path, outputs, **kwargs):
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
-    return Pico(
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs),
         workspace=workspace,
         session_store=store,
@@ -80,7 +80,7 @@ def test_soft_final_readiness_reminds_once_then_allows_unchanged_final(tmp_path)
     assert report["evidence_summaries"]["final_readiness_summary"]["warn_count"] == 1
     assert (
         report["evidence_summaries"]["final_readiness_summary"]["schema_version"]
-        == "pico.final_readiness_summary.v1"
+        == "teddycode.final_readiness_summary.v1"
     )
 
 

@@ -1,4 +1,4 @@
-from pico.core.context_sections import (
+from teddycode.core.context_sections import (
     DEFAULT_SECTION_BUDGETS,
     MIN_SECTION_BUDGETS,
     REDUCTION_ORDER,
@@ -10,7 +10,7 @@ from pico.core.context_sections import (
     section_floors,
     section_order,
 )
-from pico.core.context_manager import ContextManager
+from teddycode.core.context_manager import ContextManager
 
 
 def test_context_section_policy_registry_preserves_order_and_budget_data():
@@ -76,12 +76,12 @@ def test_context_section_policy_records_sources_and_non_reducible_request():
 
 
 def test_context_manager_exports_legacy_section_policy_names():
-    from pico.core.context_manager import (
+    from teddycode.core.context_manager import (
         DEFAULT_REDUCTION_ORDER,
         DEFAULT_SECTION_FLOORS,
         DEFAULT_TOTAL_BUDGET,
     )
-    from pico.core.context_sections import SECTION_ORDER as LEGACY_ORDER
+    from teddycode.core.context_sections import SECTION_ORDER as LEGACY_ORDER
 
     assert DEFAULT_SECTION_FLOORS == MIN_SECTION_BUDGETS
     assert DEFAULT_REDUCTION_ORDER == REDUCTION_ORDER

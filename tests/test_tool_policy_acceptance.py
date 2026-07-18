@@ -1,17 +1,18 @@
 """Acceptance tests for tool policy decisions and governance evidence."""
 
 import json
+import os
 
-from pico.testing import ScriptedModelClient
-from pico import Pico, SessionStore, WorkspaceContext
-from pico.features.sandbox.config import SandboxConfig
+from teddycode.testing import ScriptedModelClient
+from teddycode import TeddyCode, SessionStore, WorkspaceContext
+from teddycode.features.sandbox.config import SandboxConfig
 
 
 def build_agent(tmp_path, outputs=None, **kwargs):
     (tmp_path / "README.md").write_text("hello world\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
-    store = SessionStore(tmp_path / ".pico" / "sessions")
-    return Pico(
+    store = SessionStore(tmp_path / ".teddycode" / "sessions")
+    return TeddyCode(
         model_client=ScriptedModelClient(outputs or []),
         workspace=workspace,
         session_store=store,
@@ -27,33 +28,33 @@ def read_jsonl(path):
 def test_patch_requires_prior_fresh_read_and_allows_after_read(tmp_path):
     agent = build_agent(tmp_path)
 
-    rejected = agent.run_tool("patch_file", {"path": "README.md", "old_text": "world", "new_text": "pico"})
+    rejected = agent.run_tool("patch_file", {"path": "README.md", "old_text": "world", "new_text": "teddycode"})
 
     assert "read_file" in rejected
     assert agent._last_tool_result_metadata["tool_error_code"] == "prior_read_required"
     assert (tmp_path / "README.md").read_text(encoding="utf-8") == "hello world\n"
 
     agent.run_tool("read_file", {"path": "README.md", "start": 1, "end": 1})
-    patched = agent.run_tool("patch_file", {"path": "README.md", "old_text": "world", "new_text": "pico"})
+    patched = agent.run_tool("patch_file", {"path": "README.md", "old_text": "world", "new_text": "teddycode"})
 
     assert patched == "patched README.md"
-    assert (tmp_path / "README.md").read_text(encoding="utf-8") == "hello pico\n"
+    assert (tmp_path / "README.md").read_text(encoding="utf-8") == "hello teddycode\n"
 
 
 def test_rejected_patch_can_be_retried_after_informing_read(tmp_path):
     agent = build_agent(
         tmp_path,
         [
-            '<tool name="patch_file" path="README.md"><old_text>world</old_text><new_text>pico</new_text></tool>',
+            '<tool name="patch_file" path="README.md"><old_text>world</old_text><new_text>teddycode</new_text></tool>',
             '<tool>{"name":"read_file","args":{"path":"README.md","start":1,"end":1}}</tool>',
-            '<tool name="patch_file" path="README.md"><old_text>world</old_text><new_text>pico</new_text></tool>',
+            '<tool name="patch_file" path="README.md"><old_text>world</old_text><new_text>teddycode</new_text></tool>',
             "<final>done</final>",
         ],
         max_steps=4,
     )
 
     assert agent.ask("retry a patch only after reading the target file") == "done"
-    assert (tmp_path / "README.md").read_text(encoding="utf-8") == "hello pico\n"
+    assert (tmp_path / "README.md").read_text(encoding="utf-8") == "hello teddycode\n"
 
     trace = read_jsonl(agent.current_run_dir / "trace.jsonl")
     patch_events = [
@@ -162,7 +163,7 @@ def test_tool_governance_decisions_are_run_trace_evidence(tmp_path):
         (agent.current_run_dir / "report.json").read_text(encoding="utf-8")
     )
     assert report["evidence_summaries"]["governance_summary"] == {
-        "schema_version": "pico.governance_summary.v1",
+        "schema_version": "teddycode.governance_summary.v1",
         "allow_count": 1,
         "deny_count": 2,
         "warn_count": 0,
@@ -256,11 +257,12 @@ def test_shell_policy_allows_head_tail_grep_after_pipe(tmp_path):
     policy 不应该把它们当作 workspace search 拒绝。"""
     agent = build_agent(tmp_path)
 
-    for command in (
-        "echo hello && echo world | tail -1",
-        "python3 --version 2>&1 | head -3",
-        "echo a; echo b | grep b",
-    ):
+    commands = (
+        ("echo hello && echo world", "python --version", "echo a && echo b")
+        if os.name == "nt"
+        else ("echo hello && echo world | tail -1", "python3 --version 2>&1 | head -3", "echo a; echo b | grep b")
+    )
+    for command in commands:
         result = agent.run_tool("run_shell", {"command": command, "timeout": 20})
         assert "exit_code: 0" in result, f"command should run, got: {result[:200]}"
 

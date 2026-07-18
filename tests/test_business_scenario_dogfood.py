@@ -26,7 +26,7 @@ def test_business_scenario_dogfood_uses_real_provider_only():
 
 
 @pytest.mark.skipif(
-    os.environ.get("PICO_RUN_LIVE_BUSINESS_DOGFOOD") != "1",
+    os.environ.get("TEDDYCODE_RUN_LIVE_BUSINESS_DOGFOOD") != "1",
     reason="live provider dogfood is opt-in",
 )
 def test_business_scenario_dogfood_covers_three_user_workflows_live(tmp_path):
