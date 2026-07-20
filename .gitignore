@@ -30,8 +30,8 @@ htmlcov/
 # Local scratch space
 tmp/
 .worktrees/
-.pico/
-.mini-pico/
+.teddycode/
+.mini-teddycode/
 _local/
 artifacts/
 .kami-output/
@@ -42,8 +42,8 @@ readme_intro_locked/
 .env
 .env.*
 !.env.example
-.pico.toml
-!.pico.toml.example
+.teddycode.toml
+!.teddycode.toml.example
 
 # Local docs not intended for publication
 docs/**
@@ -57,5 +57,5 @@ docs/**
 .DS_Store
 
 # Packaging metadata
-pico.egg-info/
+teddycode.egg-info/
 .gstack/

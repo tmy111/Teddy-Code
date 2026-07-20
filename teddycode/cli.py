@@ -5,15 +5,15 @@
 最后进入 one-shot 或交互式循环。
 """
 
-import argparse
-import json
-import os
-import shutil
-import sys
-import textwrap
+import argparse      # 命令行参数解析
+import json          # JSON 序列化
+import os            # 操作系统接口
+import shutil        # 高级文件操作（这里用于获取终端尺寸）
+import sys           # 系统相关功能（stdin、stderr）
+import textwrap      # 文本格式化
 from pathlib import Path
-from urllib.parse import urlparse
-
+from urllib.parse import urlparse  # URL 解析
+#内部模块导入
 from .commands.slash import command_help_text, parse_subagent_args, resolve_command
 from .config import (
     DEFAULT_PROVIDER,
@@ -30,7 +30,7 @@ from .providers.runtime import ProviderClientClasses, build_provider_runtime
 from .core.model_router import ModelClientRouter
 from .core.runtime import TeddyCode, SessionStore
 from .core.workspace import WorkspaceContext, middle, now
-
+#需要保护的敏感环境变量列表
 DEFAULT_SECRET_ENV_NAMES = (
     "TEDDYCODE_API_KEY",
     "TEDDYCODE_OPENAI_API_KEY",
@@ -47,7 +47,7 @@ DEFAULT_SECRET_ENV_NAMES = (
     "GITHUB_PAT",
     "GH_PAT",
 )
-
+#欢迎界面
 WELCOME_ART = (
     "        /\\___/\\\\",
     "       (  o o  )",
@@ -68,12 +68,12 @@ HELP_DETAILS = (
     ).strip()
 )
 
-
+#默认模型
 DEFAULT_OPENAI_MODEL = PROVIDER_DEFAULTS["openai"]["model"]
 DEFAULT_OPENAI_BASE_URL = PROVIDER_DEFAULTS["openai"]["base_url"]
 SECRET_ENV_NAMES_VAR = "TEDDYCODE_SECRET_ENV_NAMES"
 
-
+#合并所有来源的密钥环境变量名（默认 + 命令行 + 环境变量），返回排序后的列表。
 def _configured_secret_names(args):
     configured_secret_names = set(DEFAULT_SECRET_ENV_NAMES)
     configured_secret_names.update(str(name).upper() for name in args.secret_env_names)
@@ -84,7 +84,7 @@ def _configured_secret_names(args):
         )
     return sorted(configured_secret_names)
 
-
+#返回支持的模型提供商客户端类映射。
 def _provider_client_classes():
     return ProviderClientClasses(
         openai=OpenAICompatibleModelClient,
@@ -100,11 +100,11 @@ def _build_provider_runtime(args):
     setattr(args, "_provider_runtime", runtime)
     return runtime
 
-
+#构建模型客户端
 def _build_model_client(args):
     return _build_provider_runtime(args).model_client
 
-
+#构建欢迎界面
 def build_welcome(agent, model, host):
     width = max(68, min(shutil.get_terminal_size((80, 20)).columns, 84))
     inner = width - 4
@@ -172,9 +172,9 @@ def build_agent(args):
         args.cwd,
         repo_root_override=getattr(args, "repo_root", None),
     )
-    store = SessionStore(workspace.repo_root + "/.teddycode/sessions")
-    provider_runtime = _build_provider_runtime(args)
-    model = _build_model_client(args)
+    store = SessionStore(workspace.repo_root + "/.teddycode/sessions")#创建session存储
+    provider_runtime = _build_provider_runtime(args)#构建provider运行配置
+    model = _build_model_client(args)#构建模型客户端
     model_client_router = (
         provider_runtime.model_client_router
         if model is provider_runtime.model_client
@@ -189,16 +189,16 @@ def build_agent(args):
         mode=getattr(args, "sandbox", None),
         backend=getattr(args, "sandbox_backend", None),
     )
-    load_project_env(workspace.repo_root, override=False)
-    configured_secret_names = _configured_secret_names(args)
-    session_id = args.resume
-    fixed_session_id = getattr(args, "session_id", None)
-    if session_id == "latest":
-        session_id = store.latest()
-    memory_dir = getattr(args, "memory_dir", None)
-    auto_dream = not getattr(args, "no_auto_dream", False)
-    dream_interval = getattr(args, "dream_interval", 24.0)
-    dream_min_sessions = getattr(args, "dream_min_sessions", 5)
+    load_project_env(workspace.repo_root, override=False)#加载项目环境变量否
+    configured_secret_names = _configured_secret_names(args)#合并所有来源的密钥环境变量名（默认 + 命令行 + 环境变量），返回排序后的列表。
+    session_id = args.resume#读取session id
+    fixed_session_id = getattr(args, "session_id", None)#读取固定session id
+    if session_id == "latest":#如果session id为latest
+        session_id = store.latest()#获取最新session id
+    memory_dir = getattr(args, "memory_dir", None)#读取 memory 存储目录。
+    auto_dream = not getattr(args, "no_auto_dream", False)#是否开启自动 dream/memory 总结。
+    dream_interval = getattr(args, "dream_interval", 24.0)#自动 dream/memory 总结间隔（小时）。
+    dream_min_sessions = getattr(args, "dream_min_sessions", 5)#至少多少session才启动dream/memory 
     final_readiness_mode = getattr(args, "final_readiness", "warn")
     ask_user_callback = (
         None
@@ -207,7 +207,7 @@ def build_agent(args):
             or getattr(args, "prompt_file", None)
             or getattr(args, "non_interactive", False)
         )
-        else _cli_ask_user
+        else _cli_ask_user#交互式CLI里agent能中途问用户问题
     )
     if session_id:
         agent = TeddyCode.from_session(
@@ -264,7 +264,7 @@ def build_agent(args):
     )
     return agent
 
-
+# 命令行参数定义
 def build_arg_parser():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -442,25 +442,25 @@ def handle_repl_command(agent, user_input):
         command_name = resolved.name if resolved else raw_command.strip().lower()
         command_args = command_args.strip()
 
-    if user_input in {"/exit", "/quit"}:
+    if user_input in {"/exit", "/quit"}:#退出REPL
         return True, True, ""
-    if user_input == "/help":
+    if user_input == "/help":#显示帮助
         return True, False, HELP_DETAILS
-    if user_input == "/memory":
+    if user_input == "/memory":#显示memory命令相关信息
         return True, False, agent.memory_command_text()
-    if user_input == "/working-memory":
+    if user_input == "/working-memory":#显示当前工作记忆
         return True, False, agent.memory_text()
-    if user_input.startswith("/remember"):
+    if user_input.startswith("/remember"):#添加持久记忆
         _, _, note = user_input.partition(" ")
         if not note.strip():
             return True, False, "Usage: /remember <text>"
         agent.remember_durable_note(note)
         return True, False, "Saved to daily log."
-    if user_input == "/dream":
+    if user_input == "/dream":#运行自动记忆合并
         return True, False, agent.run_dream()
-    if user_input == "/skills":
+    if user_input == "/skills":#显示当前可用skills
         return True, False, skillslib.render_skills_list(agent.skills)
-    if user_input == "/plan" or user_input.startswith("/plan "):
+    if user_input == "/plan" or user_input.startswith("/plan "):#进入计划模式
         _, _, raw_topic = user_input.partition(" ")
         topic = raw_topic.strip()
         if not topic:
@@ -474,27 +474,27 @@ def handle_repl_command(agent, user_input):
         except ValueError as exc:
             return True, False, f"error: {exc}"
         return True, False, f"mode: plan\nplan path: {plan_path}"
-    if user_input == "/plan-exit":
+    if user_input == "/plan-exit":#退出计划模式
         agent.exit_plan_mode()
         return True, False, "mode: default"
-    if user_input == "/mode":
+    if user_input == "/mode":#显示当前模式
         return True, False, _format_mode_status(agent)
-    if user_input == "/session":
+    if user_input == "/session":#显示 session 状态，比如 session id、路径、worker 状态等。
         return True, False, _format_session_status(agent)
-    if command_name == "agents":
+    if command_name == "agents":#显示 subagent 工具状态。
         return True, False, _format_subagent_status(agent)
-    if command_name == "subagent":
+    if command_name == "subagent":#运行 subagent 工具。
         payload, error = parse_subagent_args(command_args)
         if error:
             return True, False, error
         return True, False, agent.run_tool("agent", payload)
-    if user_input == "/context":
+    if user_input == "/context":#显示当前上下文
         return (
             True,
             False,
             json.dumps(_context_payload(agent), indent=2, sort_keys=True),
         )
-    if user_input == "/usage":
+    if user_input == "/usage":#输出最近一次模型调用的 token、模型、base url、缓存等信息。
         return True, False, _format_usage(agent)
     if user_input == "/model" or user_input.startswith("/model "):
         _, _, model = user_input.partition(" ")
@@ -505,9 +505,9 @@ def handle_repl_command(agent, user_input):
         agent.session_event_bus.emit("model_changed", {"model": model})
         agent.refresh_prefix(force=True)
         return True, False, f"model: {model}"
-    if user_input == "/history":
+    if user_input == "/history":#显示历史session列表
         return True, False, _format_history(agent)
-    if user_input.startswith("/resume "):
+    if user_input.startswith("/resume "):#恢复指定session
         _, _, target = user_input.partition(" ")
         session_id = _resolve_session_id(agent, target.strip())
         if not session_id:
@@ -517,9 +517,9 @@ def handle_repl_command(agent, user_input):
     if user_input == "/clear":
         session_id = agent.clear_session()
         return True, False, f"new session {session_id}"
-    if command_name == "compact":
+    if command_name == "compact":#手动压缩上下文历史，避免 context 太长。
         return True, False, _handle_compact(agent, command_args)
-    if user_input == "/reset":
+    if user_input == "/reset":#重置当前 agent 的 session 状态。
         agent.reset()
         return True, False, "session reset"
     command, arguments = skillslib.parse_slash_command(user_input)
@@ -527,7 +527,7 @@ def handle_repl_command(agent, user_input):
         return True, False, invoke_skill(agent, command, arguments)
     return False, False, ""
 
-
+#输出当前 runtime mode，比如 default / plan。
 def _format_mode_status(agent):
     lines = [f"runtime mode: {agent.runtime_mode}"]
     plan_path = getattr(agent.plan_mode, "plan_path", "")
@@ -535,7 +535,7 @@ def _format_mode_status(agent):
         lines.append(f"plan path: {plan_path}")
     return "\n".join(lines)
 
-
+#输出当前 session 状态，比如 session id、路径、worker 状态等。
 def _format_session_status(agent):
     task_state = getattr(agent, "current_task_state", None)
     run_id = getattr(task_state, "run_id", "") or ""
@@ -565,7 +565,7 @@ def _format_session_status(agent):
         ]
     )
 
-
+#输出 subagent 可用工具和 worker 状态。
 def _format_subagent_status(agent):
     return "\n".join(
         [
@@ -574,14 +574,15 @@ def _format_subagent_status(agent):
         ]
     )
 
-
+#把 worker 列表格式化成一行文本。
 def _worker_summary(agent):
     items = agent.worker_manager.to_dict().get("items", [])
     if not items:
         return "none"
     return ", ".join(f"{item.get('id')}:{item.get('status')}" for item in items)
 
-
+#处理 /compact 命令。
+#--llm: 使用模型压缩上下文历史，--auto: 自动根据上下文长度选择压缩模式。
 def _handle_compact(agent, args_text):
     args_text = str(args_text or "").strip()
     summary_mode = "deterministic"
@@ -609,7 +610,7 @@ def _compact_command_output(result):
         output["net_benefit_tokens"] = output["pre_tokens"] - output["post_tokens"] - int(usage.get("total_tokens", 0) or 0)
     return output
 
-
+#格式化最近一次模型调用的信息
 def _format_usage(agent):
     metadata = dict(getattr(agent, "last_completion_metadata", {}) or {})
     context_usage = dict(
@@ -650,7 +651,7 @@ def _format_usage(agent):
         )
     return "\n".join(lines)
 
-
+#从 base url 里安全提取 host，避免直接显示完整敏感 URL。
 def _safe_url_host(sanitized_url):
     if not sanitized_url:
         return "-"
@@ -669,7 +670,7 @@ def _fallback_url_host(sanitized_url):
     candidate = candidate.split("/", 1)[0]
     return candidate or "-"
 
-
+#生成 /context 命令输出的 JSON 内容。
 def _context_payload(agent):
     metadata = dict(getattr(agent, "last_prompt_metadata", {}) or {})
     if not metadata:
@@ -681,7 +682,7 @@ def _context_payload(agent):
         "llm_handoff_status": _llm_handoff_status(orchestrator),
     }
 
-
+#判断上下文压缩/交接状态。
 def _llm_handoff_status(orchestrator):
     usage = dict(orchestrator.get("compact_call_usage", {}) or {})
     pre = int(orchestrator.get("pre_compact_estimated_tokens", 0) or 0)
@@ -694,11 +695,11 @@ def _llm_handoff_status(orchestrator):
         "handoff_armed": orchestrator.get("pressure_tier") == "tier3_summary",
     }
 
-
+#输出当前模型。
 def _format_model(agent):
     return f"model: {getattr(agent.model_client, 'model', '-') or '-'}"
 
-
+#格式化历史 session 列表。
 def _format_history(agent):
     rows = agent.session_store.list_sessions()
     if not rows:
@@ -711,7 +712,7 @@ def _format_history(agent):
         )
     return "\n".join(lines)
 
-
+#把用户输入的 session 目标解析成真正 session id。
 def _resolve_session_id(agent, target):
     if target == "latest":
         return agent.session_store.latest()
