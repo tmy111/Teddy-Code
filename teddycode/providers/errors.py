@@ -1,9 +1,11 @@
-"""Structured provider failure types."""
+"""provider 调用失败的结构化错误类型。"""
 
 from urllib.parse import urlsplit, urlunsplit
 
 
-class ProviderError(RuntimeError):
+class ProviderError(RuntimeError):#继承自RuntimeError，表示运行时错误
+    """包装 provider 请求/解析失败，并保留可写入 metadata 的诊断信息。"""
+
     def __init__(
         self,
         message,
@@ -20,6 +22,7 @@ class ProviderError(RuntimeError):
         cause_type="",
     ):
         super().__init__(message)
+        # base_url 进入日志/metadata 前必须脱敏，避免把账号、token 或查询串带出去。
         self.provider = str(provider or "")
         self.model = str(model or "")
         self.base_url = sanitize_url(base_url)
@@ -32,6 +35,8 @@ class ProviderError(RuntimeError):
         self.cause_type = str(cause_type or "")
 
     def to_metadata(self):
+        """转换成可附加到模型调用结果上的 metadata 字典。"""
+
         payload = {
             "provider_error": {
                 "code": self.code,
@@ -57,6 +62,8 @@ class ProviderError(RuntimeError):
 
 
 def _clip(value, limit):
+    """截断过长错误正文，避免日志和 session 里塞进大段响应体。"""
+
     text = str(value or "")
     if len(text) <= limit:
         return text
@@ -64,6 +71,8 @@ def _clip(value, limit):
 
 
 def sanitize_url(value):
+    """移除 URL 中的认证信息、查询串和 fragment，只保留安全定位信息。"""
+
     text = str(value or "")
     if not text:
         return ""

@@ -1,3 +1,4 @@
+# 集中定义 final-readiness 的原因码和说明文本。
 """Final-readiness reason catalog.
 
 Reason codes live here so user-facing messages, severities, and tests stay in

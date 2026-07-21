@@ -1,3 +1,4 @@
+# 组装最终 prompt，并在上下文窗口限制内管理历史、工具结果和摘要。
 """Prompt assembly and context budget control.
 
 ContextManager decides how much prefix, memory, relevant notes, transcript
@@ -49,6 +50,8 @@ class SectionRender:
 
 
 class ContextManager:
+    """按预算把 prefix、memory、skills、history 和当前请求拼成模型 prompt。"""
+
     def __init__(
         self,
         agent,
@@ -96,6 +99,7 @@ class ContextManager:
         """
         user_message = str(user_message)
         self.section_floors = self._compute_section_floors()
+        # feature flag 允许测试或子运行时关闭部分上下文能力，但保留同一套构建流程。
         memory_enabled = True
         relevant_memory_enabled = True
         context_reduction_enabled = True
@@ -105,6 +109,7 @@ class ContextManager:
             context_reduction_enabled = self.agent.feature_enabled("context_reduction")
         memory_text = "Memory:\n- disabled" if not memory_enabled else str(self.agent.memory_text())
         section_texts = {
+            # prefix 通常是稳定系统提示和 workspace 快照，是 prompt cache 最值得复用的部分。
             "prefix": str(getattr(self.agent, "prefix", "")),
             "memory": memory_text,
             "skills": skillslib.render_prompt_section(getattr(self.agent, "skills", {})),
@@ -122,9 +127,11 @@ class ContextManager:
             section_texts["memory"] += "\n\n" + memorylib.build_memory_system_section(self.agent.memory_dir)
         selected_notes = []
         if memory_enabled and relevant_memory_enabled and hasattr(self.agent, "memory") and hasattr(self.agent.memory, "retrieval_candidates"):
+            # 只取和当前请求相关的少量 memory，避免把整个记忆库塞进 prompt。
             selected_notes = self.agent.memory.retrieval_candidates(user_message, limit=RELEVANT_MEMORY_LIMIT)
 
         if not context_reduction_enabled:
+            # 关闭上下文裁剪时仍然生成 metadata，方便测试和报告保持一致。
             rendered = self._render_sections_without_reduction(section_texts, selected_notes=selected_notes)
             prompt = self._assemble_prompt(rendered)
             metadata = self._metadata(
@@ -143,12 +150,14 @@ class ContextManager:
         prompt = self._assemble_prompt(rendered)
         pressure = self._prompt_pressure(len(prompt))
         if pressure.tier != "tier0_observe":
+            # 一旦 prompt 接近窗口上限，就先按压力等级整体收紧各 section 预算。
             budgets = self._pressure_adjusted_budgets(budgets, pressure)
             rendered = self._render_sections(section_texts, budgets, selected_notes=selected_notes, pressure=pressure)
             prompt = self._assemble_prompt(rendered)
         reduction_log = []
 
         while len(prompt) > self.total_budget:
+            # 如果仍然超预算，就按 reduction_order 逐段压缩，但不会低于 section floor。
             overflow = len(prompt) - self.total_budget
             reduced = False
             for section in self.reduction_order:

@@ -1,3 +1,4 @@
+# 定义传给模型的结构化输入块，统一文本和图片输入。
 """Typed model input blocks.
 
 TeddyCode keeps conversation history as text, but provider adapters can accept

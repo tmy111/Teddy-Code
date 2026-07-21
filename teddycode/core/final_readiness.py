@@ -1,3 +1,4 @@
+# 根据 TaskState 证据判断是否可以安全给出最终回答。
 """Final-answer readiness gate over TaskState evidence."""
 
 import hashlib

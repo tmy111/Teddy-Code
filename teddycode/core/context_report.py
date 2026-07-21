@@ -1,3 +1,4 @@
+# 构造只读的 prompt 上下文报告，方便观察本轮上下文组成。
 """Read-only prompt context report construction."""
 
 from __future__ import annotations

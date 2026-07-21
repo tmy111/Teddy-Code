@@ -1,3 +1,4 @@
+# 在底层权限判断之上，补充更高层的工具使用策略。
 """Tool usage policy checks above raw permission gates."""
 
 import re

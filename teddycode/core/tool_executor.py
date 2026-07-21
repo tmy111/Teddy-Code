@@ -1,3 +1,4 @@
+# 校验、授权并执行模型发出的工具调用，同时记录证据和错误。
 """Tool-call validation, authorization, execution, and evidence recording."""
 import re
 
@@ -8,6 +9,9 @@ from .tool_repetition import repeated_tool_call_metadata
 
 
 def run_tool(agent, name, args):
+    """执行一次工具调用的统一入口。"""
+
+    # 1. 工具名必须存在，否则后续校验/审批都没有意义。
     tool = agent.tools.get(name)
     if tool is None:
         agent._last_tool_result_metadata = _tool_result_metadata(
@@ -17,6 +21,7 @@ def run_tool(agent, name, args):
         record_governance_decision(agent, name, args, decision="deny", reason_code="unknown_tool", decision_type="tool_lookup")
         return f"error: unknown tool '{name}'"
     try:
+        # 2. 参数校验主要防止 schema 错误和路径逃逸。
         agent.validate_tool(name, args)
     except Exception as exc:
         example = agent.tool_example(name)
@@ -35,10 +40,12 @@ def run_tool(agent, name, args):
         )
         return message
     if agent.repeated_tool_call(name, args):
+        # 3. 重复完全相同的工具调用通常表示模型卡住了，直接拒绝并要求换动作。
         agent._last_tool_result_metadata = repeated_tool_call_metadata(tool)
         record_governance_decision(agent, name, args, decision="deny", reason_code="repeated_identical_call", decision_type="tool_repetition")
         return f"error: repeated identical tool call for {name}; choose a different tool or return a final answer"
     decision = agent.permission_checker.check(tool, args)
+    # 4. permission 是底层安全门，例如只读模式、审批策略、路径范围。
     _emit_permission_decision(agent, tool, args, decision)
     permission_reason = "read_only_violation" if not decision.allowed and getattr(agent, "read_only", False) else decision.reason
     record_governance_decision(
@@ -55,6 +62,7 @@ def run_tool(agent, name, args):
         )
         return _permission_error(agent, tool, decision)
     policy = ToolPolicyChecker(agent).check(tool, args)
+    # 5. tool policy 是更高层的行为规则，例如 plan mode 只能写计划文件。
     _emit_tool_policy_decision(agent, tool, args, policy)
     record_governance_decision(
         agent, name, args, decision=policy.decision, reason_code=policy.reason,
@@ -71,6 +79,7 @@ def run_tool(agent, name, args):
     before_snapshot = agent.capture_workspace_snapshot() if tool.risky else {}
     after_snapshot = before_snapshot
     try:
+        # 6. 真正执行工具；执行后对 risky 工具做 workspace diff，留下变更证据。
         full_result = tool.execute(args).content
         pending_metadata = dict(getattr(agent, "_pending_tool_result_metadata", {}) or {})
         agent._pending_tool_result_metadata = {}
@@ -89,6 +98,7 @@ def run_tool(agent, name, args):
                 tool_status = "error"
                 tool_error_code = "tool_failed"
         agent.update_memory_after_tool(name, args, result)
+        # 工具结果可能很长，prepare_tool_result_observation 会把长结果转成 artifact 引用。
         agent._last_tool_result_metadata = _tool_result_metadata(
             tool, status=tool_status, error_code=tool_error_code,
             affected_paths=affected_paths, workspace_changed=workspace_changed,
@@ -98,6 +108,7 @@ def run_tool(agent, name, args):
         agent.record_process_note_for_tool(name, agent._last_tool_result_metadata)
         return result
     except Exception as exc:
+        # 即使工具报错，也要检查 workspace 是否已经部分改变，避免把 partial success 当纯失败。
         after_snapshot = agent.capture_workspace_snapshot() if tool.risky else before_snapshot
         affected_paths, diff_summary = agent.diff_workspace_snapshots(before_snapshot, after_snapshot)
         workspace_changed = bool(affected_paths)

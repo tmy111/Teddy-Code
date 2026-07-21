@@ -1,3 +1,4 @@
+# 执行一次 ask() 的主循环，负责模型调用、工具调用和轮次推进。
 """Turn-level runtime engine.
 
 The runtime owns state and persistence. Engine owns the control loop that turns
@@ -38,10 +39,13 @@ CHECKPOINT_WORKSPACE_MISMATCH_STATUS = "workspace-mismatch"
 
 
 class Engine:
+    """单轮任务控制器：把用户请求推进成若干次模型调用和工具调用。"""
+
     def __init__(self, runtime):
         self.runtime = runtime
 
     def ask(self, user_message):
+        # run_turn 会持续产出事件；ask() 只收集最终用户可见的 final/stop 文本。
         final_answer = ""
         for event in self.run_turn(user_message):
             if event["type"] in {"final", "stop"}:
@@ -73,6 +77,7 @@ class Engine:
     def run_turn(self, user_message):
         agent = self.runtime
         run_started_at = time.monotonic()
+        # 每个用户请求都会创建新的 task/run id，后续 trace、artifact、checkpoint 都挂在它下面。
         task_state = TaskState.create(
             run_id=agent.new_run_id(),
             task_id=agent.new_task_id(),
@@ -136,6 +141,7 @@ class Engine:
             task_state.record_attempt()
             agent.run_store.write_task_state(task_state)
             prompt_started_at = time.monotonic()
+            # 每一轮模型请求前都重新组装 prompt，因为工具结果和 memory 可能刚刚变化。
             prompt, prompt_metadata = agent._build_prompt_and_metadata(user_message)
             if commit_proposed_replacements(agent.session, prompt_metadata):
                 agent.session_path = agent.session_store.save(agent.session)
@@ -241,11 +247,13 @@ class Engine:
             prompt_cache_key = None
             prompt_cache_retention = None
             if getattr(agent.model_client, "supports_prompt_cache", False):
+                # 只把稳定前缀签名传给支持缓存的 provider，动态 history 不参与缓存 key。
                 prompt_cache_key = prompt_metadata.get("prompt_cache_key")
                 prompt_cache_retention = "in_memory"
 
             model_started_at = time.monotonic()
             try:
+                # complete_model 把不同 provider 客户端统一成 ModelResult(text, metadata)。
                 result = complete_model(
                     agent.model_client,
                     prompt,
@@ -319,6 +327,7 @@ class Engine:
                 prompt_metadata.update(completion_metadata)
             agent.last_completion_metadata = completion_metadata
             agent.last_prompt_metadata = prompt_metadata
+            # 模型必须返回 TeddyCode 协议：工具调用、多个工具调用、retry 或 final。
             kind, payload = agent.parse(raw)
             duration_ms = int((time.monotonic() - model_started_at) * 1000)
             agent.emit_trace(
@@ -414,6 +423,7 @@ class Engine:
                 continue
 
             readiness_action, notice = final_readiness_action(self, task_state, final)
+            # final-readiness 是最终回答前的最后一道门：证据不足时会提示继续或阻断。
             if readiness_action == "runtime_notice":
                 yield {
                     "type": "runtime_notice",

@@ -1,3 +1,4 @@
+# 管理 session 内 subagent/worker 的生命周期和消息传递。
 """Session-scoped worker lifecycle for subagents."""
 
 import json

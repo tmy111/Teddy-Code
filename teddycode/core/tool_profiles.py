@@ -1,3 +1,4 @@
+# 定义不同运行模式下可暴露的工具能力集合。
 """Named tool capability surfaces for runtime modes."""
 
 from dataclasses import dataclass

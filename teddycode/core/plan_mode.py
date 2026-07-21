@@ -1,3 +1,4 @@
+# 管理 Plan mode 的状态和策略，支持先规划后执行的工作流。
 """Plan mode policy for sessions."""
 
 import re

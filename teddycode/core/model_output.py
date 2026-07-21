@@ -1,3 +1,4 @@
+# 解析模型输出的 TeddyCode 文本协议，区分普通文本、工具调用和最终回答。
 """Parser for TeddyCode's text model protocol."""
 
 import json
@@ -5,7 +6,10 @@ import re
 
 
 def parse(raw):
+    """把模型原始文本解析成 Engine 能理解的动作类型。"""
+
     raw = str(raw)
+    # 工具调用优先级高于 final：如果模型先给 tool 再给 final，说明还需要执行工具。
     if "<tool" in raw and (
         "<final>" not in raw or raw.find("<tool") < raw.find("<final>")
     ):
@@ -18,6 +22,7 @@ def parse(raw):
     if "<final>" in raw:
         return "final", extract(raw, "final")
 
+    # 模型没有按协议返回时，不直接失败，而是给模型一次修正格式的机会。
     if not raw.strip():
         return "retry", retry_notice("empty response")
     return "retry", retry_notice("missing <tool> or <final> tag")
@@ -32,6 +37,8 @@ def retry_notice(problem=None):
 
 
 def normalize_tool_payload(payload):
+    """把 JSON tool payload 统一整理成 [{'name': ..., 'args': ...}] 列表。"""
+
     if isinstance(payload, list):
         if not payload:
             return "tool JSON list must not be empty"
@@ -51,6 +58,8 @@ def normalize_tool_payload(payload):
 
 
 def parse_tool_blocks(raw):
+    """解析所有 <tool>...</tool> 块，兼容 JSON body 和 XML 属性写法。"""
+
     tools = []
     errors = []
     for match in re.finditer(
@@ -107,6 +116,8 @@ def parse_xml_tool(raw):
 
 
 def parse_xml_tool_match(match):
+    """解析形如 <tool name="read_file" path="..."> 的 XML 风格工具调用。"""
+
     attrs = parse_attrs(match.group("attrs"))
     body = match.group("body")
     name = attrs.get("name", "").strip()

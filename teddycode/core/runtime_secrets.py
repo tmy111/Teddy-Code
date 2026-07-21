@@ -1,3 +1,4 @@
+# 集中处理运行时 secret 脱敏，以及 shell 环境变量准备。
 """Runtime secret redaction and shell environment helpers."""
 
 import os

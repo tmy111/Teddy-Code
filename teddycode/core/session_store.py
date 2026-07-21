@@ -1,3 +1,4 @@
+# 负责 session JSON 文件的读写、列表和 latest 查找。
 """Session JSON storage."""
 
 import json

@@ -1,3 +1,4 @@
+# 为 worker 子任务构造隔离但继承主配置的 child runtime。
 """Child runtime construction for worker tasks."""
 
 from .workspace import WorkspaceContext

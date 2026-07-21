@@ -1,3 +1,4 @@
+# 封装 session 切换、清空和恢复时需要同步更新的运行时状态。
 """Runtime session switching helpers."""
 
 import uuid

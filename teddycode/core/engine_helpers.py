@@ -1,3 +1,4 @@
+#放置 Engine 主循环复用的工具调用、重试和控制流辅助函数。
 """Control-loop tool and retry helpers shared by Engine.
 
 These helpers execute tool payloads and handle retry summaries while Engine

@@ -1,3 +1,4 @@
+# 统一编排 prompt 构建、上下文压力判断、压缩和报告生成。
 """Context build facade for prompt pressure, compaction, and reporting."""
 
 from __future__ import annotations

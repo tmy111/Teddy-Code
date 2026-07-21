@@ -1,3 +1,4 @@
+# 记录每次运行中的治理证据，辅助判断工具使用是否合理。
 """Per-run governance evidence for tool decisions.
 
 Tool execution records allow, warn, and deny decisions here so reports can

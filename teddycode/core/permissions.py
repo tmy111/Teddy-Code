@@ -1,3 +1,4 @@
+# 根据审批策略、工具风险和用户选择决定工具是否允许运行。
 """Runtime permission decisions for tool execution."""
 
 from dataclasses import dataclass

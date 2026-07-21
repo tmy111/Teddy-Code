@@ -1,3 +1,4 @@
+# 处理模型调用错误的清理、trace、checkpoint 和用户可见消息。
 """Model-error cleanup, trace, checkpoint, and user messaging path."""
 
 from ..providers.errors import ProviderError

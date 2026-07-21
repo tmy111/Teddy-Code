@@ -1,3 +1,4 @@
+# 检查工具调用状态和证据是否足够支持最终回答。
 """Evidence and tool-state checks for final-readiness decisions."""
 
 from .final_readiness_artifacts import summarize_required_artifacts

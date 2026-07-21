@@ -1,3 +1,4 @@
+# 登记 prompt 各个 section 的数据策略和排序方式。
 """Data-only prompt section policy registry."""
 
 from __future__ import annotations

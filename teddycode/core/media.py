@@ -1,3 +1,4 @@
+# 安全加载 workspace 内媒体文件，并转换成模型可接收的图片输入。
 """Workspace-safe media loading for model input."""
 
 from __future__ import annotations

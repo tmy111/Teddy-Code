@@ -1,3 +1,4 @@
+# 定义工具结果在 prompt 历史中保留或折叠的策略。
 """Retention policy for prompt history tool results."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# 在上下文压力过高时，调用模型生成可交接的历史摘要。
 """LLM-backed handoff summary helpers for context compaction."""
 
 from __future__ import annotations

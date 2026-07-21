@@ -1,3 +1,4 @@
+# 维护运行时产物图，并根据产物状态给出验证建议。
 """Runtime artifact graph and verifier suggestion helpers."""
 
 import json

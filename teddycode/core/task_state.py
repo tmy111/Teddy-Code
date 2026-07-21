@@ -1,3 +1,4 @@
+# 保存一次 ask() 的任务状态快照，包括证据、工具调用和最终就绪信息。
 """TaskState snapshot for one ask() run.
 
 TaskState tracks where a user request is in the runtime, how much work it has

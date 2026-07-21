@@ -1,3 +1,4 @@
+# 维护 session 级 todo 台账，帮助协调者跟踪计划和进度。
 """Session-scoped todo ledger for coordinator planning."""
 
 from .workspace import now

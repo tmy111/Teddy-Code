@@ -1,3 +1,4 @@
+# 按 turn 组织和渲染对话历史，控制哪些内容进入下一轮 prompt。
 """Turn-aware transcript rendering.
 
 TurnHistoryBuilder renders persisted conversation history into a prompt-ready

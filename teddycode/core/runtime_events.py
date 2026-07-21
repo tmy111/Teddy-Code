@@ -1,3 +1,4 @@
+# 提供结构化 trace 事件的构造和标准化辅助函数。
 """Structured trace event helpers.
 
 Runtime events are normalized here before they enter the run trace. The helper

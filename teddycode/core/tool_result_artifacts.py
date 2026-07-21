@@ -1,3 +1,4 @@
+# 把过长工具结果保存为 artifact，并在 prompt 中用短文本引用。
 """Artifact-backed rendering for long tool results.
 
 Large tool outputs are written to run artifacts while the prompt receives a

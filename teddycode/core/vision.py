@@ -1,3 +1,4 @@
+# 封装 inspect_image 的视觉模型调用流程。
 """Vision inspection helper for image-aware tools."""
 
 from __future__ import annotations

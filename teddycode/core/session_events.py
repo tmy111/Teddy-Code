@@ -1,3 +1,4 @@
+# session 级事件总线，负责记录模型、工具和状态变化事件。
 """Session-level event bus.
 
 The run trace is per-task and diagnostic. The session event bus is the durable,

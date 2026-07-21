@@ -1,3 +1,4 @@
+#把上下文预算相关证据压缩成摘要，供 prompt 预算决策使用。
 """Context budget evidence reducer."""
 
 CONTEXT_BUDGET_SCHEMA = "teddycode.context_budget_summary.v1"

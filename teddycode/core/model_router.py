@@ -1,3 +1,4 @@
+# 根据输入能力需求选择主模型客户端或视觉模型客户端。
 """Model client routing for capability-specific calls."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# 管理单次 run 的落盘目录，用于保存 trace、产物和检查点。
 """Per-run artifact persistence.
 
 Session JSON stores resumable conversation state. RunStore stores audit

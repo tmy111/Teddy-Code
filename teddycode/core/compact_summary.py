@@ -1,3 +1,4 @@
+# 用规则方式从历史记录中提取确定性的 compact 摘要。
 """Rule-based deterministic compact summary extraction."""
 
 import re

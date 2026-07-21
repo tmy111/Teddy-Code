@@ -1,3 +1,4 @@
+# 提取最终回答前必须满足的文件/产物证据。
 """Required artifact extraction for final-readiness decisions."""
 
 import re

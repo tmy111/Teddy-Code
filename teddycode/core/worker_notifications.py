@@ -1,3 +1,4 @@
+# 把 worker 状态变化渲染成用户可读通知。
 """Worker notification rendering."""
 
 from xml.sax.saxutils import escape

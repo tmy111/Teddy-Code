@@ -1,3 +1,4 @@
+# TeddyCode agent 的运行时组合根，持有 session、工具、模型、内存和工作区状态。
 """Agent runtime state and composition.
 
 TeddyCode owns session state, workspace context, memory, checkpoints, and persistence.
@@ -75,6 +76,8 @@ class PromptPrefix:
 
 
 class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
+    """主 agent 运行时对象，负责把各个 core 组件连接到同一个 session 上。"""
+
     def __init__(
         self,
         model_client,
@@ -104,6 +107,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         final_readiness_mode="warn",
         before_final_hooks=None,
     ):
+        # 模型相关对象：主客户端负责文本请求，router 负责在图片输入时切到视觉客户端。
         self.model_client = model_client
         self.model_client_factory = model_client_factory
         self.model_client_router = model_client_router or ModelClientRouter(model_client)
@@ -626,6 +630,8 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         return metadata
 
     def _build_prompt_and_metadata(self, user_message):
+        # 每次模型调用前都重新构建 prompt：先刷新稳定前缀，再交给 context_orchestrator
+        # 根据历史、memory、上下文压力等信息产出最终 prompt 和可观测 metadata。
         refresh = self.refresh_prefix()
         self.resume_state = self.evaluate_resume_state()
         snapshot = self.context_orchestrator.snapshot(user_message, prefix_refresh=refresh)
@@ -673,6 +679,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         return not thread.is_alive()
 
     def emit_trace(self, task_state, event, payload=None):
+        # trace 是一次 run 的事实流水线：先脱敏，再落盘，再通知 consumers 派生状态。
         payload = self.redact_artifact(payload or {})
         for path in payload.get("affected_paths", []) or []:
             if path not in task_state.changed_paths:
@@ -781,6 +788,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         return memorylib.promote_durable_memory(self, user_message, final_answer)
 
     def ask(self, user_message):
+        # TeddyCode 自身不实现控制循环；真正的模型/工具循环交给 Engine。
         return self.engine.ask(user_message)
 
     def abort_current_turn(self):
@@ -805,6 +813,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         return clear_runtime_session(self)
 
     def run_tool(self, name, args):
+        # 工具执行统一走 tool_executor，便于把校验、审批、策略和证据记录收在一起。
         return tool_executor.run_tool(self, name, args)
 
     def repeated_tool_call(self, name, args):

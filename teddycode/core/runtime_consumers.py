@@ -1,3 +1,4 @@
+# 从 trace 事件派生运行时状态，例如证据、产物和任务进度。
 """Runtime consumers that derive state from trace events.
 
 Consumers update TaskState views such as artifact graphs, verifier suggestions,

@@ -1,3 +1,4 @@
+# 定义模型循环里的状态转换和工具结果摘要归约。
 """Loop transition contracts and summary reduction.
 
 Engine records real control-flow transitions here as trace events, then report

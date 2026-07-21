@@ -3,6 +3,12 @@
 runtime 只关心一件事：给我一个 prompt，我拿回一段文本。
 不同 provider 在 HTTP 接口、响应结构、是否支持 prompt cache 上都有差异，
 这些差异都在这里被抹平成统一的 complete() 接口。
+基本逻辑：把 prompt 变成 provider API 请求
+-> 发 HTTP 请求
+-> 处理重试
+-> 解析响应
+-> 抽出文本
+-> 记录 usage / error metadata
 """
 
 import json
@@ -20,6 +26,8 @@ RETRYABLE_HTTP_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
 
 
 def _normalize_versioned_base_url(base_url):
+    """确保 compatible API 的 base_url 以 /v1 结尾。"""
+
     base = str(base_url).rstrip("/")
     if not base.endswith("/v1"):
         base += "/v1"
@@ -27,6 +35,8 @@ def _normalize_versioned_base_url(base_url):
 
 
 def _extract_openai_text(data):
+    """从常见 OpenAI-compatible JSON 响应结构中提取文本。"""
+
     if data.get("output_text"):
         return data["output_text"]
 
@@ -54,6 +64,8 @@ def _extract_openai_text(data):
 
 
 def _extract_openai_text_from_sse(body_text):
+    """从 OpenAI-compatible SSE 文本流中尽量提取最终文本。"""
+
     last_response = None
     deltas = []
     for line in body_text.splitlines():
@@ -104,6 +116,8 @@ def _extract_openai_text_from_sse(body_text):
 
 
 def _extract_openai_response_from_sse(body_text):
+    """从 SSE 响应中同时提取文本和最后一个完整 response 对象。"""
+
     last_response = None
     deltas = []
     for line in body_text.splitlines():
@@ -145,6 +159,8 @@ def _extract_openai_response_from_sse(body_text):
 
 
 def _openai_input_content(prompt):
+    """把内部 ModelInput 转成 OpenAI Responses API 的 content 格式。"""
+
     model_input = ensure_model_input(prompt)
     content = [{"type": "input_text", "text": model_input.text}]
     for image in model_input.images:
@@ -158,6 +174,8 @@ def _openai_input_content(prompt):
 
 
 def _anthropic_input_content(prompt):
+    """把内部 ModelInput 转成 Anthropic Messages API 的 content 格式。"""
+
     model_input = ensure_model_input(prompt)
     content = []
     for image in model_input.images:
@@ -176,6 +194,8 @@ def _anthropic_input_content(prompt):
 
 
 def _extract_usage_cache_details(data):
+    """把 provider 的 usage 字段整理成统一元数据。"""
+
     # 把不同 OpenAI-compatible 返回里的 usage 字段整理成统一结构，
     # 让 runtime/trace/report 不需要关心 provider 细节。
     usage = data.get("usage") or {}
@@ -197,6 +217,8 @@ def _extract_usage_cache_details(data):
 
 
 def _request_with_retries(provider, model, base_url, request, timeout, retry_budget=2):
+    """执行 HTTP 请求，并对临时网络错误/限流/服务端错误做有限重试。"""
+
     retry_count = 0
     attempts = int(retry_budget) + 1
     for attempt in range(attempts):
@@ -208,11 +230,13 @@ def _request_with_retries(provider, model, base_url, request, timeout, retry_bud
             return body_text, content_type, _provider_metadata(provider, model, base_url, attempt + 1, retry_count)
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
+            #超时，冲突，限流，服务端错误，都重试。默认重试 2 次，即最多 3 次请求。
             retryable = exc.code in RETRYABLE_HTTP_STATUS or exc.code >= 500
             if retryable and attempt < attempts - 1:
                 retry_count += 1
                 time.sleep(_retry_delay(attempt, exc.headers))
                 continue
+            # 非重试错误，或者重试次数已经耗尽，统一包装成 ProviderError。
             raise ProviderError(
                 f"{provider} provider request failed with HTTP {exc.code}",
                 provider=provider,
@@ -232,6 +256,7 @@ def _request_with_retries(provider, model, base_url, request, timeout, retry_bud
                 retry_count += 1
                 time.sleep(_retry_delay(attempt, None))
                 continue
+            # 还没拿到有效 HTTP 响应就失败，通常是网络、超时或连接中断。
             raise ProviderError(
                 f"{provider} provider request failed before a valid response",
                 provider=provider,
@@ -247,6 +272,8 @@ def _request_with_retries(provider, model, base_url, request, timeout, retry_bud
 
 
 def _provider_metadata(provider, model, base_url, attempts, retry_count):
+    """生成一次 provider 请求的可观测元数据。"""
+
     return {
         "provider_protocol": provider,
         "provider_model": model,
@@ -257,6 +284,8 @@ def _provider_metadata(provider, model, base_url, attempts, retry_count):
 
 
 def _http_error_code(status):
+    """把 HTTP 状态码粗略归类成上层可读的错误码。"""
+
     status = int(status)
     if status == 401 or status == 403:
         return "auth_error"
@@ -270,6 +299,8 @@ def _http_error_code(status):
 
 
 def _transport_error_code(exc):
+    """把网络层异常归类成 timeout 或 network_error。"""
+
     reason = getattr(exc, "reason", None)
     text = f"{exc} {reason}".lower()
     if isinstance(exc, (TimeoutError, socket.timeout)) or isinstance(reason, (TimeoutError, socket.timeout)) or "timed out" in text:
@@ -278,6 +309,8 @@ def _transport_error_code(exc):
 
 
 def _retry_delay(attempt, headers):
+    """计算重试等待时间，优先尊重 Retry-After。"""
+
     retry_after = _retry_after_seconds(headers)
     if retry_after is not None:
         return min(retry_after, 2.0)
@@ -285,6 +318,8 @@ def _retry_delay(attempt, headers):
 
 
 def _retry_after_seconds(headers):
+    """从响应头中解析 Retry-After 秒数。"""
+
     if not headers:
         return None
     try:
@@ -300,6 +335,8 @@ def _retry_after_seconds(headers):
 
 
 def _provider_failure(provider, model, base_url, code, message, request_metadata=None, cause=None):
+    """把 provider 响应解析阶段的失败包装成 ProviderError。"""
+
     request_metadata = request_metadata or {}
     error = ProviderError(
         message,
@@ -469,6 +506,8 @@ class OpenAICompatibleModelClient:
 
 
 def _extract_anthropic_text(data):
+    """从 Anthropic-compatible JSON 响应中提取第一段文本。"""
+
     for item in data.get("content", []):
         if isinstance(item, dict) and item.get("type") == "text":
             text = item.get("text")
@@ -488,6 +527,8 @@ class AnthropicCompatibleModelClient:
         self.last_completion_metadata = {}
 
     def complete(self, prompt, max_new_tokens, prompt_cache_key=None, prompt_cache_retention=None):
+        """向 Anthropic-compatible /messages 接口发起一次模型调用。"""
+
         # 为了保持统一接口，runtime 仍然会传缓存参数进来；
         # 这里只是显式丢弃，因为当前 Anthropic-compatible 路径没有接缓存复用。
         del prompt_cache_key, prompt_cache_retention

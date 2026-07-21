@@ -1,3 +1,4 @@
+# 把媒体引用渲染成适合放入 session history 的安全文本。
 """Prompt-safe rendering for media references in session history."""
 
 

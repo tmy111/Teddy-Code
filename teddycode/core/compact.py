@@ -1,3 +1,4 @@
+# 负责 session 历史压缩的边界逻辑，决定哪些内容保留、折叠或总结。
 """Session compaction boundary."""
 
 from dataclasses import asdict, dataclass

@@ -1,3 +1,4 @@
+# 记录 session 内哪些历史内容被替换成短占位文本。
 """Session-scoped replacement ledger for rendered history stubs."""
 
 from __future__ import annotations

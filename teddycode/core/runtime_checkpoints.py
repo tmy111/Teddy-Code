@@ -1,3 +1,4 @@
+# 生成工作区快照和运行检查点，方便回溯一次 ask() 的状态。
 """Runtime workspace snapshot and checkpoint helpers."""
 
 import hashlib

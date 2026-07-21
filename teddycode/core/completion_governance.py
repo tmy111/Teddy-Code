@@ -1,3 +1,4 @@
+# 判断一次 ask() 是否已经满足结束条件，避免过早或错误终止。
 """Terminal-state governance for TeddyCode turns."""
 
 import time

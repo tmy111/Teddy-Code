@@ -1,3 +1,4 @@
+# 从 worker 子任务运行结果中提取可交给主 agent 的证据。
 """Evidence extraction for worker child runs."""
 
 import json

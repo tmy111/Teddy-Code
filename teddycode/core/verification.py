@@ -1,3 +1,4 @@
+# 从 shell 工具 trace 中提炼验证证据，例如测试/构建是否运行。
 """Verification evidence reducer for shell-command tool traces."""
 
 import shlex

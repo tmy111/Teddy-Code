@@ -1,3 +1,4 @@
+# 估算 prompt token 使用量，并生成透明的上下文用量元数据。
 """Context usage estimation for prompt transparency."""
 
 import hashlib

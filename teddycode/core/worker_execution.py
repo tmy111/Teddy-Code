@@ -1,3 +1,4 @@
+# 定义 worker 线程实际执行子任务的过程。
 """Worker thread execution routine."""
 
 import time

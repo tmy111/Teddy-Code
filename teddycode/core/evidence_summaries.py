@@ -1,3 +1,4 @@
+# 从 trace 事件中提炼任务证据摘要，供最终就绪判断使用。
 """Reduce trace events into TaskState evidence summaries.
 
 This module is the bridge from append-only trace facts to compact report-ready

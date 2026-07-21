@@ -1,3 +1,4 @@
+# 检测重复工具调用，防止模型陷入无效循环。
 """Repeated tool-call guardrails."""
 
 FILE_MUTATION_TOOLS = {"write_file", "patch_file"}

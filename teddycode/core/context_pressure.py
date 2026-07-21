@@ -1,3 +1,4 @@
+# 估算上下文压力等级，为是否压缩历史提供依据。
 """Context pressure accounting for prompt usage metadata."""
 
 from __future__ import annotations
