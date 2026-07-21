@@ -21,6 +21,17 @@ def assistant_contents(app):
     return [message.content for message in app.query(AssistantMessage)]
 
 
+def test_tui_welcome_banner_uses_bear_mark():
+    from teddycode.tui.widgets import WelcomeBanner
+
+    rendered = WelcomeBanner(model_name="demo", cwd="D:/code/teddycode").render().plain
+
+    assert "()___()" in rendered
+    assert "(  | |  )" in rendered
+    assert "\\  0  /" in rendered
+    assert "(  o o  )" not in rendered
+
+
 async def wait_for_assistant(app, pilot, expected="", attempts=40, delay=0.1):
     for _ in range(attempts):
         await pilot.pause(delay=delay)

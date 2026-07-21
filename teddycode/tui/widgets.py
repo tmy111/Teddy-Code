@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+"""TUI 使用的 Textual/Rich 小部件。
+
+这里的类只负责显示和轻量交互：欢迎页、消息气泡、工具卡片、审批提示、
+状态栏、slash 命令补全和输入历史。真正的 agent 行为不放在 widget 里。
+"""
+
 import json
 from pathlib import Path
 
@@ -12,14 +18,16 @@ from ..commands.slash import SlashCommand, suggest_commands
 
 
 TEDDYCODE_MARK = [
-    r"        /\___/\\",
-    r"       (  o o  )",
-    r"       /   ^   \\",
-    r"      /|       |\\",
+    r"        ()___()",
+    r"       (  | |  )",
+    r"        \  0  /",
+    "      /| `---' |\\",
 ]
 
 
 def format_tool_args(name: str, args: dict | None) -> str:
+    """把工具参数压缩成一行摘要，显示在 ToolCard 标题里。"""
+
     args = args or {}
     if name == "run_shell":
         return str(args.get("command", ""))
@@ -40,6 +48,8 @@ def format_tool_args(name: str, args: dict | None) -> str:
 
 
 class WelcomeBanner(Static):
+    """首次进入 TUI 时显示的欢迎信息和当前运行配置。"""
+
     DEFAULT_CSS = """
     WelcomeBanner {
         height: auto;
@@ -61,6 +71,8 @@ class WelcomeBanner(Static):
         self.approval = approval
 
     def render(self) -> Text:
+        """使用 Rich Text 拼出欢迎区，避免在 CSS 里硬编码动态内容。"""
+
         cwd_name = Path(self.cwd).name + "/" if self.cwd else "-"
         muted = "#8b93a7"
         accent = "#9ec5fe"
@@ -93,6 +105,8 @@ class WelcomeBanner(Static):
 
 
 class UserMessage(Static):
+    """用户消息显示组件。"""
+
     DEFAULT_CSS = """
     UserMessage {
         width: 100%;
@@ -119,6 +133,8 @@ class UserMessage(Static):
 
 
 class AssistantMessage(Static):
+    """assistant 消息显示组件，正文用 Markdown 渲染。"""
+
     DEFAULT_CSS = """
     AssistantMessage {
         width: 100%;
@@ -152,6 +168,8 @@ class AssistantMessage(Static):
         yield Markdown(self.content)
 
     def update_content(self, content: str) -> None:
+        """更新已有 assistant 消息，主要给未来的流式输出预留。"""
+
         self.content = content
         try:
             self.query_one(Markdown).update(content)
@@ -160,6 +178,8 @@ class AssistantMessage(Static):
 
 
 class ToolCard(Static):
+    """工具调用卡片：running 时展开，成功后默认折叠，失败时保持展开。"""
+
     DEFAULT_CSS = """
     ToolCard {
         width: 100%;
@@ -194,6 +214,8 @@ class ToolCard(Static):
         yield self._collapsible
 
     def _label(self) -> str:
+        """根据工具状态和参数摘要生成折叠面板标题。"""
+
         icon = {"running": "...", "success": "OK", "error": "ERR"}.get(
             self.status, ".."
         )
@@ -225,6 +247,8 @@ class ToolCard(Static):
 
 
 class ConfirmPrompt(Static):
+    """高风险工具调用的审批提示。"""
+
     DEFAULT_CSS = """
     ConfirmPrompt {
         width: 100%;
@@ -244,6 +268,8 @@ class ConfirmPrompt(Static):
         self.selected = False
 
     def render(self) -> Text:
+        """渲染 allow/deny 选项，当前选择用方括号标出。"""
+
         allow = "[allow]" if self.selected else " allow "
         deny = " deny " if self.selected else "[deny]"
         return Text.assemble(
@@ -266,6 +292,8 @@ class ConfirmPrompt(Static):
 
 
 class AskUserPrompt(Static):
+    """agent 主动向用户提问时使用的选择提示。"""
+
     DEFAULT_CSS = """
     AskUserPrompt {
         width: 100%;
@@ -286,6 +314,8 @@ class AskUserPrompt(Static):
 
     @property
     def selected_choice(self) -> str:
+        """返回当前选中的答案；没有 choices 时返回空字符串。"""
+
         if not self.choices:
             return ""
         return self.choices[self.selected_index]
@@ -323,6 +353,8 @@ class AskUserPrompt(Static):
 
 
 class ChatLog(VerticalScroll):
+    """聊天记录滚动区域，负责挂载消息和工具卡片。"""
+
     DEFAULT_CSS = """
     ChatLog {
         height: 1fr;
@@ -342,6 +374,8 @@ class ChatLog(VerticalScroll):
     """
 
     def add_message(self, role: str, content: str, tool_name: str = "") -> Widget:
+        """按 role 创建对应消息组件并滚动到底部。"""
+
         if role == "user":
             widget = UserMessage(content)
         elif role == "assistant":
@@ -355,6 +389,8 @@ class ChatLog(VerticalScroll):
         return widget
 
     def add_tool_call(self, name: str, args: dict | None = None) -> ToolCard:
+        """插入一张新的工具调用卡片。"""
+
         card = ToolCard(tool_name=name, args_summary=format_tool_args(name, args))
         self.mount(card)
         self.call_after_refresh(self.scroll_end, animate=False)
@@ -366,6 +402,8 @@ class ChatLog(VerticalScroll):
 
 
 class ThinkingIndicator(Static):
+    """模型/工具运行中的一行动画提示。"""
+
     DEFAULT_CSS = """
     ThinkingIndicator {
         height: 1;
@@ -408,6 +446,8 @@ class ThinkingIndicator(Static):
 
 
 class StatusBar(Static):
+    """底部状态栏，显示模型、模式、session、轮次和上下文用量。"""
+
     DEFAULT_CSS = """
     StatusBar {
         height: 1;
@@ -435,6 +475,8 @@ class StatusBar(Static):
         self._render_status()
 
     def update_context_usage(self, usage: dict | None) -> None:
+        """从 core 生成的 context_usage metadata 中提取可读摘要。"""
+
         usage = usage or {}
         used = (
             usage.get("total_estimated_tokens")
@@ -471,6 +513,8 @@ class StatusBar(Static):
 
 
 class SlashSuggestions(Static):
+    """输入 / 命令时展示的补全候选列表。"""
+
     DEFAULT_CSS = """
     SlashSuggestions {
         display: none;
@@ -495,6 +539,8 @@ class SlashSuggestions(Static):
     def update_suggestions(
         self, suggestions: list[SlashCommand], selected_index: int = 0
     ) -> None:
+        """更新候选命令和当前选中项。"""
+
         self.suggestions = list(suggestions)
         self.selected_index = max(
             0, min(int(selected_index or 0), max(len(self.suggestions) - 1, 0))
@@ -523,6 +569,8 @@ class SlashSuggestions(Static):
 
 
 class InputBar(Static):
+    """底部输入框，管理输入历史和 slash 命令补全。"""
+
     DEFAULT_CSS = """
     InputBar {
         height: auto;
@@ -552,6 +600,8 @@ class InputBar(Static):
         self.input.focus()
 
     def set_busy(self, busy: bool) -> None:
+        """agent 运行时禁用输入，结束后恢复。"""
+
         self.input.disabled = bool(busy)
         self.input.placeholder = (
             "teddycode is working..." if busy else "Ask teddycode or type /help"
@@ -577,6 +627,8 @@ class InputBar(Static):
         self.update_slash_suggestions(event.value)
 
     def update_slash_suggestions(self, text: str | None = None) -> None:
+        """根据当前输入内容刷新 slash 命令补全。"""
+
         text = self.input.value if text is None else str(text)
         self._slash_suggestions = suggest_commands(text)
         self._slash_index = 0
@@ -590,6 +642,8 @@ class InputBar(Static):
         self.query_one(SlashSuggestions).hide_suggestions()
 
     def complete_slash_suggestion(self) -> bool:
+        """把当前选中的 slash 建议写回输入框。"""
+
         if not self._slash_suggestions:
             return False
         command = self._slash_suggestions[self._slash_index]
@@ -619,5 +673,7 @@ class InputBar(Static):
 
 
 def _clip(text: str, limit: int = 1200) -> str:
+    """限制工具输出在卡片里展示的长度。"""
+
     text = str(text or "")
     return text if len(text) <= limit else text[: limit - 3] + "..."

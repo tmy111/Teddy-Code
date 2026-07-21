@@ -23,6 +23,7 @@ MEDIA_TOOL_EXAMPLES = {
 
 
 def validate_media_runtime(agent, name, args):
+    """校验媒体工具依赖的工作区文件是否存在。"""
     if name == "inspect_image":
         path = agent.path(args["path"])
         if not path.is_file():
@@ -30,6 +31,7 @@ def validate_media_runtime(agent, name, args):
 
 
 def tool_inspect_image(agent, args):
+    """调用视觉模型检查工作区图片并返回分析结果。"""
     return vision.inspect_image_with_model(
         agent,
         args["path"],

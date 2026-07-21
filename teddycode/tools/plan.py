@@ -21,10 +21,12 @@ PLAN_TOOL_EXAMPLES = {
 
 
 def tool_enter_plan_mode(agent, args):
+    """让运行时进入计划模式，并返回当前计划文件路径。"""
     path = agent.enter_plan_mode(args["topic"], path=args.get("path"))
     return f"mode: plan\nplan path: {path}"
 
 
 def tool_exit_plan_mode(agent, args):
+    """退出计划模式，恢复默认运行模式。"""
     agent.exit_plan_mode()
     return "mode: default"

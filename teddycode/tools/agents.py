@@ -35,7 +35,7 @@ AGENT_TOOL_EXAMPLES = {
 
 
 def validate_agent_runtime(agent, name, args):
-    """Runtime-aware checks that can't be expressed in the Pydantic schema."""
+    """校验子 agent 工具在当前运行模式下是否允许使用。"""
     if name == "agent":
         subagent_type = str(args.get("subagent_type", "worker")).strip()
         if agent.runtime_mode == "plan" and subagent_type != "Explore":
@@ -43,6 +43,7 @@ def validate_agent_runtime(agent, name, args):
 
 
 def tool_agent(agent, args):
+    """启动一个有边界的 worker 或只读 Explore 子 agent。"""
     return dumps_payload(
         agent.worker_manager.spawn(
             args["description"],
@@ -54,8 +55,10 @@ def tool_agent(agent, args):
 
 
 def tool_send_message(agent, args):
+    """向已有且空闲的子 agent 发送后续任务消息。"""
     return dumps_payload(agent.worker_manager.continue_task(args["to"], args["message"]))
 
 
 def tool_task_stop(agent, args):
+    """请求停止指定 id 的子 agent 任务。"""
     return dumps_payload(agent.worker_manager.stop_task(args["task_id"]))

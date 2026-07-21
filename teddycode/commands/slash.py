@@ -1,5 +1,5 @@
 """Slash command registry and parsers."""
-
+#斜杠命令的注册表和解析器
 from __future__ import annotations
 
 import shlex

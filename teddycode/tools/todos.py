@@ -23,6 +23,7 @@ TODO_TOOL_EXAMPLES = {
 
 
 def tool_todo_add(agent, args):
+    """向当前会话的 todo 台账新增一条任务。"""
     item = agent.todo_ledger.add(
         args["content"],
         status=args.get("status", "pending"),
@@ -33,6 +34,7 @@ def tool_todo_add(agent, args):
 
 
 def tool_todo_update(agent, args):
+    """更新当前会话 todo 台账中的指定任务。"""
     item = agent.todo_ledger.update(
         args["todo_id"],
         status=args.get("status"),
@@ -44,4 +46,5 @@ def tool_todo_update(agent, args):
 
 
 def tool_todo_list(agent, args):
+    """渲染并返回当前会话的 todo 台账列表。"""
     return agent.todo_ledger.render_list()

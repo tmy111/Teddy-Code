@@ -8,7 +8,7 @@ from .final_readiness import evaluate_final_readiness, readiness_notice
 from .turn_transitions import emit_terminal_transition
 from .workspace import clip, now
 
-
+#判断 TeddyCode 在接受最终答案之前应该采取什么行动。
 def final_readiness_action(engine, task_state, proposed_final=""):
     """Return the action TeddyCode should take before accepting a final answer.
 

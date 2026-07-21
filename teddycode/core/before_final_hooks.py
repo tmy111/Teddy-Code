@@ -50,12 +50,12 @@ def run_before_final_hooks(agent, task_state, proposed_final):
         run_id=str(task_state.run_id),
         workspace_root=Path(agent.root),
         user_request=str(task_state.user_request),
-        proposed_final=str(proposed_final),
-        changed_paths=list(task_state.changed_paths or []),
-        todo_changes=list(task_state.todo_changes or []),
-        evidence_summaries=dict(task_state.evidence_summaries or {}),
-        trace_path=(agent.current_run_dir / "trace.jsonl") if agent.current_run_dir else None,
-        report_path=(agent.current_run_dir / "report.json") if agent.current_run_dir else None,
+        proposed_final=str(proposed_final),#AI的最终答案
+        changed_paths=list(task_state.changed_paths or []),#改变的目录
+        todo_changes=list(task_state.todo_changes or []),#TODO变更列表
+        evidence_summaries=dict(task_state.evidence_summaries or {}),#证据摘要字典
+        trace_path=(agent.current_run_dir / "trace.jsonl") if agent.current_run_dir else None,#追踪日志路径
+        report_path=(agent.current_run_dir / "report.json") if agent.current_run_dir else None,#报告文件路径
     )
 
     decisions = [_decision_to_dict(_call_hook(hook, context), hook) for hook in hooks]

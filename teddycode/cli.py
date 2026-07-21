@@ -49,10 +49,10 @@ DEFAULT_SECRET_ENV_NAMES = (
 )
 #欢迎界面
 WELCOME_ART = (
-    "        /\\___/\\\\",
-    "       (  o o  )",
-    "       /   ^   \\\\",
-    "      /|       |\\\\",
+    "        ()___()",
+    "       (  | |  )",
+    "        \\  0  /",
+    "      /| `---' |\\",
 )
 WELCOME_NAME = "teddycode"
 WELCOME_SUBTITLE = "local coding agent"

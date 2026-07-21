@@ -1,4 +1,4 @@
-# 执行一次 ask() 的主循环，负责模型调用、工具调用和轮次推进。
+# 执行一次 ask() 的主循环，负责模型调用、工具调用和轮次推进。runtime 负责状态和持久化，Engine 负责流程推进。
 """Turn-level runtime engine.
 
 The runtime owns state and persistence. Engine owns the control loop that turns
@@ -51,7 +51,7 @@ class Engine:
             if event["type"] in {"final", "stop"}:
                 final_answer = event["content"]
         return final_answer
-
+#取出后台 worker 或子 agent 发来的通知，并让主模型在下一轮看到它们。
     def drain_worker_notifications(self):
         agent = self.runtime
         notifications = agent.worker_manager.drain_notifications()

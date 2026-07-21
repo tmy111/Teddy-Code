@@ -15,4 +15,5 @@ ASK_USER_TOOL_EXAMPLES = {
 
 
 def tool_ask_user(agent, args):
+    """向交互用户提出一个阻塞式澄清问题。"""
     return agent.ask_user(str(args["question"]), choices=args.get("choices", []) or [])

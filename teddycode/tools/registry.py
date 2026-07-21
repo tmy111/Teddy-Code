@@ -134,6 +134,7 @@ TOOL_EXAMPLES = {
 
 
 def build_tool_registry(agent):
+    """为当前 agent 构造可暴露给模型的工具注册表。"""
     # 工具不是动态发现的，而是显式注册的。
     # 这样模型看到的是一个有边界、可审计的动作集合。
     tools = {
@@ -150,10 +151,12 @@ def build_tool_registry(agent):
 
 
 def tool_example(name):
+    """按工具名返回给 prompt 展示的调用示例。"""
     return TOOL_EXAMPLES.get(name, "")
 
 
 def validate_tool(agent, name, args):
+    """校验工具参数和依赖运行时状态的约束。"""
     args = args or {}
 
     schema_cls = _TOOL_SCHEMAS.get(name)
@@ -201,6 +204,7 @@ def validate_tool(agent, name, args):
 
 
 def tool_list_files(agent, args):
+    """列出工作区内指定目录的可见文件和一级子项。"""
     path = agent.path(args.get("path", "."))
     if not path.is_dir():
         raise ValueError("path is not a directory")
@@ -216,10 +220,12 @@ def tool_list_files(agent, args):
     return "\n".join(lines) or "(empty)"
 
 def _visible_entries(path):
+    """返回目录中未被忽略的条目，并按目录优先排序。"""
     return [item for item in sorted(path.iterdir(), key=lambda item: (item.is_file(), item.name.lower())) if item.name not in IGNORED_PATH_NAMES]
 
 
 def tool_read_file(agent, args):
+    """按行号范围读取 UTF-8 文本文件并带行号返回。"""
     path = agent.path(args["path"])
     if not path.is_file():
         raise ValueError("path is not a file")
@@ -236,6 +242,7 @@ def tool_read_file(agent, args):
 
 
 def tool_search(agent, args):
+    """在工作区内搜索文本，优先使用 rg，缺失时退回 Python 遍历。"""
     pattern = str(args.get("pattern", "")).strip()
     if not pattern:
         raise ValueError("pattern must not be empty")
@@ -278,6 +285,7 @@ def tool_search(agent, args):
 
 
 def tool_run_shell(agent, args):
+    """在仓库根目录执行 shell 命令，并返回 stdout/stderr 摘要。"""
     command = str(args.get("command", "")).strip()
     if not command:
         raise ValueError("command must not be empty")
@@ -316,6 +324,7 @@ def tool_run_shell(agent, args):
 
 
 def tool_write_file(agent, args):
+    """写入文本文件，必要时自动创建父目录。"""
     path = agent.path(args["path"])
     content = str(args["content"])
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -324,6 +333,7 @@ def tool_write_file(agent, args):
 
 
 def tool_patch_file(agent, args):
+    """用 new_text 替换文件中唯一匹配的 old_text 文本块。"""
     path = agent.path(args["path"])
     if not path.is_file():
         raise ValueError("path is not a file")
