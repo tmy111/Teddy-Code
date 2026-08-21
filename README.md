@@ -47,13 +47,13 @@ TUI 直接连接同一个 runtime。输入框、工具结果、状态栏、slash
 一键安装：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/martin-los/teddycode/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/tmy111/Teddy-Code/main/install.sh | bash
 ```
 
 源码安装：
 
 ```bash
-git clone https://github.com/martin-los/teddycode.git
+git clone https://github.com/tmy111/Teddy-Code.git
 cd teddycode
 pip install -e .
 ```
