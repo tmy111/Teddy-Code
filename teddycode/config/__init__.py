@@ -44,13 +44,13 @@ PROVIDER_DEFAULTS: dict[str, dict[str, Any]] = {
     # 内置 profile 是最后兜底值：CLI、环境变量、配置文件都没给时才会用到。
     "openai": {
         "protocol": "openai",
-        "base_url": "https://www.right.codes/codex/v1",
+        "base_url": "https://api.openai.com/v1",
         "model": "gpt-5.5",
         "supports_vision": True,
     },
     "anthropic": {
         "protocol": "anthropic",
-        "base_url": "https://www.right.codes/claude/v1",
+        "base_url": "https://api.anthropic.com/v1",
         "model": "claude-sonnet-4-6",
         "supports_vision": True,
     },
@@ -111,8 +111,6 @@ PROVIDER_ENV_NAMES = {
         "api_key": (
             "ANTHROPIC_API_KEY",
             "ANTHROPIC_AUTH_TOKEN",
-            "RIGHT_CODES_API_KEY",
-            "OPENAI_API_KEY",
         ),
         "base_url": ("ANTHROPIC_API_BASE", "ANTHROPIC_BASE_URL"),
         "model": ("ANTHROPIC_MODEL",),
@@ -136,10 +134,6 @@ LEGACY_ENV_NAMES = {
         "api_key": (
             "TEDDYCODE_ANTHROPIC_API_KEY",
             "ANTHROPIC_API_KEY",
-            "TEDDYCODE_RIGHT_CODES_API_KEY",
-            "RIGHT_CODES_API_KEY",
-            "TEDDYCODE_OPENAI_API_KEY",
-            "OPENAI_API_KEY",
         ),
         "base_url": (
             "TEDDYCODE_ANTHROPIC_API_BASE",

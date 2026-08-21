@@ -361,7 +361,7 @@ class OpenAICompatibleModelClient:
         self.timeout = timeout
         # 当前只在明确支持 prompt cache 语义的后端上启用这条链路，
         # 避免对不支持的后端传一个“看起来统一、其实没意义”的伪参数。
-        self.supports_prompt_cache = any(host in self.base_url for host in ("openai.com", "right.codes"))
+        self.supports_prompt_cache = "openai.com" in self.base_url
         self.last_completion_metadata = {}
 
     def complete(self, prompt, max_new_tokens, prompt_cache_key=None, prompt_cache_retention=None):

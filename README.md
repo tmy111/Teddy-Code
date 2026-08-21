@@ -106,13 +106,13 @@ model = "deepseek-v4-pro"
 [providers.openai]
 protocol = "openai"
 api_key = "sk-..."
-base_url = "https://www.right.codes/codex/v1"
+base_url = "https://api.openai.com/v1"
 model = "gpt-5.4"
 
 [providers.anthropic]
 protocol = "anthropic"
 api_key = "sk-ant-..."
-base_url = "https://www.right.codes/claude/v1"
+base_url = "https://api.anthropic.com/v1"
 model = "claude-sonnet-4-6"
 ```
 
@@ -140,9 +140,6 @@ teddycode
 | DeepSeek | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` |
 | OpenAI-compatible | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` |
 | Anthropic-compatible | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL` |
-
-如果你的网关给 OpenAI-compatible 和 Anthropic-compatible 共用同一个 key，
-也可以设置 `TEDDYCODE_RIGHT_CODES_API_KEY` 作为 fallback。
 
 也可以用通用覆盖变量：
 

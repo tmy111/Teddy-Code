@@ -319,8 +319,8 @@ def test_openai_compatible_client_posts_expected_responses_payload():
         return FakeResponse()
 
     client = OpenAICompatibleModelClient(
-        model="right.codes/codex-mini",
-        base_url="https://right.codes/v1",
+        model="gpt-5.5",
+        base_url="https://api.openai.com/v1",
         api_key="sk-test",
         temperature=0.2,
         timeout=30,
@@ -330,14 +330,14 @@ def test_openai_compatible_client_posts_expected_responses_payload():
         result = client.complete("hello", 42)
 
     assert result == "<final>ok</final>"
-    assert captured["url"] == "https://right.codes/v1/responses"
+    assert captured["url"] == "https://api.openai.com/v1/responses"
     assert captured["timeout"] == 30
     assert captured["headers"]["Authorization"] == "Bearer sk-test"
     assert captured["headers"]["Content-type"] == "application/json"
     assert captured["headers"]["Accept"] == "application/json"
     assert captured["headers"]["User-agent"] == "teddycode/0.1"
     assert captured["body"] == {
-        "model": "right.codes/codex-mini",
+        "model": "gpt-5.5",
         "input": [
             {
                 "role": "user",
@@ -388,8 +388,8 @@ def test_openai_compatible_client_sends_prompt_cache_fields_and_records_usage():
         return FakeResponse()
 
     client = OpenAICompatibleModelClient(
-        model="right.codes/codex-mini",
-        base_url="https://right.codes/v1",
+        model="gpt-5.5",
+        base_url="https://api.openai.com/v1",
         api_key="sk-test",
         temperature=0.2,
         timeout=30,
@@ -433,7 +433,7 @@ def test_openai_compatible_client_retries_rate_limit_and_records_retry_metadata(
         calls["count"] += 1
         if calls["count"] == 1:
             raise urllib.error.HTTPError(
-                "https://right.codes/v1/responses",
+                "https://api.openai.com/v1/responses",
                 429,
                 "rate limited",
                 {"Retry-After": "0"},
@@ -442,8 +442,8 @@ def test_openai_compatible_client_retries_rate_limit_and_records_retry_metadata(
         return FakeResponse()
 
     client = OpenAICompatibleModelClient(
-        model="right.codes/codex-mini",
-        base_url="https://right.codes/v1",
+        model="gpt-5.5",
+        base_url="https://api.openai.com/v1",
         api_key="sk-test",
         temperature=0.2,
         timeout=30,
@@ -472,8 +472,8 @@ def test_openai_compatible_client_classifies_invalid_json_provider_failure():
             return b"not-json"
 
     client = OpenAICompatibleModelClient(
-        model="right.codes/codex-mini",
-        base_url="https://right.codes/v1",
+        model="gpt-5.5",
+        base_url="https://api.openai.com/v1",
         api_key="sk-test",
         temperature=0.2,
         timeout=30,
@@ -517,7 +517,7 @@ def test_provider_success_metadata_sanitizes_url_credentials():
             return json.dumps({"output_text": "<final>ok</final>"}).encode("utf-8")
 
     client = OpenAICompatibleModelClient(
-        model="right.codes/codex-mini",
+        model="gpt-5.5",
         base_url="https://user:secret@example.test:8443/v1?api_key=sk-real-secret",
         api_key="sk-test",
         temperature=0.2,
@@ -553,8 +553,8 @@ def test_openai_compatible_client_extracts_text_from_event_stream():
             ).encode("utf-8")
 
     client = OpenAICompatibleModelClient(
-        model="right.codes/codex-mini",
-        base_url="https://right.codes/v1",
+        model="gpt-5.5",
+        base_url="https://api.openai.com/v1",
         api_key="sk-test",
         temperature=0.2,
         timeout=30,
@@ -588,8 +588,8 @@ def test_openai_compatible_client_extracts_text_from_event_stream_deltas():
             ).encode("utf-8")
 
     client = OpenAICompatibleModelClient(
-        model="right.codes/codex-mini",
-        base_url="https://right.codes/v1",
+        model="gpt-5.5",
+        base_url="https://api.openai.com/v1",
         api_key="sk-test",
         temperature=0.2,
         timeout=30,
@@ -634,7 +634,7 @@ def test_anthropic_compatible_client_posts_expected_messages_payload():
 
     client = AnthropicCompatibleModelClient(
         model="claude-sonnet-4-5-20250929",
-        base_url="https://www.right.codes/claude-aws/v1",
+        base_url="https://api.anthropic.com/v1",
         api_key="sk-test",
         temperature=0.2,
         timeout=30,
@@ -644,7 +644,7 @@ def test_anthropic_compatible_client_posts_expected_messages_payload():
         result = client.complete("hello", 42)
 
     assert result == "<final>ok</final>"
-    assert captured["url"] == "https://www.right.codes/claude-aws/v1/messages"
+    assert captured["url"] == "https://api.anthropic.com/v1/messages"
     assert captured["timeout"] == 30
     assert captured["headers"]["X-api-key"] == "sk-test"
     assert captured["headers"]["Anthropic-version"] == "2023-06-01"
@@ -690,7 +690,7 @@ def test_anthropic_compatible_client_extracts_first_text_block():
 
     client = AnthropicCompatibleModelClient(
         model="claude-sonnet-4-5-20250929",
-        base_url="https://www.right.codes/claude-aws/v1",
+        base_url="https://api.anthropic.com/v1",
         api_key="sk-test",
         temperature=0.2,
         timeout=30,
@@ -726,7 +726,7 @@ def test_anthropic_compatible_client_records_usage_metadata():
 
     client = AnthropicCompatibleModelClient(
         model="claude-sonnet-4-5-20250929",
-        base_url="https://www.right.codes/claude-aws/v1",
+        base_url="https://api.anthropic.com/v1",
         api_key="sk-test",
         temperature=0.2,
         timeout=30,
@@ -767,7 +767,7 @@ def test_build_agent_uses_openai_provider_and_model_override(tmp_path):
     with patch.dict(
         os.environ,
         {
-            "OPENAI_API_BASE": "https://www.right.codes/codex/v1",
+            "OPENAI_API_BASE": "https://gateway.example/openai/v1",
             "OPENAI_API_KEY": "sk-test",
             "OPENAI_MODEL": "env-model",
         },
@@ -779,7 +779,7 @@ def test_build_agent_uses_openai_provider_and_model_override(tmp_path):
 
     mock_openai.assert_called_once()
     assert mock_openai.call_args.kwargs["model"] == "override-model"
-    assert mock_openai.call_args.kwargs["base_url"] == "https://www.right.codes/codex/v1"
+    assert mock_openai.call_args.kwargs["base_url"] == "https://gateway.example/openai/v1"
     assert mock_openai.call_args.kwargs["api_key"] == "sk-test"
     assert agent.model_client is fake_client
 
@@ -802,7 +802,7 @@ def test_build_arg_parser_accepts_deepseek_provider(tmp_path):
     assert args.provider == "deepseek"
 
 
-def test_build_agent_uses_anthropic_provider_and_openai_key_fallback(tmp_path):
+def test_build_agent_uses_anthropic_provider_key(tmp_path):
     args = type(
         "Args",
         (),
@@ -826,7 +826,7 @@ def test_build_agent_uses_anthropic_provider_and_openai_key_fallback(tmp_path):
     with patch.dict(
         os.environ,
         {
-            "OPENAI_API_KEY": "sk-openai-fallback",
+            "ANTHROPIC_API_KEY": "sk-anthropic",
         },
         clear=True,
     ):
@@ -839,8 +839,8 @@ def test_build_agent_uses_anthropic_provider_and_openai_key_fallback(tmp_path):
 
     mock_anthropic.assert_called_once()
     assert mock_anthropic.call_args.kwargs["model"] == "claude-sonnet-4-5-20250929"
-    assert mock_anthropic.call_args.kwargs["base_url"] == "https://www.right.codes/claude/v1"
-    assert mock_anthropic.call_args.kwargs["api_key"] == "sk-openai-fallback"
+    assert mock_anthropic.call_args.kwargs["base_url"] == "https://api.anthropic.com/v1"
+    assert mock_anthropic.call_args.kwargs["api_key"] == "sk-anthropic"
     assert agent.model_client is fake_client
 
 
@@ -960,18 +960,17 @@ def test_build_agent_uses_openai_provider_by_default(tmp_path):
     with patch.dict(
         os.environ,
         {
-            "OPENAI_API_BASE": "https://www.right.codes/codex/v1",
             "OPENAI_API_KEY": "sk-test",
         },
-        clear=False,
+        clear=True,
     ):
         with patch("teddycode.cli.OpenAICompatibleModelClient") as mock_openai:
             fake_client = mock_openai.return_value
             agent = teddycode_pkg.build_agent(args)
 
     mock_openai.assert_called_once()
-    assert mock_openai.call_args.kwargs["model"] == "gpt-5.4"
-    assert mock_openai.call_args.kwargs["base_url"] == "https://www.right.codes/codex/v1"
+    assert mock_openai.call_args.kwargs["model"] == "gpt-5.5"
+    assert mock_openai.call_args.kwargs["base_url"] == "https://api.openai.com/v1"
     assert mock_openai.call_args.kwargs["api_key"] == "sk-test"
     assert agent.model_client is fake_client
 
