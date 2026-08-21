@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${TEDDYCODE_REPO:-https://github.com/martin-los/teddycode.git}"
+REPO="${TEDDYCODE_REPO:-https://github.com/tmy111/Teddy-Code.git}"
 INSTALL_DIR="${TEDDYCODE_INSTALL_DIR:-$HOME/.teddycode-agent}"
 BRANCH="${TEDDYCODE_BRANCH:-main}"
 
