@@ -54,7 +54,7 @@ curl -fsSL https://raw.githubusercontent.com/tmy111/Teddy-Code/main/install.sh |
 
 ```bash
 git clone https://github.com/tmy111/Teddy-Code.git
-cd teddycode
+cd Teddy-Code
 pip install -e .
 ```
 
