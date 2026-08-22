@@ -1910,32 +1910,6 @@ def test_public_api_exports_resolve_through_package_path():
     assert Path(teddycode_pkg.__file__).as_posix().endswith("/teddycode/__init__.py")
 
 
-def test_reviewer_skeleton_docs_exist():
-    release_readme = Path("release/v3/README.md")
-    review_pack = Path("release/v3/REVIEW.md")
-    testing = Path("release/v3/TESTING.md")
-
-    assert release_readme.exists()
-    assert review_pack.exists()
-    assert testing.exists()
-
-    release_text = release_readme.read_text(encoding="utf-8")
-    assert "v3 release pack" in release_text
-    assert "release/v3/testing/" in release_text
-    assert "release/v3/learning/" in release_text
-
-    review_text = review_pack.read_text(encoding="utf-8")
-    assert "Project pitch" in review_text
-    assert "Architecture map" in review_text
-    assert "Benchmark evidence" in review_text
-    assert "Sample run artifact list" in review_text
-    assert "Harness boundaries" in review_text
-
-    testing_text = testing.read_text(encoding="utf-8")
-    assert "50 human scenarios" in testing_text
-    assert "scripts/run_v3_human_scenario_gate.py" in testing_text
-
-
 def test_package_import_surface_includes_cli_entrypoints():
     assert callable(teddycode_pkg.main)
     assert callable(teddycode_pkg.build_agent)

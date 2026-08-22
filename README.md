@@ -282,39 +282,6 @@ TEDDYCODE_LIVE_SMOKE=1 pytest tests/test_release_smoke.py -q
 | [Skills](docs/skills.md) | `SKILL.md` 目录结构、内置技能和自定义 workflow。 |
 | [Sandbox](docs/sandbox.md) | `run_shell` 隔离模式、backend 选择和文件系统边界。 |
 
-### v3 发布包
-
-| 入口 | 内容 |
-| --- | --- |
-| [Release pack](release/v3/README.md) | v3 发布材料入口。 |
-| [Changelog](release/v3/CHANGELOG.md) | v3 变更摘要。 |
-| [Review pack](release/v3/REVIEW.md) | 项目 pitch、架构地图、边界和评审材料。 |
-| [Testing](release/v3/TESTING.md) | v3 测试范围和执行摘要。 |
-| [真人场景测试包](release/v3/testing/README.md) | 50 个真实使用场景的测试入口。 |
-| [测试设计](release/v3/testing/01-test-design.md) | 场景设计、覆盖面和验收口径。 |
-| [执行记录](release/v3/testing/02-execution-record.md) | 全量执行结果和失败修复记录。 |
-| [Runner 与证据](release/v3/testing/03-runner-and-evidence.md) | 测试 runner、输出目录和证据文件说明。 |
-| [场景检查清单](release/v3/testing/04-scenario-checklist.md) | 50 个场景的逐项状态。 |
-
-### v3 学习文档
-
-按这个顺序读，能从整体架构一路落到模块和测试：
-
-| 顺序 | 文档 |
-| --- | --- |
-| 0 | [阅读索引](release/v3/learning/00-reading-map.md) |
-| 1 | [总体架构](release/v3/learning/01-overall-architecture.md) |
-| 2 | [Runtime 和 Engine](release/v3/learning/02-runtime-engine.md) |
-| 3 | [上下文、记忆和压缩](release/v3/learning/03-context-memory-compact.md) |
-| 4 | [工具、权限和沙箱](release/v3/learning/04-tools-permissions-sandbox.md) |
-| 5 | [子 agent、计划模式和 Todo](release/v3/learning/05-workers-plan-todo.md) |
-| 6 | [Provider 和配置](release/v3/learning/06-providers-config.md) |
-| 7 | [Skills、命令、CLI 和 TUI](release/v3/learning/07-skills-commands-cli-tui.md) |
-| 8 | [Session、Run 和 Evaluation](release/v3/learning/08-session-run-evaluation.md) |
-| 9 | [模块地图](release/v3/learning/09-module-map.md) |
-| 10 | [模块学习指南](release/v3/learning/10-module-learning-guide.md) |
-| 11 | [Dream 后台记忆整合](release/v3/learning/11-dream-memory-consolidation.md) |
-
 ## License
 
 MIT
