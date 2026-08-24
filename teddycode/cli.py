@@ -61,7 +61,8 @@ HELP_DETAILS = (
     + textwrap.dedent(
         """\
     Skill workflows:
-    /skill <name> [args] Run a user-invocable skill.
+
+    - /skill <name> [args] Run a user-invocable skill.
     """
     ).strip()
 )

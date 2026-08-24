@@ -235,6 +235,8 @@ def test_cli_plan_mode_and_session_commands_expose_runtime_state(tmp_path):
 
 def test_slash_command_registry_suggests_and_parses_subagent():
     from teddycode.commands.slash import (
+        SLASH_COMMANDS,
+        command_help_text,
         parse_subagent_args,
         resolve_command,
         suggest_commands,
@@ -255,6 +257,12 @@ def test_slash_command_registry_suggests_and_parses_subagent():
     skill_suggestions = [command.name for command in suggest_commands("/sk")]
     assert "skills" in skill_suggestions
     assert "skill" in skill_suggestions
+
+    help_lines = command_help_text().splitlines()
+    assert help_lines[:2] == ["Commands:", ""]
+    assert len(help_lines[2:]) == len(SLASH_COMMANDS)
+    for command, line in zip(SLASH_COMMANDS, help_lines[2:], strict=True):
+        assert line.startswith(f"- {command.usage}")
 
 
 @pytest.mark.asyncio
@@ -323,7 +331,8 @@ async def test_tui_help_command_uses_existing_repl_commands(tmp_path):
 
         text = "\n".join(assistant_contents(app))
         assert "Commands:" in text
-        assert "/memory" in text
+        assert "\n- /memory" in text
+        assert "\n\nSkill workflows:\n\n- /skill" in text
 
 
 @pytest.mark.asyncio
