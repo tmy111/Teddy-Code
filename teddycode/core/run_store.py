@@ -9,7 +9,11 @@ files, so recovery state and review evidence stay separate.
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
+
+
+_REPLACE_RETRY_DELAYS = (0.02, 0.04, 0.08, 0.16, 0.25, 0.25)
 
 
 def _fs_path(path):
@@ -127,4 +131,23 @@ class RunStore:
             json.dump(payload, handle, indent=2, sort_keys=True)
             handle.write("\n")
             temp_name = handle.name
-        os.replace(temp_name, _fs_path(path))
+        destination = _fs_path(path)
+        try:
+            for delay in (*_REPLACE_RETRY_DELAYS, None):
+                try:
+                    os.replace(temp_name, destination)
+                    return
+                except PermissionError:
+                    # Windows can briefly deny replacement while antivirus,
+                    # indexing, or another reader has the destination open.
+                    if delay is None:
+                        raise
+                    time.sleep(delay)
+        finally:
+            # A successful replace moves the temporary file. If replacement
+            # ultimately fails, avoid leaving stale task_state.json.*.tmp files.
+            try:
+                os.unlink(temp_name)
+            except OSError:
+                # Cleanup is best-effort and must not hide the replace error.
+                pass

@@ -1,5 +1,8 @@
 import json
 
+import pytest
+
+from teddycode.core import run_store as run_store_module
 from teddycode.core.run_store import RunStore
 from teddycode.core.task_state import STOP_REASON_FINAL_ANSWER_RETURNED, TaskState
 
@@ -64,3 +67,48 @@ def test_run_store_tolerates_missing_final_report(tmp_path):
 
     assert store.trace_path(state.run_id).exists()
     assert not store.report_path(state.run_id).exists()
+
+
+def test_run_store_retries_transient_permission_error_during_atomic_replace(
+    tmp_path, monkeypatch
+):
+    store = RunStore(tmp_path / ".teddycode" / "runs")
+    state = TaskState.create(
+        run_id="run_retry", task_id="task_retry", user_request="Retry a locked file."
+    )
+    real_replace = run_store_module.os.replace
+    replace_attempts = []
+
+    def flaky_replace(source, destination):
+        replace_attempts.append((source, destination))
+        if len(replace_attempts) < 3:
+            raise PermissionError(13, "destination is temporarily locked")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(run_store_module.os, "replace", flaky_replace)
+    monkeypatch.setattr(run_store_module.time, "sleep", lambda _delay: None)
+
+    store.start_run(state)
+
+    assert len(replace_attempts) == 3
+    assert store.load_task_state(state.run_id)["task_id"] == "task_retry"
+    assert list(store.run_dir(state.run_id).glob("task_state.json.*.tmp")) == []
+
+
+def test_run_store_cleans_temp_file_after_persistent_permission_error(
+    tmp_path, monkeypatch
+):
+    store = RunStore(tmp_path / ".teddycode" / "runs")
+    state = TaskState.create(
+        run_id="run_locked", task_id="task_locked", user_request="Stay locked."
+    )
+    def always_locked(_source, _destination):
+        raise PermissionError(13, "destination remains locked")
+
+    monkeypatch.setattr(run_store_module.os, "replace", always_locked)
+    monkeypatch.setattr(run_store_module.time, "sleep", lambda _delay: None)
+
+    with pytest.raises(PermissionError, match="destination remains locked"):
+        store.start_run(state)
+
+    assert list(store.run_dir(state.run_id).glob("task_state.json.*.tmp")) == []
