@@ -19,15 +19,15 @@ class CompactPlan:
     protected_event_ids: tuple[str, ...]
     no_op_reason: str | None
 
-    def to_dict(self):
+    def to_dict(self):  # Return the to dict.
         return asdict(self)
 
 
 class CompactManager:
-    def __init__(self, agent):
+    def __init__(self, agent):  # Initialize the instance.
         self.agent = agent
 
-    def plan(self, trigger="manual", keep_recent_turns=2):
+    def plan(self, trigger="manual", keep_recent_turns=2):  # Return the plan.
         selected = self._select(keep_recent_turns)
         metadata = dict(self.agent.session.get("context_summary", {}) or {})
         prior = selected["prior_summary"]
@@ -48,7 +48,7 @@ class CompactManager:
             no_op_reason=no_op_reason,
         )
 
-    def compact(self, trigger="manual", keep_recent_turns=2, summary_mode="deterministic"):
+    def compact(self, trigger="manual", keep_recent_turns=2, summary_mode="deterministic"):  # Compact the requested operation.
         plan = self.plan(trigger=trigger, keep_recent_turns=keep_recent_turns)
         history = list(self.agent.session.get("history", []))
         selected = self._select(keep_recent_turns)
@@ -102,7 +102,7 @@ class CompactManager:
         return summary
 
     @staticmethod
-    def _group(history):
+    def _group(history):  # Return the group.
         groups = []
         by_id = {}
         for item in history:
@@ -113,7 +113,7 @@ class CompactManager:
             by_id[turn_id].append(item)
         return groups
 
-    def _select(self, keep_recent_turns):
+    def _select(self, keep_recent_turns):  # Select the requested operation.
         keep_recent_turns = int(keep_recent_turns)
         history = list(self.agent.session.get("history", []))
         groups = self._group(history)
@@ -135,7 +135,7 @@ class CompactManager:
             delta.append((index, item))
         return {"compactable_items": compactable, "protected_items": protected, "delta_items": delta, "prior_summary": prior_summary}
 
-    def _prior_summary(self, history):
+    def _prior_summary(self, history):  # Return the prior summary.
         metadata = dict(self.agent.session.get("context_summary", {}) or {})
         summary_event_id = str(metadata.get("summary_event_id", ""))
         summaries = [item for item in history if item.get("kind") == "compact_summary"]
@@ -144,7 +144,7 @@ class CompactManager:
                 return item
         return summaries[-1] if summaries else None
 
-    def _context_summary(self, plan, summary_item, selected):
+    def _context_summary(self, plan, summary_item, selected):  # Return the context summary.
         previous = dict(self.agent.session.get("context_summary", {}) or {})
         last_index, last_item = selected["delta_items"][-1]
         return {
@@ -155,7 +155,7 @@ class CompactManager:
             "updated_at": now(),
         }
 
-    def _compact_summary_text(self, delta_items, prior_text, summary_mode):
+    def _compact_summary_text(self, delta_items, prior_text, summary_mode):  # Compact summary text.
         if summary_mode != "llm":
             return summarize_compact_items(delta_items, prior_text=prior_text), "deterministic", None
         adapter = HandoffAdapter(self.agent.model_client)
@@ -174,7 +174,7 @@ class CompactManager:
         summary_called=True,
         summary_mode="deterministic",
         compact_call_usage=None,
-    ):
+    ):  # Return the summary.
         pre_chars = sum(len(str(item.get("content", ""))) for item in before)
         post_chars = sum(len(str(item.get("content", ""))) for item in after)
         context_summary = dict(self.agent.session.get("context_summary", {}) or {})
@@ -202,15 +202,15 @@ class CompactManager:
         }
 
     @staticmethod
-    def _tokens(history):
+    def _tokens(history):  # Return the tokens.
         return estimate_tokens(sum(len(str(item.get("content", ""))) for item in history))
 
     @staticmethod
-    def _event_key(item, index):
+    def _event_key(item, index):  # Return the event key.
         return str(item.get("event_id") or f"legacy_{index:06d}")
 
     @staticmethod
-    def _persistent_summary(summary):
+    def _persistent_summary(summary):  # Return the persistent summary.
         persisted = dict(summary)
         persisted.pop("compact_call_usage", None)
         return persisted

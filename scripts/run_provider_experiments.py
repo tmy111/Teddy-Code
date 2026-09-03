@@ -11,7 +11,7 @@ if str(ROOT) not in sys.path:
 from teddycode.evaluation.metrics import run_provider_experiments  # noqa: E402
 
 
-def build_arg_parser():
+def build_arg_parser():  # Build arg parser.
     parser = argparse.ArgumentParser(description="Run GPT, Claude, and DeepSeek provider experiments for teddycode benchmark tasks.")
     parser.add_argument("--benchmark-path", default="benchmarks/coding_tasks.json", help="Path to benchmark task JSON.")
     parser.add_argument("--workspace-root", default="artifacts/provider-workspaces", help="Workspace root for provider experiment copies.")
@@ -21,7 +21,7 @@ def build_arg_parser():
     return parser
 
 
-def main(argv=None):
+def main(argv=None):  # Run the command-line entry point.
     args = build_arg_parser().parse_args(argv)
     payload = run_provider_experiments(
         benchmark_path=args.benchmark_path,

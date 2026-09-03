@@ -17,7 +17,7 @@ from .final_readiness_tools import readiness_reasons
 VALID_MODES = {"off", "warn", "soft", "strict"}
 
 
-def evaluate_final_readiness(task_state, mode, workspace_root=None):
+def evaluate_final_readiness(task_state, mode, workspace_root=None):  # Evaluate final readiness.
     mode = str(mode or "warn")
     if mode not in VALID_MODES:
         mode = "warn"
@@ -53,7 +53,7 @@ def evaluate_final_readiness(task_state, mode, workspace_root=None):
     }
 
 
-def readiness_notice(decision):
+def readiness_notice(decision):  # Return the readiness notice.
     messages = [reason_message(reason) for reason in decision.get("reasons", [])]
     text = "\n".join(f"- {message}" for message in messages) or "- Readiness warning."
     if decision.get("action") == "block":
@@ -64,7 +64,7 @@ def readiness_notice(decision):
     )
 
 
-def reduce_final_readiness_summary(summary, event):
+def reduce_final_readiness_summary(summary, event):  # Reduce final readiness summary.
     summary = dict(summary or {})
     summary.setdefault("schema_version", FINAL_READINESS_SUMMARY_SCHEMA)
     decision = str(event.get("decision", ""))
@@ -76,13 +76,13 @@ def reduce_final_readiness_summary(summary, event):
     return summary
 
 
-def _reason_signature(reasons):
+def _reason_signature(reasons):  # Return the reason signature.
     if not reasons:
         return ""
     return hashlib.sha256("|".join(sorted(reasons)).encode("utf-8")).hexdigest()[:16]
 
 
-def _state(task_state):
+def _state(task_state):  # Return the state.
     summaries = dict(task_state.evidence_summaries or {})
     state = dict(summaries.get("final_readiness_state", {}) or {})
     summaries["final_readiness_state"] = state

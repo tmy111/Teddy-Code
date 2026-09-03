@@ -20,7 +20,7 @@ class ReplacementRecord:
     pressure_tier: str = ""
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data):  # Create an instance from dict.
         return cls(
             event_id=str(data.get("event_id", "")),
             content_sha256=str(data.get("content_sha256", "")),
@@ -34,7 +34,7 @@ class ReplacementRecord:
             pressure_tier=str(data.get("pressure_tier", "")),
         )
 
-    def to_dict(self):
+    def to_dict(self):  # Return the to dict.
         return asdict(self)
 
 
@@ -42,19 +42,19 @@ class ReplacementRecord:
 class ProposedReplacement:
     record: ReplacementRecord
 
-    def to_dict(self):
+    def to_dict(self):  # Return the to dict.
         return self.record.to_dict()
 
 
 class ReplacementLedger:
-    def __init__(self, records=None):
+    def __init__(self, records=None):  # Initialize the instance.
         self._records = {}
         for record in records or []:
             if record.event_id and record.content_sha256:
                 self._records[record.event_id] = record
 
     @classmethod
-    def from_session(cls, session):
+    def from_session(cls, session):  # Create an instance from session.
         payload = dict(session or {}).get("context_replacements", {}) or {}
         if isinstance(payload, list):
             raw_records = payload
@@ -64,7 +64,7 @@ class ReplacementLedger:
             raw_records = []
         return cls(ReplacementRecord.from_dict(record) for record in raw_records if isinstance(record, dict))
 
-    def matching_record(self, item):
+    def matching_record(self, item):  # Return the matching record.
         event_id = str(item.get("event_id", ""))
         content_sha256 = str(item.get("content_sha256", ""))
         if not event_id or not content_sha256:
@@ -74,7 +74,7 @@ class ReplacementLedger:
             return record
         return None
 
-    def proposed_record(self, item, replacement_text):
+    def proposed_record(self, item, replacement_text):  # Return the proposed record.
         event_id = str(item.get("event_id", ""))
         content_sha256 = str(item.get("content_sha256", ""))
         if not event_id or not content_sha256:
@@ -99,7 +99,7 @@ class ReplacementLedger:
         )
 
 
-def commit_proposed_replacements(session, metadata):
+def commit_proposed_replacements(session, metadata):  # Return the commit proposed replacements.
     history = dict(metadata.get("history", {}) or {})
     proposals = history.get("proposed_replacements", []) or []
     if not proposals:
@@ -123,20 +123,20 @@ def commit_proposed_replacements(session, metadata):
     return committed
 
 
-def _session_record_payload(record):
+def _session_record_payload(record):  # Return the session record payload.
     payload = record.to_dict()
     payload.pop("event_id", None)
     return payload
 
 
-def _records_from_mapping(payload):
+def _records_from_mapping(payload):  # Return the records from mapping.
     records = payload.get("records")
     raw_records = list(records) if isinstance(records, list) else []
     raw_records.extend(_keyed_records(payload))
     return raw_records
 
 
-def _keyed_records(payload):
+def _keyed_records(payload):  # Return the keyed records.
     keyed_records = []
     for event_id, record in payload.items():
         if event_id == "records":

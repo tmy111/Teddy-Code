@@ -45,14 +45,14 @@ SLASH_COMMANDS: tuple[SlashCommand, ...] = (
 )
 
 
-def command_help_text() -> str:
+def command_help_text() -> str:  # Return the command help text.
     lines = ["Commands:", ""]
     for command in SLASH_COMMANDS:
         lines.append(f"- {command.usage:<32} {command.description}")
     return "\n".join(lines)
 
 
-def resolve_command(name: str) -> SlashCommand | None:
+def resolve_command(name: str) -> SlashCommand | None:  # Resolve command.
     normalized = str(name or "").strip().lstrip("/").lower()
     if not normalized:
         return None
@@ -62,7 +62,7 @@ def resolve_command(name: str) -> SlashCommand | None:
     return None
 
 
-def suggest_commands(text: str, limit: int = 8) -> list[SlashCommand]:
+def suggest_commands(text: str, limit: int = 8) -> list[SlashCommand]:  # Suggest commands.
     raw = str(text or "")
     if not raw.startswith("/"):
         return []
@@ -78,7 +78,7 @@ def suggest_commands(text: str, limit: int = 8) -> list[SlashCommand]:
     return matches[:limit]
 
 
-def parse_subagent_args(args: str) -> tuple[dict | None, str]:
+def parse_subagent_args(args: str) -> tuple[dict | None, str]:  # Parse subagent args.
     usage = "Usage: /subagent explore <task> or /subagent worker --scope <path[,path]> <task>"
     try:
         tokens = shlex.split(str(args or ""))
@@ -120,5 +120,5 @@ def parse_subagent_args(args: str) -> tuple[dict | None, str]:
     }, ""
 
 
-def _split_scope(value: str) -> list[str]:
+def _split_scope(value: str) -> list[str]:  # Split scope.
     return [item.strip() for item in str(value or "").split(",") if item.strip()]

@@ -5,7 +5,7 @@ from __future__ import annotations
 from .skills import Skill
 
 
-def bundled_skills():
+def bundled_skills():  # Return the bundled skills.
     return [
         Skill(
             name="simplify",
@@ -73,8 +73,8 @@ def bundled_skills():
     ]
 
 
-def _with_optional_section(title, paragraphs, section_title):
-    def render(arguments=""):
+def _with_optional_section(title, paragraphs, section_title):  # Return the with optional section.
+    def render(arguments=""):  # Render the requested operation.
         lines = [title, "", *paragraphs]
         if arguments:
             lines.extend(["", f"## {section_title}", "", str(arguments)])

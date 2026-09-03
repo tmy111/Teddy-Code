@@ -6,7 +6,7 @@ import shlex
 VERIFICATION_SIGNAL_SCHEMA = "teddycode.verification_signal.v1"
 
 
-def reduce_verification_signal(previous, event, changed_paths):
+def reduce_verification_signal(previous, event, changed_paths):  # Reduce verification signal.
     signal = dict(previous or {})
     if event.get("event") != "tool_executed":
         return signal
@@ -37,7 +37,7 @@ def reduce_verification_signal(previous, event, changed_paths):
         }
     )
     return signal
-def classify_verification_command(command):
+def classify_verification_command(command):  # Classify verification command.
     try:
         tokens = shlex.split(str(command))
     except ValueError:
@@ -63,7 +63,7 @@ def classify_verification_command(command):
     if tokens[:2] in (["yarn", "test"], ["go", "test"], ["cargo", "test"], ["make", "test"]):
         return "test"
     return ""
-def _js_command_class(tokens):
+def _js_command_class(tokens):  # Return the js command class.
     if len(tokens) < 2:
         return ""
     if tokens[1] == "test":
@@ -71,6 +71,6 @@ def _js_command_class(tokens):
     if len(tokens) > 2 and tokens[1:3] in (["run", "test"], ["run", "build"]):
         return "test" if tokens[2] == "test" else "build"
     return "build" if tokens[1] == "build" else ""
-def _is_python_command(command):
+def _is_python_command(command):  # Return whether is python command.
     suffix = command.removeprefix("python3.")
     return command in {"python", "python3"} or (suffix != command and suffix.replace(".", "").isdigit())

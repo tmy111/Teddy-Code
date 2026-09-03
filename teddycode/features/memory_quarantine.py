@@ -10,6 +10,6 @@ QUARANTINE_PATTERN = re.compile(
 )
 
 
-def should_quarantine(note_text):
+def should_quarantine(note_text):  # Return whether to quarantine.
     text = str(note_text)
     return bool(QUARANTINE_PATTERN.search(text)) or any(pattern.search(text) for pattern in SECRET_PATTERNS)

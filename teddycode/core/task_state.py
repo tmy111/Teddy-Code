@@ -47,13 +47,13 @@ class TaskState:
     evidence_summaries: dict = field(default_factory=dict)
 
     @classmethod
-    def create(cls, task_id, user_request, run_id=""):
+    def create(cls, task_id, user_request, run_id=""):  # Create the requested operation.
         if not run_id:
             run_id = "run_" + datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid4().hex[:6]
         return cls(run_id=run_id, task_id=task_id, user_request=user_request)
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data):  # Create an instance from dict.
         return cls(
             run_id=str(data.get("run_id", "")),
             task_id=str(data.get("task_id", "")),
@@ -74,18 +74,18 @@ class TaskState:
             evidence_summaries=dict(data.get("evidence_summaries", {}) or {}),
         )
 
-    def record_attempt(self):
+    def record_attempt(self):  # Record attempt.
         # attempt 统计的是“模型被调用了几轮”，不等于 tool_steps。
         self.attempts += 1
         return self
 
-    def record_tool(self, name):
+    def record_tool(self, name):  # Record tool.
         # tool_steps 只统计真正进入执行阶段的工具调用次数。
         self.tool_steps += 1
         self.last_tool = str(name or "")
         return self
 
-    def stop(self, stop_reason, status=STATUS_STOPPED, final_answer=""):
+    def stop(self, stop_reason, status=STATUS_STOPPED, final_answer=""):  # Stop the requested operation.
         # stop_reason 和 status 分开存，是为了区分“怎么停的”和“停下时是什么状态”。
         self.status = status
         self.stop_reason = stop_reason
@@ -93,22 +93,22 @@ class TaskState:
             self.final_answer = final_answer
         return self
 
-    def stop_step_limit(self, final_answer=""):
+    def stop_step_limit(self, final_answer=""):  # Stop step limit.
         return self.stop(STOP_REASON_STEP_LIMIT_REACHED, final_answer=final_answer)
 
-    def stop_retry_limit(self, final_answer=""):
+    def stop_retry_limit(self, final_answer=""):  # Stop retry limit.
         return self.stop(STOP_REASON_RETRY_LIMIT_REACHED, final_answer=final_answer)
 
-    def stop_model_error(self, final_answer=""):
+    def stop_model_error(self, final_answer=""):  # Stop model error.
         return self.stop(STOP_REASON_MODEL_ERROR, status=STATUS_FAILED, final_answer=final_answer)
 
-    def finish_success(self, final_answer):
+    def finish_success(self, final_answer):  # Finish success.
         self.status = STATUS_COMPLETED
         self.stop_reason = STOP_REASON_FINAL_ANSWER_RETURNED
         self.final_answer = str(final_answer)
         return self
 
-    def to_dict(self):
+    def to_dict(self):  # Return the to dict.
         return {
             "run_id": self.run_id,
             "task_id": self.task_id,

@@ -37,7 +37,7 @@ Implement authentication middleware
 """
 
 
-def scenario_tier3_triggers_llm_handoff(tmp_path=None):
+def scenario_tier3_triggers_llm_handoff(tmp_path=None):  # Run the tier3 triggers llm handoff scenario.
     tmp_path = _tmp_path(tmp_path)
     agent = _build_agent(
         tmp_path,
@@ -63,7 +63,7 @@ def scenario_tier3_triggers_llm_handoff(tmp_path=None):
     }
 
 
-def scenario_llm_failure_falls_back_to_deterministic(tmp_path=None):
+def scenario_llm_failure_falls_back_to_deterministic(tmp_path=None):  # Run the llm failure falls back to deterministic scenario.
     tmp_path = _tmp_path(tmp_path)
     agent = _build_agent(
         tmp_path,
@@ -87,7 +87,7 @@ def scenario_llm_failure_falls_back_to_deterministic(tmp_path=None):
     }
 
 
-def scenario_low_pressure_no_compaction(tmp_path=None):
+def scenario_low_pressure_no_compaction(tmp_path=None):  # Run the low pressure no compaction scenario.
     tmp_path = _tmp_path(tmp_path)
     agent = _build_agent(tmp_path, ["<final>low pressure response</final>"], context_window=200_000)
     _fill_history(agent, rounds=2, chars_per_message=100)
@@ -103,7 +103,7 @@ def scenario_low_pressure_no_compaction(tmp_path=None):
     }
 
 
-def scenario_over_budget_prefers_deterministic(tmp_path=None):
+def scenario_over_budget_prefers_deterministic(tmp_path=None):  # Run the over budget prefers deterministic scenario.
     tmp_path = _tmp_path(tmp_path)
     agent = _build_agent(tmp_path, ["<final>over budget done</final>"], context_window=1000)
     _fill_history(agent, rounds=6, chars_per_message=900)
@@ -124,7 +124,7 @@ def scenario_over_budget_prefers_deterministic(tmp_path=None):
     }
 
 
-def scenario_delta_too_small_skips_compaction(tmp_path=None):
+def scenario_delta_too_small_skips_compaction(tmp_path=None):  # Run the delta too small skips compaction scenario.
     tmp_path = _tmp_path(tmp_path)
     agent = _build_agent(tmp_path, ["unused"], context_window=200)
     agent.record(
@@ -148,7 +148,7 @@ def scenario_delta_too_small_skips_compaction(tmp_path=None):
     }
 
 
-def scenario_replacement_ledger_survives_llm_compact(tmp_path=None):
+def scenario_replacement_ledger_survives_llm_compact(tmp_path=None):  # Run the replacement ledger survives llm compact scenario.
     tmp_path = _tmp_path(tmp_path)
     agent = _build_agent(
         tmp_path,
@@ -173,7 +173,7 @@ def scenario_replacement_ledger_survives_llm_compact(tmp_path=None):
     }
 
 
-def scenario_net_benefit_calculation():
+def scenario_net_benefit_calculation():  # Run the net benefit calculation scenario.
     positive = context_budget_summary(
         {
             "context_usage": {"context_window": 4000, "total_estimated_tokens": 500},
@@ -197,7 +197,7 @@ def scenario_net_benefit_calculation():
     return {"positive": positive, "negative": negative}
 
 
-def main():
+def main():  # Run the command-line entry point.
     scenarios = [
         scenario_tier3_triggers_llm_handoff,
         scenario_llm_failure_falls_back_to_deterministic,
@@ -229,7 +229,7 @@ def main():
     return 0
 
 
-def _validate_result(name, result):
+def _validate_result(name, result):  # Validate result.
     checks = {
         "scenario_tier3_triggers_llm_handoff": lambda r: (
             r["compact_trigger"] == "auto_pressure_compact"
@@ -269,7 +269,7 @@ def _validate_result(name, result):
     assert checks[name](result), f"unexpected result: {result}"
 
 
-def _build_agent(tmp_path, responses, *, context_window):
+def _build_agent(tmp_path, responses, *, context_window):  # Build agent.
     tmp_path = Path(tmp_path)
     tmp_path.mkdir(parents=True, exist_ok=True)
     (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
@@ -292,13 +292,13 @@ def _build_agent(tmp_path, responses, *, context_window):
     )
 
 
-def _fill_history(agent, *, rounds, chars_per_message):
+def _fill_history(agent, *, rounds, chars_per_message):  # Fill the session history.
     for index in range(rounds):
         agent.record({"role": "user", "content": f"request {index} " + ("x" * chars_per_message)})
         agent.record({"role": "assistant", "content": f"answer {index} " + ("y" * chars_per_message)})
 
 
-def _set_context_budget(agent, *, total_budget, section_budget):
+def _set_context_budget(agent, *, total_budget, section_budget):  # Set context budget.
     agent.context_manager = ContextManager(
         agent,
         total_budget=total_budget,
@@ -317,23 +317,23 @@ def _set_context_budget(agent, *, total_budget, section_budget):
     )
 
 
-def _first_compact_summary(agent):
+def _first_compact_summary(agent):  # Return the first compact summary.
     summaries = _compact_summaries(agent)
     assert summaries, "expected compact_summary in session history"
     return summaries[0]
 
 
-def _compact_summaries(agent):
+def _compact_summaries(agent):  # Compact summaries.
     return [item for item in agent.session.get("history", []) if item.get("kind") == "compact_summary"]
 
 
-def _last_orchestrator_decision(agent):
+def _last_orchestrator_decision(agent):  # Return the last orchestrator decision.
     decisions = _events(agent, "context_orchestrator_decision")
     assert decisions, "expected context_orchestrator_decision event"
     return decisions[-1]
 
 
-def _events(agent, event_name):
+def _events(agent, event_name):  # Return the events.
     path = agent.session_event_bus.path
     if not path.exists():
         return []
@@ -344,7 +344,7 @@ def _events(agent, event_name):
     ]
 
 
-def _tmp_path(tmp_path):
+def _tmp_path(tmp_path):  # Return the tmp path.
     if tmp_path is not None:
         return Path(tmp_path)
     return Path(tempfile.mkdtemp(prefix="teddycode-llm-handoff-"))

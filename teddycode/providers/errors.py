@@ -20,7 +20,7 @@ class ProviderError(RuntimeError):#继承自RuntimeError，表示运行时错误
         retry_count=0,
         body_excerpt="",
         cause_type="",
-    ):
+    ):  # Initialize the instance.
         super().__init__(message)
         # base_url 进入日志/metadata 前必须脱敏，避免把账号、token 或查询串带出去。
         self.provider = str(provider or "")

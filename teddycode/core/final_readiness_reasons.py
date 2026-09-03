@@ -52,9 +52,9 @@ READINESS_REASONS = {
 }
 
 
-def reason_severity(reason):
+def reason_severity(reason):  # Return the reason severity.
     return READINESS_REASONS.get(str(reason), ("soft", str(reason)))[0]
 
 
-def reason_message(reason):
+def reason_message(reason):  # Return the reason message.
     return READINESS_REASONS.get(str(reason), ("soft", str(reason)))[1]

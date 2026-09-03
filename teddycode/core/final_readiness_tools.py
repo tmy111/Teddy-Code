@@ -13,7 +13,7 @@ from .final_readiness_context import tier3_summary_without_delta
 UNRESOLVED_TODO_STATUS = {"pending", "in_progress"}
 
 
-def readiness_reasons(task_state, workspace_root=None):
+def readiness_reasons(task_state, workspace_root=None):  # Return the readiness reasons.
     summaries = task_state.evidence_summaries or {}
     reasons = []
     required_artifacts = summarize_required_artifacts(task_state, workspace_root)
@@ -52,7 +52,7 @@ def readiness_reasons(task_state, workspace_root=None):
     return reasons
 
 
-def _has_unresolved_high_priority_todo(task_state):
+def _has_unresolved_high_priority_todo(task_state):  # Return whether has unresolved high priority todo.
     latest = {}
     for change in task_state.todo_changes or []:
         todo = dict(change.get("todo", {}) or {})
@@ -65,7 +65,7 @@ def _has_unresolved_high_priority_todo(task_state):
     )
 
 
-def _has_partial_success_workspace_change(task_state):
+def _has_partial_success_workspace_change(task_state):  # Return whether has partial success workspace change.
     return any(
         item.get("status") == "partial_success"
         and item.get("workspace_changed") is True

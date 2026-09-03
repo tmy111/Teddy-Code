@@ -31,10 +31,10 @@ class ContextBuildResult:
 class ContextOrchestrator:
     version = "local-v1"
 
-    def __init__(self, agent):
+    def __init__(self, agent):  # Initialize the instance.
         self.agent = agent
 
-    def snapshot(self, request, prefix_refresh=None):
+    def snapshot(self, request, prefix_refresh=None):  # Return the snapshot.
         client = self.agent.model_client
         return ContextSnapshot(
             request=str(request),
@@ -47,7 +47,7 @@ class ContextOrchestrator:
             prefix_refresh=dict(prefix_refresh or {}),
         )
 
-    def build(self, snapshot):
+    def build(self, snapshot):  # Build the requested operation.
         prompt, metadata = self.agent.context_manager.build(snapshot.request)
         plan = None
         summary = None
@@ -96,7 +96,7 @@ class ContextOrchestrator:
             compact_trigger=(plan.trigger if plan else None),
         )
 
-    def _compact_request(self, metadata, snapshot):
+    def _compact_request(self, metadata, snapshot):  # Compact request.
         if metadata.get("prompt_over_budget"):
             return "auto_prompt_over_budget", "deterministic", ""
         usage = dict(metadata.get("context_usage", {}) or {})
@@ -111,7 +111,7 @@ class ContextOrchestrator:
         return "auto_pressure_compact", "llm", ""
 
     @staticmethod
-    def _count_delta_events(history, last_boundary_event_id):
+    def _count_delta_events(history, last_boundary_event_id):  # Count delta events.
         if not last_boundary_event_id:
             return len(history)
         for index, item in enumerate(history):
@@ -119,7 +119,7 @@ class ContextOrchestrator:
                 return len(history) - index - 1
         return len(history)
 
-    def _attach_metadata(self, metadata, snapshot, plan, summary, should_compact, skip_reason, compact_metrics=None):
+    def _attach_metadata(self, metadata, snapshot, plan, summary, should_compact, skip_reason, compact_metrics=None):  # Attach metadata to the result.
         agent = self.agent
         refresh = snapshot.prefix_refresh
         metadata.update(
@@ -156,7 +156,7 @@ class ContextOrchestrator:
             metadata, plan, summary, should_compact, skip_reason, compact_metrics
         )
 
-    def _orchestrator_metadata(self, metadata, plan, summary, should_compact, skip_reason, compact_metrics=None):
+    def _orchestrator_metadata(self, metadata, plan, summary, should_compact, skip_reason, compact_metrics=None):  # Return the orchestrator metadata.
         usage = dict(metadata.get("context_usage", {}) or {})
         history = dict(metadata.get("history", {}) or {})
         summary = dict(summary or {})
@@ -182,7 +182,7 @@ class ContextOrchestrator:
         payload.update(dict(compact_metrics or {}))
         return payload
 
-    def _emit_decision(self, metadata):
+    def _emit_decision(self, metadata):  # Emit decision.
         payload = {
             "run_id": getattr(getattr(self.agent, "current_task_state", None), "run_id", ""),
             "context_orchestrator": metadata.get("context_orchestrator", {}),
@@ -193,7 +193,7 @@ class ContextOrchestrator:
         if task_state:
             self.agent.emit_trace(task_state, "context_orchestrator_decision", payload)
 
-    def _emit_usage(self, metadata):
+    def _emit_usage(self, metadata):  # Emit usage.
         self.agent.session_event_bus.emit(
             "context_usage_recorded",
             {

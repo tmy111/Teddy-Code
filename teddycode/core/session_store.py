@@ -10,7 +10,7 @@ from pathlib import Path
 from .workspace import clip
 
 
-def _fs_path(path):
+def _fs_path(path):  # Return the fs path.
     path = Path(path)
     if os.name != "nt":
         return str(path)
@@ -23,18 +23,18 @@ def _fs_path(path):
 
 
 class SessionStore:
-    def __init__(self, root):
+    def __init__(self, root):  # Initialize the instance.
         self.root = Path(root)
         os.makedirs(_fs_path(self.root), exist_ok=True)
         self._lock = threading.RLock()
 
-    def path(self, session_id):
+    def path(self, session_id):  # Return the path.
         return self.root / f"{_safe_session_id(session_id)}.json"
 
-    def event_path(self, session_id):
+    def event_path(self, session_id):  # Return the event path.
         return self.root / f"{_safe_session_id(session_id)}.events.jsonl"
 
-    def save(self, session):
+    def save(self, session):  # Save the requested operation.
         path = self.path(session["id"])
         payload = json.dumps(session, indent=2)
         with self._lock:
@@ -46,16 +46,16 @@ class SessionStore:
             os.replace(_fs_path(tmp_path), _fs_path(path))
         return path
 
-    def load(self, session_id):
+    def load(self, session_id):  # Load the requested operation.
         with self._lock:
             with open(_fs_path(self.path(session_id)), encoding="utf-8") as handle:
                 return json.load(handle)
 
-    def latest(self):
+    def latest(self):  # Return the latest.
         files = sorted(self.root.glob("*.json"), key=lambda path: path.stat().st_mtime)
         return files[-1].stem if files else None
 
-    def list_sessions(self):
+    def list_sessions(self):  # List sessions.
         rows = []
         for index, path in enumerate(
             sorted(
@@ -91,14 +91,14 @@ class SessionStore:
         return rows
 
 
-def _last_final_preview(history):
+def _last_final_preview(history):  # Return the last final preview.
     for item in reversed(history):
         if item.get("role") == "assistant":
             return clip(item.get("content", ""), 80)
     return ""
 
 
-def _safe_session_id(session_id):
+def _safe_session_id(session_id):  # Return the safe session id.
     value = str(session_id or "").strip()
     if not value or value in {".", ".."} or "/" in value or "\\" in value:
         raise ValueError("invalid session id")

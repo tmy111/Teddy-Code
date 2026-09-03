@@ -2,7 +2,7 @@
 """Prompt-safe rendering for media references in session history."""
 
 
-def render_media_refs(item):
+def render_media_refs(item):  # Render media refs.
     lines = []
     for ref in item.get("media_refs", []) or []:
         path = str(ref.get("path", "")).strip() or "-"

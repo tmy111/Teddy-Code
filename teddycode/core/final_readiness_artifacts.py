@@ -43,7 +43,7 @@ _FILE_SUFFIXES = frozenset(
 )
 
 
-def summarize_required_artifacts(task_state, workspace_root=None):
+def summarize_required_artifacts(task_state, workspace_root=None):  # Summarize required artifacts.
     root = Path(workspace_root).resolve() if workspace_root else None
     paths = extract_required_artifact_paths(task_state.user_request, root)
     missing = []
@@ -57,7 +57,7 @@ def summarize_required_artifacts(task_state, workspace_root=None):
     }
 
 
-def extract_required_artifact_paths(text, workspace_root=None):
+def extract_required_artifact_paths(text, workspace_root=None):  # Extract required artifact paths.
     root = Path(workspace_root).resolve() if workspace_root else None
     paths = []
     output_context = False
@@ -105,34 +105,34 @@ def extract_required_artifact_paths(text, workspace_root=None):
     return paths
 
 
-def _line_negates_output(lowered_line):
+def _line_negates_output(lowered_line):  # Return the line negates output.
     return any(marker in lowered_line for marker in _NEGATED_OUTPUT_MARKERS)
 
 
-def _starts_non_output_section(line, lowered_line):
+def _starts_non_output_section(line, lowered_line):  # Return the starts non output section.
     sectionish = line.startswith("#") or line.endswith(":")
     return sectionish and any(
         marker in lowered_line for marker in _NON_OUTPUT_SECTION_MARKERS
     )
 
 
-def _first_marker_index(lowered_line, markers):
+def _first_marker_index(lowered_line, markers):  # Return the first marker index.
     positions = [pos for marker in markers if (pos := lowered_line.find(marker)) >= 0]
     return min(positions) if positions else -1
 
 
-def _token_has_output_scope(output_context, output_marker_index, token_start):
+def _token_has_output_scope(output_context, output_marker_index, token_start):  # Return the token has output scope.
     if output_marker_index >= 0:
         return token_start >= output_marker_index
     return output_context
 
 
-def _line_declares_output_dir(line):
+def _line_declares_output_dir(line):  # Return the line declares output dir.
     lowered = str(line or "").lower()
     return any(marker in lowered for marker in ("写入", "output", "under", "保存到"))
 
 
-def _normalize_declared_path(token, root):
+def _normalize_declared_path(token, root):  # Normalize declared path.
     value = str(token or "").strip().strip("\"'")
     if not value or any(part in value for part in ("*", "{", "}", "\n")):
         return ""
@@ -149,7 +149,7 @@ def _normalize_declared_path(token, root):
     return value.lstrip("./")
 
 
-def _looks_like_directory_token(token):
+def _looks_like_directory_token(token):  # Return the looks like directory token.
     value = str(token or "").strip()
     if value.endswith("/"):
         return True

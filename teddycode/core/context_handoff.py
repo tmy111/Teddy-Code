@@ -78,7 +78,7 @@ class HandoffParser:
         "next steps": "next_steps",
     }
 
-    def parse(self, raw_text: str) -> HandoffSummary:
+    def parse(self, raw_text: str) -> HandoffSummary:  # Parse the requested operation.
         raw = str(raw_text or "")
         sections = self._sections(raw)
         goal = self._paragraph(sections.get("goal", ""))
@@ -93,7 +93,7 @@ class HandoffParser:
             raw_text=raw,
         )
 
-    def _sections(self, raw_text: str) -> dict[str, str]:
+    def _sections(self, raw_text: str) -> dict[str, str]:  # Return the sections.
         sections = {}
         current = None
         lines = []
@@ -111,7 +111,7 @@ class HandoffParser:
         return sections
 
     @staticmethod
-    def _paragraph(text: str) -> str:
+    def _paragraph(text: str) -> str:  # Return the paragraph.
         for line in str(text or "").splitlines():
             stripped = line.strip()
             if stripped:
@@ -119,7 +119,7 @@ class HandoffParser:
         return ""
 
     @staticmethod
-    def _bullets(text: str) -> tuple[str, ...]:
+    def _bullets(text: str) -> tuple[str, ...]:  # Return the bullets.
         items = []
         for line in str(text or "").splitlines():
             stripped = line.strip()
@@ -133,13 +133,13 @@ class HandoffParser:
 class HandoffAdapter:
     """Generates a handoff summary through the normalized model boundary."""
 
-    def __init__(self, model_client, max_summary_tokens=1024):
+    def __init__(self, model_client, max_summary_tokens=1024):  # Initialize the instance.
         self.model_client = model_client
         self.max_summary_tokens = int(max_summary_tokens)
         self.parser = HandoffParser()
         self.last_usage = None
 
-    def generate(self, delta_text: str, prior_summary_text: str = "") -> HandoffSummary | None:
+    def generate(self, delta_text: str, prior_summary_text: str = "") -> HandoffSummary | None:  # Generate the requested operation.
         prior_block = ""
         if str(prior_summary_text or "").strip():
             prior_block = "## Prior Summary (merge into your output)\n\n" + str(prior_summary_text).strip()
@@ -160,7 +160,7 @@ class HandoffAdapter:
         return summary
 
     @staticmethod
-    def _usage(metadata):
+    def _usage(metadata):  # Return the usage.
         meta = dict(metadata or {})
         input_tokens = _optional_int(meta.get("input_tokens"))
         output_tokens = _optional_int(meta.get("output_tokens"))
@@ -212,21 +212,21 @@ def render_delta_for_handoff(delta_items, *, max_chars=20_000):
     return text[-max_chars:]
 
 
-def _append_section(lines, title, items):
+def _append_section(lines, title, items):  # Append section.
     if not items:
         return
     lines.extend(["", f"## {title}"])
     lines.extend(f"- {item}" for item in items)
 
 
-def _truncate(text, limit):
+def _truncate(text, limit):  # Truncate the requested operation.
     text = str(text or "")
     if len(text) <= limit:
         return text
     return text[:limit] + f"\n... ({len(text)} chars total, truncated)"
 
 
-def _optional_int(value):
+def _optional_int(value):  # Return the optional int.
     try:
         return max(0, int(value or 0))
     except (TypeError, ValueError):

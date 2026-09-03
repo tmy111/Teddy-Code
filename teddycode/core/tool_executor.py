@@ -133,7 +133,7 @@ def run_tool(agent, name, args):
         return f"error: tool {name} failed: {exc}"
 
 
-def _run_shell_exit_code(result):
+def _run_shell_exit_code(result):  # Run shell exit code.
     match = re.search(r"exit_code:\s*(-?\d+)", str(result))
     return int(match.group(1)) if match else 0
 
@@ -142,7 +142,7 @@ def _tool_result_metadata(
     tool, *, status, error_code="", security_event_type="", risk_level=None,
     read_only=None, affected_paths=None, workspace_changed=False,
     workspace_fingerprint=None, diff_summary=None, **extra
-):
+):  # Return the tool result metadata.
     metadata = {
         "tool_status": status,
         "tool_error_code": error_code,
@@ -159,7 +159,7 @@ def _tool_result_metadata(
     return metadata
 
 
-def _emit_permission_decision(agent, tool, args, decision):
+def _emit_permission_decision(agent, tool, args, decision):  # Emit permission decision.
     agent.session_event_bus.emit(
         "permission_decision",
         {
@@ -173,14 +173,14 @@ def _emit_permission_decision(agent, tool, args, decision):
     )
 
 
-def _emit_tool_policy_decision(agent, tool, args, decision):
+def _emit_tool_policy_decision(agent, tool, args, decision):  # Emit tool policy decision.
     agent.session_event_bus.emit(
         "tool_policy_decision",
         {"tool_name": tool.name, "decision": decision.decision, "reason": decision.reason, "args": args or {}},
     )
 
 
-def _permission_error(agent, tool, decision):
+def _permission_error(agent, tool, decision):  # Return the permission error.
     if decision.reason == "plan_mode_path_mismatch":
         return f"error: plan mode can only write the active plan artifact ({agent.plan_mode.plan_path})"
     if decision.reason == "plan_mode_tool_not_allowed":

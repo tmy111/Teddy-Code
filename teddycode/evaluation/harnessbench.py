@@ -18,7 +18,7 @@ def build_adapter_metadata(
     *,
     session_id: str = "",
     returncode: int = 0,
-) -> dict[str, Any]:
+) -> dict[str, Any]:  # Build adapter metadata.
     workspace = Path(workspace).resolve()
     latest_run = _latest_dir(workspace / ".teddycode" / "runs")
     sessions_root = workspace / ".teddycode" / "sessions"
@@ -67,7 +67,7 @@ def write_adapter_metadata(
     *,
     session_id: str = "",
     returncode: int = 0,
-) -> dict[str, Any]:
+) -> dict[str, Any]:  # Write adapter metadata.
     metadata = build_adapter_metadata(
         workspace, session_id=session_id, returncode=returncode
     )
@@ -80,7 +80,7 @@ def write_adapter_metadata(
     return metadata
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:  # Run the command-line entry point.
     parser = argparse.ArgumentParser(description="Emit TeddyCode Harness-Bench adapter metadata.")
     parser.add_argument("--workspace", required=True)
     parser.add_argument("--session-id", default="")
@@ -102,26 +102,26 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _add_path(metadata: dict[str, Any], key: str, path: Path | None) -> None:
+def _add_path(metadata: dict[str, Any], key: str, path: Path | None) -> None:  # Add path.
     if path and path.exists():
         metadata[key] = str(path)
 
 
-def _latest_dir(root: Path) -> Path | None:
+def _latest_dir(root: Path) -> Path | None:  # Return the latest dir.
     if not root.exists():
         return None
     dirs = [path for path in root.iterdir() if path.is_dir()]
     return max(dirs, key=lambda path: path.stat().st_mtime) if dirs else None
 
 
-def _latest_file(root: Path, pattern: str) -> Path | None:
+def _latest_file(root: Path, pattern: str) -> Path | None:  # Return the latest file.
     if not root.exists():
         return None
     files = sorted(root.glob(pattern), key=lambda path: path.stat().st_mtime)
     return files[-1] if files else None
 
 
-def _write_process_transcript(session_path: Path | None) -> Path | None:
+def _write_process_transcript(session_path: Path | None) -> Path | None:  # Write process transcript.
     if not session_path or not session_path.is_file():
         return None
     try:

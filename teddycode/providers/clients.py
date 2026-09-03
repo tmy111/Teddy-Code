@@ -353,7 +353,7 @@ def _provider_failure(provider, model, base_url, code, message, request_metadata
 
 
 class OpenAICompatibleModelClient:
-    def __init__(self, model, base_url, api_key, temperature, timeout):
+    def __init__(self, model, base_url, api_key, temperature, timeout):  # Initialize the instance.
         self.model = model
         self.base_url = _normalize_versioned_base_url(base_url)
         self.api_key = api_key
@@ -517,7 +517,7 @@ def _extract_anthropic_text(data):
 
 
 class AnthropicCompatibleModelClient:
-    def __init__(self, model, base_url, api_key, temperature, timeout):
+    def __init__(self, model, base_url, api_key, temperature, timeout):  # Initialize the instance.
         self.model = model
         self.base_url = _normalize_versioned_base_url(base_url)
         self.api_key = api_key

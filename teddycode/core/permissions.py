@@ -12,23 +12,23 @@ class PermissionDecision:
     security_event_type: str = ""
 
     @classmethod
-    def allow(cls, reason):
+    def allow(cls, reason):  # Return the allow.
         return cls("allow", reason)
 
     @classmethod
-    def deny(cls, reason, security_event_type=""):
+    def deny(cls, reason, security_event_type=""):  # Return the deny.
         return cls("deny", reason, security_event_type)
 
     @property
-    def allowed(self):
+    def allowed(self):  # Return the allowed.
         return self.decision == "allow"
 
 
 class PermissionChecker:
-    def __init__(self, runtime):
+    def __init__(self, runtime):  # Initialize the instance.
         self.runtime = runtime
 
-    def check(self, tool, args):
+    def check(self, tool, args):  # Check the requested operation.
         args = args or {}
         profile = self.runtime.active_tool_profile
         if not profile.allows(tool.name):
@@ -53,7 +53,7 @@ class PermissionChecker:
             return PermissionDecision.allow("approval_prompt")
         return PermissionDecision.deny("approval_denied", "approval_denied")
 
-    def _check_plan(self, tool, args):
+    def _check_plan(self, tool, args):  # Check plan.
         if tool.read_only:
             return PermissionDecision.allow("plan_read_only")
         if tool.name not in {"write_file", "patch_file"}:
@@ -64,7 +64,7 @@ class PermissionChecker:
             return PermissionDecision.deny("plan_mode_path_mismatch", "plan_mode_write_guard")
         return PermissionDecision.allow("plan_artifact_write")
 
-    def _check_write_scope(self, tool, args):
+    def _check_write_scope(self, tool, args):  # Check write scope.
         requested = self.runtime.path(args.get("path", ""))
         for raw_scope in self.runtime.write_scope:
             scope = self.runtime.path(raw_scope)

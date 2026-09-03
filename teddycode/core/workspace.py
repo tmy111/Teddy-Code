@@ -19,18 +19,18 @@ DOC_NAMES = ("AGENTS.md", "README.md", "pyproject.toml", "package.json")
 IGNORED_PATH_NAMES = {".git", ".teddycode", "__pycache__", ".pytest_cache", ".ruff_cache", ".venv", "venv"}
 
 
-def now():
+def now():  # Return the now.
     return datetime.now(timezone.utc).isoformat()
 
 
-def clip(text, limit=MAX_TOOL_OUTPUT):
+def clip(text, limit=MAX_TOOL_OUTPUT):  # Return the clip.
     text = str(text)
     if len(text) <= limit:
         return text
     return text[:limit] + f"\n...[truncated {len(text) - limit} chars]"
 
 
-def middle(text, limit):
+def middle(text, limit):  # Return the middle.
     text = str(text).replace("\n", " ")
     if len(text) <= limit:
         return text
@@ -42,7 +42,7 @@ def middle(text, limit):
 
 
 class WorkspaceContext:
-    def __init__(self, cwd, repo_root, branch, default_branch, status, recent_commits, project_docs):
+    def __init__(self, cwd, repo_root, branch, default_branch, status, recent_commits, project_docs):  # Initialize the instance.
         self.cwd = cwd
         self.repo_root = repo_root
         self.branch = branch
@@ -52,10 +52,10 @@ class WorkspaceContext:
         self.project_docs = project_docs
 
     @classmethod
-    def build(cls, cwd, repo_root_override=None):
+    def build(cls, cwd, repo_root_override=None):  # Build the requested operation.
         cwd = Path(cwd).resolve()
 
-        def git(args, fallback=""):
+        def git(args, fallback=""):  # Return the git.
             try:
                 result = subprocess.run(
                     ["git", *args],
@@ -99,7 +99,7 @@ class WorkspaceContext:
             project_docs=docs,
         )
 
-    def text(self):
+    def text(self):  # Return the text.
         # 这段文本会被塞进 prompt prefix，作为相对稳定的基线上下文。
         commits = "\n".join(f"- {line}" for line in self.recent_commits) or "- none"
         docs = "\n".join(f"- {path}\n{snippet}" for path, snippet in self.project_docs.items()) or "- none"
@@ -119,7 +119,7 @@ class WorkspaceContext:
             """
         ).strip()
 
-    def fingerprint(self):
+    def fingerprint(self):  # Return the fingerprint.
         # 这个指纹用来判断仓库状态是否发生了足够大的变化，
         # 从而决定是否需要重建缓存中的 prompt prefix。
         payload = {

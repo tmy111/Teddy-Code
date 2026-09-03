@@ -11,7 +11,7 @@ from .content_blocks import ModelInput
 from .media import load_workspace_image
 
 
-def inspect_image_with_model(agent, path, question, profile="general", output_schema=""):
+def inspect_image_with_model(agent, path, question, profile="general", output_schema=""):  # Inspect image with model.
     loaded = load_workspace_image(agent, path)
     prompt = image_inspection_prompt(
         loaded.metadata["path"], question, profile, output_schema
@@ -46,13 +46,13 @@ def inspect_image_with_model(agent, path, question, profile="general", output_sc
     )
 
 
-def complete_model_with_timeout(model_client, model_input, max_new_tokens):
+def complete_model_with_timeout(model_client, model_input, max_new_tokens):  # Complete model with timeout.
     timeout = getattr(model_client, "timeout", None)
     if not timeout:
         return complete_model(model_client, model_input, max_new_tokens)
     results = queue.Queue(maxsize=1)
 
-    def worker():
+    def worker():  # Handle worker.
         try:
             results.put((complete_model(model_client, model_input, max_new_tokens), None))
         except Exception as exc:  # pragma: no cover - exercised through caller paths
@@ -69,7 +69,7 @@ def complete_model_with_timeout(model_client, model_input, max_new_tokens):
     return result
 
 
-def image_inspection_prompt(path, question, profile, output_schema):
+def image_inspection_prompt(path, question, profile, output_schema):  # Return the image inspection prompt.
     question_text = str(question or "")
     lines = [
         "Inspect this workspace image for a coding-agent task.",
@@ -88,13 +88,13 @@ def image_inspection_prompt(path, question, profile, output_schema):
     return "\n".join(lines)
 
 
-def _needs_complete_visual_extraction(question, profile, output_schema):
+def _needs_complete_visual_extraction(question, profile, output_schema):  # Return whether needs complete visual extraction.
     text = " ".join(str(value or "").lower() for value in (question, profile, output_schema))
     keywords = ("ocr", "extract", "all rows", "every visible row", "list rows", "table", "csv")
     return any(keyword in text for keyword in keywords)
 
 
-def image_suffix(mime_type):
+def image_suffix(mime_type):  # Return the image suffix.
     return {
         "image/gif": ".gif",
         "image/jpeg": ".jpg",

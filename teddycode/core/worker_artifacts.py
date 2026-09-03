@@ -4,7 +4,7 @@
 import json
 
 
-def collect_worker_artifacts(root, child, task_state):
+def collect_worker_artifacts(root, child, task_state):  # Collect worker artifacts.
     run_dir = getattr(child, "current_run_dir", None)
     payload = {
         "run_id": str(getattr(task_state, "run_id", "") or ""),
@@ -20,7 +20,7 @@ def collect_worker_artifacts(root, child, task_state):
     return payload
 
 
-def trace_error_codes(trace_path):
+def trace_error_codes(trace_path):  # Return the trace error codes.
     error_codes = []
     for line in trace_path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
@@ -37,7 +37,7 @@ def trace_error_codes(trace_path):
     return error_codes
 
 
-def relative_path(root, path):
+def relative_path(root, path):  # Return the relative path.
     if not path:
         return ""
     try:

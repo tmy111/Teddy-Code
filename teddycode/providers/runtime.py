@@ -175,7 +175,7 @@ def _build_model_client_router(args, provider_config, model_client, client_class
         # 没有备用视觉 provider 时，只能把所有输入都交给主客户端。
         return ModelClientRouter(main_client=model_client)
 
-    def vision_client_factory():
+    def vision_client_factory():  # Return the vision client factory.
         # vision 客户端按需创建，避免纯文本会话也提前解析/初始化视觉配置。
         return _build_vision_model_client(
             args, provider_config.vision_provider, client_classes

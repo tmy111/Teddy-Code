@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from ..core.tool_profiles import ToolSetProfile
 
 
-def invoke_skill(agent, name, arguments=""):
+def invoke_skill(agent, name, arguments=""):  # Invoke skill.
     skill = agent.skills.get(str(name).lstrip("/"))
     if not skill:
         raise KeyError(name)
@@ -22,7 +22,7 @@ def invoke_skill(agent, name, arguments=""):
     return answer
 
 
-def _run_fork(agent, skill, prompt):
+def _run_fork(agent, skill, prompt):  # Run fork.
     child = type(agent)(
         model_client=agent.model_client,
         workspace=agent.workspace,
@@ -43,14 +43,14 @@ def _run_fork(agent, skill, prompt):
     return answer
 
 
-def _skill_prompt(skill, arguments):
+def _skill_prompt(skill, arguments):  # Return the skill prompt.
     return (
         f"Skill: {skill.name}\nSource: {skill.source}\nContext: {skill.context}\n"
         f"Arguments: {arguments}\n\n{skill.render(arguments)}"
     )
 
 
-def _event_payload(skill, arguments, prompt, status="", answer=""):
+def _event_payload(skill, arguments, prompt, status="", answer=""):  # Return the event payload.
     payload = {
         "skill": skill.name,
         "source": skill.source,
@@ -68,7 +68,7 @@ def _event_payload(skill, arguments, prompt, status="", answer=""):
 
 
 @contextmanager
-def _skill_tool_profile(agent, skill):
+def _skill_tool_profile(agent, skill):  # Handle skill tool profile.
     if not skill.allowed_tools:
         yield
         return
@@ -85,7 +85,7 @@ def _skill_tool_profile(agent, skill):
 
 
 @contextmanager
-def _model_override(agent, model):
+def _model_override(agent, model):  # Handle model override.
     if not model:
         yield
         return

@@ -23,23 +23,23 @@ from teddycode.providers import AnthropicCompatibleModelClient, OpenAICompatible
 from teddycode.testing import ScriptedModelClient
 
 
-def _mkdir(path):
+def _mkdir(path):  # Create the directory.
     os.makedirs(_fs_path(path), exist_ok=True)
 
 
-def _read_text(path):
+def _read_text(path):  # Read text.
     with open(_fs_path(path), encoding="utf-8") as handle:
         return handle.read()
 
 
-def _write_text(path, text):
+def _write_text(path, text):  # Write text.
     path = Path(path)
     _mkdir(path.parent)
     with open(_fs_path(path), "w", encoding="utf-8") as handle:
         handle.write(text)
 
 
-def _verifier_command(command):
+def _verifier_command(command):  # Return the verifier command.
     if os.name != "nt":
         return str(command)
     for prefix in ("python3 ", "python "):
@@ -48,7 +48,7 @@ def _verifier_command(command):
     return str(command)
 
 
-def _run_verifier(command, *, cwd, timeout):
+def _run_verifier(command, *, cwd, timeout):  # Run verifier.
     grep_result = _run_windows_grep_verifier(command, cwd)
     if grep_result is not None:
         return grep_result
@@ -62,7 +62,7 @@ def _run_verifier(command, *, cwd, timeout):
     )
 
 
-def _run_windows_grep_verifier(command, cwd):
+def _run_windows_grep_verifier(command, cwd):  # Run windows grep verifier.
     if os.name != "nt":
         return None
     pattern = re.fullmatch(r'grep -r "([^"]+)" ([^&]+) && exit 1 \|\| grep "([^"]+)" (.+)', str(command))
@@ -114,7 +114,7 @@ class CostUsage:
     model_call_count: int
 
     @property
-    def uncached_input_tokens(self) -> int:
+    def uncached_input_tokens(self) -> int:  # Return the uncached input tokens.
         return max(0, int(self.input_tokens) - int(self.cached_tokens))
 
 
@@ -142,7 +142,7 @@ class ExperimentRow:
     compact_call_output_tokens: int = 0
     compact_net_benefit_tokens: int | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict:  # Return the to dict.
         payload = asdict(self)
         payload["usage"] = asdict(self.usage)
         return payload
@@ -172,7 +172,7 @@ EXPERIMENT_VARIANTS = {
 }
 
 
-def compute_cost_usd(usage: CostUsage, pricing: ProviderPricing) -> float:
+def compute_cost_usd(usage: CostUsage, pricing: ProviderPricing) -> float:  # Compute cost usd.
     return (
         usage.uncached_input_tokens * pricing.input_per_1m
         + int(usage.cached_tokens) * pricing.cached_input_per_1m
@@ -191,7 +191,7 @@ def extract_usage_from_artifacts(
     pricing,
     verification_status=None,
     allow_verification_override=False,
-) -> ExperimentRow:
+) -> ExperimentRow:  # Extract usage from artifacts.
     report_path = Path(report_path)
     trace_path = Path(trace_path)
     report = json.loads(_read_text(report_path))
@@ -251,7 +251,7 @@ def extract_usage_from_artifacts(
 
 def summarize_paired_rows(
     rows, *, treatment="full_orchestrator", control="no_context_reduction"
-):
+):  # Summarize paired rows.
     rows = list(rows)
     pairs = _paired_rows(rows, treatment=treatment, control=control)
     actual_pairs = [
@@ -286,7 +286,7 @@ def summarize_paired_rows(
     }
 
 
-def run_deterministic_prompt_experiment(output_dir, repetitions=1, pricing=None):
+def run_deterministic_prompt_experiment(output_dir, repetitions=1, pricing=None):  # Run deterministic prompt experiment.
     pricing = pricing or DEFAULT_PROXY_PRICING
     output_dir = Path(output_dir)
     rows = []
@@ -322,7 +322,7 @@ def run_deterministic_prompt_experiment(output_dir, repetitions=1, pricing=None)
     return build_result_payload(rows, pricing_profile="proxy", pricing=pricing)
 
 
-def run_scripted_e2e_experiment(output_dir, repetitions=1, pricing=None):
+def run_scripted_e2e_experiment(output_dir, repetitions=1, pricing=None):  # Run scripted e2e experiment.
     pricing = pricing or DEFAULT_PROXY_PRICING
     output_dir = Path(output_dir)
     rows = []
@@ -374,7 +374,7 @@ def run_paired_experiment(
     output_dir=None,
     pricing=None,
     provider_client_factory=None,
-):
+):  # Run paired experiment.
     mode = str(mode)
     if mode not in {"scripted", "live"}:
         raise ValueError(f"unsupported experiment mode: {mode}")
@@ -414,7 +414,7 @@ def run_paired_experiment(
     )
 
 
-def build_result_payload(rows, *, pricing_profile, pricing=None, treatment="full_orchestrator", control="no_context_reduction"):
+def build_result_payload(rows, *, pricing_profile, pricing=None, treatment="full_orchestrator", control="no_context_reduction"):  # Build result payload.
     rows = list(rows)
     return {
         "artifact_type": "context-cost-experiment",
@@ -425,7 +425,7 @@ def build_result_payload(rows, *, pricing_profile, pricing=None, treatment="full
     }
 
 
-def collect_rows_from_run_manifest(manifest, *, pricing):
+def collect_rows_from_run_manifest(manifest, *, pricing):  # Collect rows from run manifest.
     rows = []
     for item in manifest.get("runs", []) or []:
         rows.append(
@@ -442,7 +442,7 @@ def collect_rows_from_run_manifest(manifest, *, pricing):
     return rows
 
 
-def render_markdown_report(payload):
+def render_markdown_report(payload):  # Render markdown report.
     summary = dict(payload.get("summary", {}) or {})
     pricing = dict(payload.get("pricing", {}) or {})
     actual = dict(summary.get("actual_only", {}) or {})
@@ -509,14 +509,14 @@ def render_markdown_report(payload):
     )
 
 
-def generate_report(payload, include_llm_handoff_comparison=False):
+def generate_report(payload, include_llm_handoff_comparison=False):  # Generate report.
     report = render_markdown_report(payload)
     if include_llm_handoff_comparison:
         report += "\n\n" + _render_llm_handoff_comparison(payload)
     return report
 
 
-def write_experiment_artifacts(payload, output_dir):
+def write_experiment_artifacts(payload, output_dir):  # Write experiment artifacts.
     output_dir = Path(output_dir)
     _mkdir(output_dir)
     json_path = output_dir / "results.json"
@@ -533,7 +533,7 @@ def write_experiment_artifacts(payload, output_dir):
     }
 
 
-def main(argv=None):
+def main(argv=None):  # Run the command-line entry point.
     args = _build_arg_parser().parse_args(argv)
     pricing = ProviderPricing(
         args.input_per_1m,
@@ -562,7 +562,7 @@ def main(argv=None):
     return 0
 
 
-def _usage_from_trace(trace_path):
+def _usage_from_trace(trace_path):  # Return the usage from trace.
     estimated_input_tokens = 0
     input_tokens = 0
     cached_tokens = 0
@@ -590,7 +590,7 @@ def _usage_from_trace(trace_path):
     return {"estimated_input_tokens": estimated_input_tokens, "usage": usage}
 
 
-def _compact_metrics_from_trace(trace_path):
+def _compact_metrics_from_trace(trace_path):  # Compact metrics from trace.
     metrics = {
         "summary_called": False,
         "summary_delta_event_count": 0,
@@ -619,7 +619,7 @@ def _compact_metrics_from_trace(trace_path):
     return metrics
 
 
-def _merge_compaction_report_metrics(metrics, report):
+def _merge_compaction_report_metrics(metrics, report):  # Merge compaction report metrics.
     for compaction in report.get("compactions", []) or []:
         if compaction.get("summary_mode"):
             metrics["compact_summary_mode"] = str(compaction.get("summary_mode", ""))
@@ -634,7 +634,7 @@ def _merge_compaction_report_metrics(metrics, report):
             metrics["compact_net_benefit_tokens"] = pre_tokens - post_tokens
 
 
-def _usage_with_compact_call(usage, compact_call_usage):
+def _usage_with_compact_call(usage, compact_call_usage):  # Return the usage with compact call.
     compact_input = int(compact_call_usage.get("input_tokens", 0) or 0)
     compact_cached = int(compact_call_usage.get("cached_tokens", 0) or 0)
     compact_output = int(compact_call_usage.get("output_tokens", 0) or 0)
@@ -647,7 +647,7 @@ def _usage_with_compact_call(usage, compact_call_usage):
     )
 
 
-def _is_provider_usage_metadata(metadata):
+def _is_provider_usage_metadata(metadata):  # Return whether is provider usage metadata.
     return (
         metadata.get("provider_protocol") is not None
         and metadata.get("provider_model") is not None
@@ -657,7 +657,7 @@ def _is_provider_usage_metadata(metadata):
     )
 
 
-def _verification_status(report):
+def _verification_status(report):  # Return the verification status.
     signal = dict(
         (report.get("evidence_summaries", {}) or {}).get("verification_signal", {}) or {}
     )
@@ -665,7 +665,7 @@ def _verification_status(report):
     return state or "unknown"
 
 
-def _paired_rows(rows, *, treatment, control):
+def _paired_rows(rows, *, treatment, control):  # Return the paired rows.
     by_key = {}
     for row in rows:
         by_key.setdefault((row.task_id, row.repeat, row.layer), {})[row.variant] = row
@@ -676,7 +676,7 @@ def _paired_rows(rows, *, treatment, control):
     ]
 
 
-def _quality_regressed(treatment, control):
+def _quality_regressed(treatment, control):  # Return the quality regressed.
     if control.status == "completed" and treatment.status != "completed":
         return True
     if control.verification_status == "passed" and treatment.verification_status != "passed":
@@ -688,7 +688,7 @@ def _quality_regressed(treatment, control):
     return treatment.attempts > max(control.attempts + 1, int(control.attempts * 1.10))
 
 
-def _summarize_pair_bucket(pairs, *, treatment, control):
+def _summarize_pair_bucket(pairs, *, treatment, control):  # Summarize pair bucket.
     uncached_deltas = [
         _delta_pct(pair[treatment].usage.uncached_input_tokens, pair[control].usage.uncached_input_tokens)
         for pair in pairs
@@ -729,7 +729,7 @@ def _summarize_pair_bucket(pairs, *, treatment, control):
     }
 
 
-def _pair_usage_source(pair, treatment, control):
+def _pair_usage_source(pair, treatment, control):  # Return the pair usage source.
     sources = {pair[treatment].usage.usage_source, pair[control].usage.usage_source}
     if sources == {"actual"}:
         return "actual"
@@ -738,27 +738,27 @@ def _pair_usage_source(pair, treatment, control):
     return "mixed_or_invalid"
 
 
-def _delta_pct(treatment, control):
+def _delta_pct(treatment, control):  # Return the delta pct.
     if not control:
         return 0.0
     return round((float(treatment) - float(control)) / float(control), 4)
 
 
-def _median_rounded(values):
+def _median_rounded(values):  # Return the median rounded.
     return round(statistics.median(values), 4) if values else 0.0
 
 
-def _mean_rounded(values):
+def _mean_rounded(values):  # Return the mean rounded.
     values = list(values)
     return round(statistics.mean(values), 4) if values else 0.0
 
 
-def _rate(values):
+def _rate(values):  # Return the rate.
     values = list(values)
     return round(sum(1 for value in values if value) / len(values), 4) if values else 0.0
 
 
-def _cost_per_successful_task(rows):
+def _cost_per_successful_task(rows):  # Return the cost per successful task.
     rows = list(rows)
     successful = [
         row for row in rows if row.status == "completed" and row.verification_status == "passed"
@@ -768,7 +768,7 @@ def _cost_per_successful_task(rows):
     return round(sum(row.cost_usd for row in rows) / len(successful), 8)
 
 
-def _claimable_cost_win(pairs, *, treatment, control, cost_deltas):
+def _claimable_cost_win(pairs, *, treatment, control, cost_deltas):  # Return the claimable cost win.
     if not pairs or not cost_deltas or _median_rounded(cost_deltas) >= 0:
         return False
     if any(
@@ -786,7 +786,7 @@ def _claimable_cost_win(pairs, *, treatment, control, cost_deltas):
     )
 
 
-def _p95_rounded(values):
+def _p95_rounded(values):  # Return the p95 rounded.
     if not values:
         return 0.0
     ordered = sorted(values)
@@ -794,7 +794,7 @@ def _p95_rounded(values):
     return round(ordered[index], 4)
 
 
-def _build_synthetic_agent(workspace_root, *, context_reduction=True):
+def _build_synthetic_agent(workspace_root, *, context_reduction=True):  # Build synthetic agent.
     workspace_root = Path(workspace_root)
     _write_text(workspace_root / "README.md", "demo\n")
     agent = TeddyCode(
@@ -812,11 +812,11 @@ def _build_synthetic_agent(workspace_root, *, context_reduction=True):
 
 
 class _ContextCostScriptedClient(ScriptedModelClient):
-    def __init__(self):
+    def __init__(self):  # Initialize the instance.
         super().__init__([])
         self.phase = 0
 
-    def complete(self, prompt, max_new_tokens, **kwargs):
+    def complete(self, prompt, max_new_tokens, **kwargs):  # Complete the requested operation.
         del max_new_tokens, kwargs
         self.prompts.append(prompt)
         self.last_completion_metadata = {
@@ -831,7 +831,7 @@ class _ContextCostScriptedClient(ScriptedModelClient):
         return "<final>done</final>"
 
 
-def _build_scripted_agent(workspace_root, *, context_reduction=True):
+def _build_scripted_agent(workspace_root, *, context_reduction=True):  # Build scripted agent.
     workspace_root = Path(workspace_root)
     _write_text(workspace_root / "README.md", "demo\n")
     _write_text(
@@ -853,12 +853,12 @@ def _build_scripted_agent(workspace_root, *, context_reduction=True):
 
 
 class _LongSessionScriptedClient(ScriptedModelClient):
-    def __init__(self, outputs):
+    def __init__(self, outputs):  # Initialize the instance.
         super().__init__(outputs)
         self.context_window = 2200
         self.model = "scripted-long-session"
 
-    def complete(self, prompt, max_new_tokens, **kwargs):
+    def complete(self, prompt, max_new_tokens, **kwargs):  # Complete the requested operation.
         if "You are a context compactor for a coding agent" in str(prompt):
             self.prompts.append(prompt)
             self.last_completion_metadata = {
@@ -906,7 +906,7 @@ def _run_long_session_task(
     provider_client_factory,
     output_dir,
     pricing,
-):
+):  # Run long session task.
     fixture_source = Path(task["fixture_repo"]).resolve()
     workspace = Path(output_dir) / "runs" / task["id"] / variant / str(repeat) / fixture_source.name
     if workspace.exists():
@@ -976,7 +976,7 @@ def _model_client_for_long_session_task(
     mode,
     provider,
     provider_client_factory,
-):
+):  # Return the model client for long session task.
     if mode == "scripted":
         return _LongSessionScriptedClient(task.get("scripted_outputs", []))
     if provider_client_factory is not None:
@@ -989,7 +989,7 @@ def _model_client_for_long_session_task(
     return _build_live_provider_client(provider)
 
 
-def _build_live_provider_client(provider):
+def _build_live_provider_client(provider):  # Build live provider client.
     config = resolve_provider_config(provider, start=Path.cwd())
     if not config.api_key:
         raise RuntimeError(
@@ -1016,7 +1016,7 @@ def _build_live_provider_client(provider):
     )
 
 
-def _seed_long_session_history(agent):
+def _seed_long_session_history(agent):  # Seed a long session history.
     for index in range(6):
         agent.record(
             {
@@ -1032,10 +1032,10 @@ def _seed_long_session_history(agent):
         )
 
 
-def _force_compact_summary_mode(agent, summary_mode):
+def _force_compact_summary_mode(agent, summary_mode):  # Return the force compact summary mode.
     original = agent.context_orchestrator._compact_request
 
-    def compact_request(self, metadata, snapshot):
+    def compact_request(self, metadata, snapshot):  # Compact request.
         trigger, mode, skip_reason = original(metadata, snapshot)
         del mode
         if trigger:
@@ -1047,7 +1047,7 @@ def _force_compact_summary_mode(agent, summary_mode):
     )
 
 
-def _comparison_variants(variants):
+def _comparison_variants(variants):  # Return the comparison variants.
     if "full_orchestrator_with_llm_handoff" in variants and "full_orchestrator" in variants:
         return "full_orchestrator_with_llm_handoff", "full_orchestrator"
     if len(variants) >= 2:
@@ -1055,7 +1055,7 @@ def _comparison_variants(variants):
     return variants[0], "no_context_reduction"
 
 
-def _render_llm_handoff_comparison(payload):
+def _render_llm_handoff_comparison(payload):  # Render llm handoff comparison.
     rows = [dict(row) for row in payload.get("rows", []) or []]
     by_pair = {}
     for row in rows:
@@ -1134,19 +1134,19 @@ def _render_llm_handoff_comparison(payload):
     return "\n".join(lines)
 
 
-def _repeat_label(task_id, repeat, *, show_repeat):
+def _repeat_label(task_id, repeat, *, show_repeat):  # Return the repeat label.
     return f"{task_id}#{repeat}" if show_repeat else str(task_id)
 
 
-def _median_tokens(values):
+def _median_tokens(values):  # Return the median tokens.
     return int(statistics.median(values)) if values else 0
 
 
-def _pct(count, total):
+def _pct(count, total):  # Return the pct.
     return f"{(count / total):.0%}" if total else "0%"
 
 
-def _write_prompt_only_trace(trace_path, prompt_metadata):
+def _write_prompt_only_trace(trace_path, prompt_metadata):  # Write prompt only trace.
     _write_text(
         trace_path,
         json.dumps(
@@ -1159,7 +1159,7 @@ def _write_prompt_only_trace(trace_path, prompt_metadata):
     )
 
 
-def _write_prompt_only_report(report_path, prompt_metadata):
+def _write_prompt_only_report(report_path, prompt_metadata):  # Write prompt only report.
     _write_text(
         report_path,
         json.dumps(
@@ -1180,7 +1180,7 @@ def _write_prompt_only_report(report_path, prompt_metadata):
     )
 
 
-def _write_rows_csv(rows, path):
+def _write_rows_csv(rows, path):  # Write rows csv.
     fieldnames = sorted(
         {key for row in rows for key in row.keys()}
         | {"usage_input_tokens", "usage_cached_tokens", "usage_output_tokens", "usage_source"}
@@ -1198,7 +1198,7 @@ def _write_rows_csv(rows, path):
             writer.writerow(flat)
 
 
-def _read_jsonl(path):
+def _read_jsonl(path):  # Read jsonl.
     path = Path(path)
     if not path.is_file():
         return []
@@ -1209,11 +1209,11 @@ def _read_jsonl(path):
     ]
 
 
-def _tool_name(event):
+def _tool_name(event):  # Return the tool name.
     return str(event.get("name") or event.get("tool_name") or event.get("tool") or "")
 
 
-def _build_arg_parser():
+def _build_arg_parser():  # Build arg parser.
     parser = argparse.ArgumentParser(description="Run TeddyCode context cost experiments.")
     parser.add_argument("--mode", choices=["deterministic", "scripted", "manifest"], required=True)
     parser.add_argument("--output-dir", required=True)

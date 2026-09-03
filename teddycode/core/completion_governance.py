@@ -50,7 +50,7 @@ def final_readiness_action(engine, task_state, proposed_final=""):
     return "allow", ""
 
 
-def _record_runtime_notice(agent, task_state, notice):
+def _record_runtime_notice(agent, task_state, notice):  # Record runtime notice.
     agent.record({"role": "assistant", "content": notice, "created_at": now()})
     agent.session_event_bus.emit(
         "assistant_message",
@@ -63,7 +63,7 @@ def _record_runtime_notice(agent, task_state, notice):
     agent.run_store.write_task_state(task_state)
 
 
-def finish_successful_run(engine, task_state, user_message, final, run_started_at):
+def finish_successful_run(engine, task_state, user_message, final, run_started_at):  # Finish successful run.
     agent = engine.runtime
     agent.record({"role": "assistant", "content": final, "created_at": now()})
     if agent.runtime_mode == "plan":
@@ -88,7 +88,7 @@ def finish_successful_run(engine, task_state, user_message, final, run_started_a
 
 def finish_stopped_run(
     engine, task_state, user_message, final, stop_reason, run_started_at
-):
+):  # Finish stopped run.
     agent = engine.runtime
     task_state.stop(stop_reason, final_answer=final)
     agent.abort_requested = False
@@ -112,7 +112,7 @@ def finish_stopped_run(
     yield _turn_finished_event(task_state)
 
 
-def finish_limited_run(engine, task_state, user_message, final, run_started_at):
+def finish_limited_run(engine, task_state, user_message, final, run_started_at):  # Finish limited run.
     agent = engine.runtime
     agent.record({"role": "assistant", "content": final, "created_at": now()})
     agent.session_event_bus.emit(
@@ -142,7 +142,7 @@ def _emit_terminal_artifacts(
     checkpoint_trigger,
     maintain_memory=True,
     drain_workers=True,
-):
+):  # Emit terminal artifacts.
     agent = engine.runtime
     emit_terminal_transition(
         agent,
@@ -201,7 +201,7 @@ def _emit_terminal_artifacts(
     return worker_events
 
 
-def maintain_memory_safely(agent, task_state, final_answer):
+def maintain_memory_safely(agent, task_state, final_answer):  # Maintain memory without interrupting the turn.
     try:
         agent.maintain_memory_after_turn(final_answer)
     except Exception as exc:
@@ -218,7 +218,7 @@ def maintain_memory_safely(agent, task_state, final_answer):
         )
 
 
-def _turn_finished_event(task_state):
+def _turn_finished_event(task_state):  # Return the turn finished event.
     return {
         "type": "turn_finished",
         "run_id": task_state.run_id,

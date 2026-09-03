@@ -24,7 +24,7 @@ SUMMARY_MARKDOWN = "gate8-real-session-acceptance.md"
 LIVE_ENV_FLAG = "TEDDYCODE_ACCEPTANCE_LIVE"
 
 
-def run_acceptance(output_dir, include_live=None):
+def run_acceptance(output_dir, include_live=None):  # Run acceptance.
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     scenarios = [
@@ -56,7 +56,7 @@ def run_acceptance(output_dir, include_live=None):
     return summary
 
 
-def render_markdown(summary):
+def render_markdown(summary):  # Render markdown.
     lines = [
         "# Gate8 Real Session Acceptance",
         "",
@@ -80,7 +80,7 @@ def render_markdown(summary):
     return "\n".join(lines)
 
 
-def _run_scenario(output_dir, scenario_id, runner, optional=False, include_live=None):
+def _run_scenario(output_dir, scenario_id, runner, optional=False, include_live=None):  # Run scenario.
     workspace = output_dir / "workspaces" / scenario_id
     if workspace.exists():
         _remove_tree(workspace)
@@ -105,7 +105,7 @@ def _run_scenario(output_dir, scenario_id, runner, optional=False, include_live=
         }
 
 
-def _scenario_bugfix_pytest(output_dir, workspace):
+def _scenario_bugfix_pytest(output_dir, workspace):  # Run the bugfix pytest scenario.
     src_dir = workspace / "src"
     tests_dir = workspace / "tests"
     src_dir.mkdir()
@@ -150,7 +150,7 @@ def _scenario_bugfix_pytest(output_dir, workspace):
     )
 
 
-def _scenario_plan_todo_explore(output_dir, workspace):
+def _scenario_plan_todo_explore(output_dir, workspace):  # Run the plan todo explore scenario.
     _write_readme(workspace, "Gate8 plan fixture.\n")
     agent = _build_agent(
         workspace,
@@ -181,7 +181,7 @@ def _scenario_plan_todo_explore(output_dir, workspace):
     )
 
 
-def _scenario_skill_inline(output_dir, workspace):
+def _scenario_skill_inline(output_dir, workspace):  # Run the skill inline scenario.
     _write_readme(workspace, "Gate8 skill fixture.\n")
     skill_dir = workspace / ".teddycode" / "skills" / "evidence"
     skill_dir.mkdir(parents=True, exist_ok=True)
@@ -218,7 +218,7 @@ Inspect $ARGUMENTS and report the evidence path.
     )
 
 
-def _scenario_worker_write_scope(output_dir, workspace):
+def _scenario_worker_write_scope(output_dir, workspace):  # Run the worker write scope scenario.
     _write_readme(workspace, "Gate8 worker fixture.\n")
     agent = _build_agent(
         workspace,
@@ -248,7 +248,7 @@ def _scenario_worker_write_scope(output_dir, workspace):
     )
 
 
-def _scenario_resume_continuation(output_dir, workspace):
+def _scenario_resume_continuation(output_dir, workspace):  # Run the resume continuation scenario.
     _write_readme(workspace, "Gate8 resume fixture.\n")
     store = SessionStore(workspace / ".teddycode" / "sessions")
     first = TeddyCode(
@@ -295,7 +295,7 @@ def _scenario_resume_continuation(output_dir, workspace):
     )
 
 
-def _scenario_security_rejection(output_dir, workspace):
+def _scenario_security_rejection(output_dir, workspace):  # Run the security rejection scenario.
     _write_readme(workspace, "Gate8 security fixture.\n")
     old_secret = os.environ.get("TEDDYCODE_ACCEPTANCE_SECRET")
     os.environ["TEDDYCODE_ACCEPTANCE_SECRET"] = "teddycode-secret-value-123"
@@ -337,7 +337,7 @@ def _scenario_security_rejection(output_dir, workspace):
             os.environ["TEDDYCODE_ACCEPTANCE_SECRET"] = old_secret
 
 
-def _scenario_context_pressure(output_dir, workspace):
+def _scenario_context_pressure(output_dir, workspace):  # Run the context pressure scenario.
     src_dir = workspace / "src"
     src_dir.mkdir()
     (workspace / "README.md").write_text(("Context pressure fixture.\n" + "noise " * 900) + "\n", encoding="utf-8")
@@ -373,7 +373,7 @@ def _scenario_context_pressure(output_dir, workspace):
     )
 
 
-def _scenario_provider_error_recovery(output_dir, workspace):
+def _scenario_provider_error_recovery(output_dir, workspace):  # Run the provider error recovery scenario.
     _write_readme(workspace, "Gate9 provider reliability fixture.\n")
     agent = TeddyCode(
         model_client=ScriptedModelClient(
@@ -415,7 +415,7 @@ def _scenario_provider_error_recovery(output_dir, workspace):
     )
 
 
-def _scenario_live_provider_smoke(output_dir, workspace, include_live=None):
+def _scenario_live_provider_smoke(output_dir, workspace, include_live=None):  # Run the live provider smoke scenario.
     live_enabled = include_live is True or os.environ.get(LIVE_ENV_FLAG, "").strip().lower() in {"1", "true", "yes"}
     if not live_enabled:
         return _skipped_record(output_dir, workspace, "live_provider_smoke", f"set {LIVE_ENV_FLAG}=1 to enable live provider smoke")
@@ -463,7 +463,7 @@ def _scenario_live_provider_smoke(output_dir, workspace, include_live=None):
     )
 
 
-def _build_agent(workspace, outputs, max_steps=6):
+def _build_agent(workspace, outputs, max_steps=6):  # Build agent.
     workspace_context = _scenario_workspace(workspace)
     return TeddyCode(
         model_client=ScriptedModelClient(outputs),
@@ -474,11 +474,11 @@ def _build_agent(workspace, outputs, max_steps=6):
     )
 
 
-def _scenario_workspace(workspace):
+def _scenario_workspace(workspace):  # Run the workspace scenario.
     return WorkspaceContext.build(workspace, repo_root_override=workspace)
 
 
-def _finalize(output_dir, workspace, agent, scenario_id, checks):
+def _finalize(output_dir, workspace, agent, scenario_id, checks):  # Finalize the requested operation.
     run_dir = agent.current_run_dir
     report_path = run_dir / "report.json"
     trace_path = run_dir / "trace.jsonl"
@@ -505,11 +505,11 @@ def _finalize(output_dir, workspace, agent, scenario_id, checks):
     }
 
 
-def _write_readme(workspace, text):
+def _write_readme(workspace, text):  # Write readme.
     (workspace / "README.md").write_text(text, encoding="utf-8")
 
 
-def _read_events(agent):
+def _read_events(agent):  # Read events.
     return [
         json.loads(line)
         for line in agent.session_event_bus.path.read_text(encoding="utf-8").splitlines()
@@ -517,11 +517,11 @@ def _read_events(agent):
     ]
 
 
-def _check(name, condition, detail=""):
+def _check(name, condition, detail=""):  # Check the requested operation.
     return {"name": name, "status": "passed" if condition else "failed", "detail": str(detail)}
 
 
-def _skipped_record(output_dir, workspace, scenario_id, reason):
+def _skipped_record(output_dir, workspace, scenario_id, reason):  # Return the skipped record.
     return {
         "id": scenario_id,
         "status": "skipped",
@@ -532,11 +532,11 @@ def _skipped_record(output_dir, workspace, scenario_id, reason):
     }
 
 
-def _relpath(path, root):
+def _relpath(path, root):  # Return the relpath.
     return Path(path).resolve().relative_to(Path(root).resolve()).as_posix()
 
 
-def _remove_tree(path):
+def _remove_tree(path):  # Remove tree.
     for child in sorted(path.rglob("*"), key=lambda item: len(item.parts), reverse=True):
         if child.is_dir():
             child.rmdir()
@@ -545,14 +545,14 @@ def _remove_tree(path):
     path.rmdir()
 
 
-def build_arg_parser():
+def build_arg_parser():  # Build arg parser.
     parser = argparse.ArgumentParser(description="Run TeddyCode Gate8 deterministic real-session acceptance scenarios.")
     parser.add_argument("--output-dir", default="artifacts/gate8-real-session-acceptance", help="Directory for workspaces and summary artifacts.")
     parser.add_argument("--live-provider", action="store_true", help=f"Enable optional live provider smoke. Also enabled by {LIVE_ENV_FLAG}=1.")
     return parser
 
 
-def main(argv=None):
+def main(argv=None):  # Run the command-line entry point.
     args = build_arg_parser().parse_args(argv)
     summary = run_acceptance(Path(args.output_dir), include_live=True if args.live_provider else None)
     print(json.dumps({"status": summary["status"], "scenario_count": summary["scenario_count"]}, sort_keys=True))

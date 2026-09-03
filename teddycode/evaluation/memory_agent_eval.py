@@ -41,66 +41,66 @@ STOPWORDS = {
 }
 
 
-def _captured_at():
+def _captured_at():  # Return the captured at.
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _safe_ratio(numerator, denominator):
+def _safe_ratio(numerator, denominator):  # Return the safe ratio.
     if not denominator:
         return 0.0
     return numerator / denominator
 
 
-def _pct(value):
+def _pct(value):  # Return the pct.
     return f"{float(value):.2%}"
 
 
-def _write_json(path, payload):
+def _write_json(path, payload):  # Write json.
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return payload
 
 
-def _load_json_if_exists(path):
+def _load_json_if_exists(path):  # Load json if exists.
     path = Path(path)
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _tokens(text):
+def _tokens(text):  # Return the tokens.
     return {token for token in re.findall(r"[a-z0-9_/-]+", str(text).lower()) if token not in STOPWORDS}
 
 
-def _note_id(note):
+def _note_id(note):  # Return the note id.
     return str(note.get("note_id") or note.get("memory_id") or "").strip()
 
 
-def _selected_texts(structured):
+def _selected_texts(structured):  # Return the selected texts.
     return [note["text"] for note in structured["selected"]]
 
 
-def _selected_ids(structured):
+def _selected_ids(structured):  # Return the selected ids.
     return [_note_id(note) for note in structured["selected"] if _note_id(note)]
 
 
-def _rejected_reasons(structured):
+def _rejected_reasons(structured):  # Return the rejected reasons.
     return {note["text"]: note.get("reject_reason", "") for note in structured["rejected"]}
 
 
-def _selected_contains(structured, text):
+def _selected_contains(structured, text):  # Return the selected contains.
     return text in _selected_texts(structured)
 
 
-def _simple_answer(structured, required_texts, expected_answer, abstain=False):
+def _simple_answer(structured, required_texts, expected_answer, abstain=False):  # Return the simple answer.
     selected = set(_selected_texts(structured))
     if abstain:
         return "unknown" if not selected else "unsupported"
     return expected_answer if all(text in selected for text in required_texts) else "unsupported"
 
 
-def _contract_row(case_id, category, query, structured, required_texts, forbidden_texts, expected_answer, answer):
+def _contract_row(case_id, category, query, structured, required_texts, forbidden_texts, expected_answer, answer):  # Return the contract row.
     selected = _selected_texts(structured)
     required_ids = [
         _note_id(note)
@@ -134,7 +134,7 @@ def _contract_row(case_id, category, query, structured, required_texts, forbidde
     }
 
 
-def _direct_recall_case():
+def _direct_recall_case():  # Return the direct recall case.
     memory = LayeredMemory()
     fact = "deploy target is staging"
     memory.append_note(fact, tags=("deploy",), created_at="2026-06-24T10:00:00+00:00")
@@ -151,7 +151,7 @@ def _direct_recall_case():
     )
 
 
-def _irrelevant_distractor_case():
+def _irrelevant_distractor_case():  # Return the irrelevant distractor case.
     memory = LayeredMemory()
     distractor = "deploy key is blue and unrelated"
     fact = "deploy key is red"
@@ -170,7 +170,7 @@ def _irrelevant_distractor_case():
     )
 
 
-def _knowledge_update_case():
+def _knowledge_update_case():  # Return the knowledge update case.
     memory = LayeredMemory()
     old_fact = "capital is X"
     new_fact = "capital is Y"
@@ -197,7 +197,7 @@ def _knowledge_update_case():
     return row
 
 
-def _selective_forgetting_case():
+def _selective_forgetting_case():  # Return the selective forgetting case.
     memory = LayeredMemory()
     forbidden = "unsafe memory should be forgotten"
     safe = "safe memory policy is active"
@@ -221,7 +221,7 @@ def _selective_forgetting_case():
     return row
 
 
-def _stale_evidence_case():
+def _stale_evidence_case():  # Return the stale evidence case.
     with tempfile.TemporaryDirectory(prefix="teddycode-memory-agent-stale-") as temp_dir:
         workspace_root = Path(temp_dir)
         (workspace_root / "README.md").write_text("demo\n", encoding="utf-8")
@@ -251,7 +251,7 @@ def _stale_evidence_case():
     return row
 
 
-def _secret_safety_case():
+def _secret_safety_case():  # Return the secret safety case.
     memory = LayeredMemory()
     secret = "api key sk-AAAAAAAAAAAAAAAAAAAA for service X"
     memory.append_note(secret, tags=("config",), created_at="2026-06-24T10:00:00+00:00")
@@ -272,7 +272,7 @@ def _secret_safety_case():
     return row
 
 
-def _no_evidence_abstention_case():
+def _no_evidence_abstention_case():  # Return the no evidence abstention case.
     memory = LayeredMemory()
     memory.append_note("build tool is uv", tags=("build",), created_at="2026-06-24T10:00:00+00:00")
     structured = memory.retrieval_view_structured("payment provider", limit=3)
@@ -290,7 +290,7 @@ def _no_evidence_abstention_case():
     return row
 
 
-def _multi_session_reasoning_case():
+def _multi_session_reasoning_case():  # Return the multi session reasoning case.
     memory = LayeredMemory()
     first = "session one decided the benchmark target is memory"
     second = "session two decided the report format is markdown"
@@ -314,7 +314,7 @@ def _multi_session_reasoning_case():
     return row
 
 
-def run_memory_agent_cases():
+def run_memory_agent_cases():  # Run memory agent cases.
     return [
         _direct_recall_case(),
         _irrelevant_distractor_case(),
@@ -327,7 +327,7 @@ def run_memory_agent_cases():
     ]
 
 
-def _summarize_contract(rows, memory_ablation=None, memory_fidelity=None, recovery_ablation=None, dream_quality=None):
+def _summarize_contract(rows, memory_ablation=None, memory_fidelity=None, recovery_ablation=None, dream_quality=None):  # Summarize contract.
     evidence_rows = [row for row in rows if row["required_evidence_total"] > 0]
     selected_count = sum(len(row["selected_evidence_ids"]) for row in rows)
     relevant_selected = sum(row["required_evidence_selected"] for row in rows)
@@ -394,7 +394,7 @@ def _summarize_contract(rows, memory_ablation=None, memory_fidelity=None, recove
     }
 
 
-def _memory_ablation_summary(memory_ablation):
+def _memory_ablation_summary(memory_ablation):  # Return the memory ablation summary.
     if not memory_ablation:
         return {}
     variants = memory_ablation.get("variants", {})
@@ -409,7 +409,7 @@ def _memory_ablation_summary(memory_ablation):
     }
 
 
-def _mem(memory_id, text, answer, tags=(), created_at="2026-06-24T10:00:00+00:00", status="active", **flags):
+def _mem(memory_id, text, answer, tags=(), created_at="2026-06-24T10:00:00+00:00", status="active", **flags):  # Return the mem.
     note = {
         "memory_id": memory_id,
         "note_id": memory_id,
@@ -424,7 +424,7 @@ def _mem(memory_id, text, answer, tags=(), created_at="2026-06-24T10:00:00+00:00
     return note
 
 
-def _case(case_id, category, query, expected_answer, notes, required_ids=(), forbidden_ids=(), **flags):
+def _case(case_id, category, query, expected_answer, notes, required_ids=(), forbidden_ids=(), **flags):  # Return the case.
     return {
         "id": case_id,
         "category": category,
@@ -437,7 +437,7 @@ def _case(case_id, category, query, expected_answer, notes, required_ids=(), for
     }
 
 
-def _build_challenge_cases():
+def _build_challenge_cases():  # Build challenge cases.
     return [
         _case(
             "info_extract_test_command",
@@ -1031,7 +1031,7 @@ def _build_challenge_cases():
     ]
 
 
-def _state_for_case(case):
+def _state_for_case(case):  # Return the state for case.
     notes = []
     for index, note in enumerate(case["notes"]):
         normalized = {
@@ -1051,7 +1051,7 @@ def _state_for_case(case):
     return {"working": {"task_summary": "", "recent_files": []}, "episodic_notes": notes, "file_summaries": {}, "next_note_index": len(notes)}
 
 
-def _active_note(note):
+def _active_note(note):  # Return the active note.
     return not (
         note.get("status") in {"superseded", "quarantined"}
         or note.get("stale_evidence")
@@ -1059,7 +1059,7 @@ def _active_note(note):
     )
 
 
-def _select_structured_notes(case, enforce_rejections):
+def _select_structured_notes(case, enforce_rejections):  # Select structured notes.
     state = _state_for_case(case)
     if enforce_rejections:
         structured = retrieval_view_structured(state, case["query"], limit=case.get("limit", 3))
@@ -1071,7 +1071,7 @@ def _select_structured_notes(case, enforce_rejections):
     return selected, {}
 
 
-def _rank_case_notes(case, include_unsafe=False):
+def _rank_case_notes(case, include_unsafe=False):  # Return the rank case notes.
     query_tokens = _tokens(case["query"])
     ranked = []
     for index, note in enumerate(case["notes"]):
@@ -1086,7 +1086,7 @@ def _rank_case_notes(case, include_unsafe=False):
     return [item[3] for item in ranked]
 
 
-def _select_variant_notes(case, variant):
+def _select_variant_notes(case, variant):  # Select variant notes.
     if variant == "memory_off":
         return [], {}
     if variant == "memory_on":
@@ -1098,7 +1098,7 @@ def _select_variant_notes(case, variant):
     raise ValueError(f"unknown memory challenge variant: {variant}")
 
 
-def _answer_from_selected(case, selected, variant):
+def _answer_from_selected(case, selected, variant):  # Return the answer from selected.
     selected_ids = {note["memory_id"] for note in selected}
     required = set(case.get("required_evidence_ids", []))
     forbidden = set(case.get("forbidden_memory_ids", []))
@@ -1117,7 +1117,7 @@ def _answer_from_selected(case, selected, variant):
     return selected[0]["answer"]
 
 
-def _challenge_row(case, variant, selected, rejected_reasons):
+def _challenge_row(case, variant, selected, rejected_reasons):  # Return the challenge row.
     selected_ids = [note["memory_id"] for note in selected]
     required_ids = list(case.get("required_evidence_ids", []))
     forbidden_ids = list(case.get("forbidden_memory_ids", []))
@@ -1163,25 +1163,25 @@ def _challenge_row(case, variant, selected, rejected_reasons):
     }
 
 
-def _run_challenge_case(case, variant):
+def _run_challenge_case(case, variant):  # Run challenge case.
     selected, rejected_reasons = _select_variant_notes(case, variant)
     return _challenge_row(case, variant, selected, rejected_reasons)
 
 
-def _category_count(rows, category):
+def _category_count(rows, category):  # Return the category count.
     return sum(1 for row in rows if row["category"] == category)
 
 
-def _category_success(rows, category):
+def _category_success(rows, category):  # Return the category success.
     category_rows = [row for row in rows if row["category"] == category]
     return _safe_ratio(sum(1 for row in category_rows if row["passed"]), len(category_rows))
 
 
-def _flag_count(rows, flag):
+def _flag_count(rows, flag):  # Return the flag count.
     return sum(1 for row in rows if row.get(flag))
 
 
-def _summarize_challenge_rows(rows):
+def _summarize_challenge_rows(rows):  # Summarize challenge rows.
     total = len(rows)
     required_total = sum(len(row["required_evidence_ids"]) for row in rows)
     required_selected = sum(len(set(row["required_evidence_ids"]) & set(row["selected_evidence_ids"])) for row in rows)
@@ -1207,7 +1207,7 @@ def _summarize_challenge_rows(rows):
     }
 
 
-def _compare_variants(memory_on, baseline):
+def _compare_variants(memory_on, baseline):  # Compare variants.
     return {
         "answer_accuracy_delta": memory_on["answer_accuracy"] - baseline["answer_accuracy"],
         "evidence_recall_delta": memory_on["evidence_recall_at_k"] - baseline["evidence_recall_at_k"],
@@ -1219,7 +1219,7 @@ def _compare_variants(memory_on, baseline):
     }
 
 
-def run_memory_challenge_payload():
+def run_memory_challenge_payload():  # Run memory challenge payload.
     cases = _build_challenge_cases()
     variants = {}
     for variant in CHALLENGE_VARIANTS:
@@ -1241,7 +1241,7 @@ def run_memory_challenge_payload():
     }
 
 
-def render_memory_evaluation_report(artifact):
+def render_memory_evaluation_report(artifact):  # Render memory evaluation report.
     contract = artifact["contract"]
     challenge = artifact["challenge"]
     memory_on = challenge["variants"]["memory_on"]["summary"]
@@ -1347,7 +1347,7 @@ def render_memory_evaluation_report(artifact):
     return "\n".join(lines) + "\n"
 
 
-def _top_level_summary(contract_summary, challenge, memory_ablation):
+def _top_level_summary(contract_summary, challenge, memory_ablation):  # Return the top level summary.
     memory_on = challenge["variants"]["memory_on"]["summary"]
     memory_efficiency = _memory_ablation_summary(memory_ablation)
     return {
@@ -1379,7 +1379,7 @@ def _top_level_summary(contract_summary, challenge, memory_ablation):
     }
 
 
-def run_memory_challenge_v1(artifact_path=DEFAULT_CHALLENGE_ARTIFACT_PATH):
+def run_memory_challenge_v1(artifact_path=DEFAULT_CHALLENGE_ARTIFACT_PATH):  # Run memory challenge v1.
     return _write_json(artifact_path, run_memory_challenge_payload())
 
 
@@ -1391,7 +1391,7 @@ def run_memory_agent_eval_v1(
     memory_fidelity_path=DEFAULT_MEMORY_FIDELITY_PATH,
     dream_quality_path=DEFAULT_DREAM_QUALITY_PATH,
     recovery_ablation_path=DEFAULT_RECOVERY_ABLATION_PATH,
-):
+):  # Run memory agent eval v1.
     memory_ablation = _load_json_if_exists(memory_ablation_path)
     memory_fidelity = _load_json_if_exists(memory_fidelity_path)
     dream_quality = _load_json_if_exists(dream_quality_path)

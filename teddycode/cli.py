@@ -73,7 +73,7 @@ DEFAULT_OPENAI_BASE_URL = PROVIDER_DEFAULTS["openai"]["base_url"]
 SECRET_ENV_NAMES_VAR = "TEDDYCODE_SECRET_ENV_NAMES"
 
 #合并所有来源的密钥环境变量名（默认 + 命令行 + 环境变量），返回排序后的列表。
-def _configured_secret_names(args):
+def _configured_secret_names(args):  # Return the configured secret names.
     configured_secret_names = set(DEFAULT_SECRET_ENV_NAMES)
     configured_secret_names.update(str(name).upper() for name in args.secret_env_names)
     extra_names = os.environ.get(SECRET_ENV_NAMES_VAR, "")
@@ -84,14 +84,14 @@ def _configured_secret_names(args):
     return sorted(configured_secret_names)
 
 #返回支持的模型提供商客户端类映射。
-def _provider_client_classes():
+def _provider_client_classes():  # Return the provider client classes.
     return ProviderClientClasses(
         openai=OpenAICompatibleModelClient,
         anthropic=AnthropicCompatibleModelClient,
     )
 
 
-def _build_provider_runtime(args):
+def _build_provider_runtime(args):  # Build provider runtime.
     cached = getattr(args, "_provider_runtime", None)
     if cached is not None:
         return cached
@@ -100,33 +100,33 @@ def _build_provider_runtime(args):
     return runtime
 
 #构建模型客户端
-def _build_model_client(args):
+def _build_model_client(args):  # Build model client.
     return _build_provider_runtime(args).model_client
 
 #构建欢迎界面
-def build_welcome(agent, model, host):
+def build_welcome(agent, model, host):  # Build welcome.
     width = max(68, min(shutil.get_terminal_size((80, 20)).columns, 84))
     inner = width - 4
     gap = 3
     left_width = (inner - gap) // 2
     right_width = inner - gap - left_width
 
-    def row(text):
+    def row(text):  # Return the row.
         body = middle(text, width - 4)
         return f"| {body.ljust(width - 4)} |"
 
-    def divider(char="-"):
+    def divider(char="-"):  # Return the divider.
         return "+" + char * (width - 2) + "+"
 
-    def center(text):
+    def center(text):  # Return the center.
         body = middle(text, inner)
         return f"| {body.center(inner)} |"
 
-    def cell(label, value, size):
+    def cell(label, value, size):  # Return the cell.
         body = middle(f"{label:<9} {value}", size)
         return body.ljust(size)
 
-    def pair(left_label, left_value, right_label, right_value):
+    def pair(left_label, left_value, right_label, right_value):  # Return the pair.
         left = cell(left_label, left_value, left_width)
         right = cell(right_label, right_value, right_width)
         return f"| {left}{' ' * gap}{right} |"
@@ -264,7 +264,7 @@ def build_agent(args):
     return agent
 
 # 命令行参数定义
-def build_arg_parser():
+def build_arg_parser():  # Build arg parser.
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="Minimal coding agent for provider profiles backed by OpenAI-compatible or Anthropic-compatible APIs.",
@@ -431,7 +431,7 @@ def build_arg_parser():
     return parser
 
 
-def handle_repl_command(agent, user_input):
+def handle_repl_command(agent, user_input):  # Handle repl command.
     raw_command = ""
     command_args = ""
     command_name = ""
@@ -527,7 +527,7 @@ def handle_repl_command(agent, user_input):
     return False, False, ""
 
 #输出当前 runtime mode，比如 default / plan。
-def _format_mode_status(agent):
+def _format_mode_status(agent):  # Format mode status.
     lines = [f"runtime mode: {agent.runtime_mode}"]
     plan_path = getattr(agent.plan_mode, "plan_path", "")
     if plan_path:
@@ -535,7 +535,7 @@ def _format_mode_status(agent):
     return "\n".join(lines)
 
 #输出当前 session 状态，比如 session id、路径、worker 状态等。
-def _format_session_status(agent):
+def _format_session_status(agent):  # Format session status.
     task_state = getattr(agent, "current_task_state", None)
     run_id = getattr(task_state, "run_id", "") or ""
     run_dir = str(agent.run_store.run_dir(run_id)) if run_id else "-"
@@ -565,7 +565,7 @@ def _format_session_status(agent):
     )
 
 #输出 subagent 可用工具和 worker 状态。
-def _format_subagent_status(agent):
+def _format_subagent_status(agent):  # Format subagent status.
     return "\n".join(
         [
             "subagent tools: agent(description, prompt, subagent_type='Explore|worker', write_scope=[]), send_message(to, message), task_stop(task_id)",
@@ -574,7 +574,7 @@ def _format_subagent_status(agent):
     )
 
 #把 worker 列表格式化成一行文本。
-def _worker_summary(agent):
+def _worker_summary(agent):  # Return the worker summary.
     items = agent.worker_manager.to_dict().get("items", [])
     if not items:
         return "none"
@@ -582,7 +582,7 @@ def _worker_summary(agent):
 
 #处理 /compact 命令。
 #--llm: 使用模型压缩上下文历史，--auto: 自动根据上下文长度选择压缩模式。
-def _handle_compact(agent, args_text):
+def _handle_compact(agent, args_text):  # Handle compact.
     args_text = str(args_text or "").strip()
     summary_mode = "deterministic"
     if args_text == "--llm":
@@ -595,7 +595,7 @@ def _handle_compact(agent, args_text):
     return json.dumps(_compact_command_output(result), indent=2, sort_keys=True)
 
 
-def _compact_command_output(result):
+def _compact_command_output(result):  # Compact command output.
     output = {
         "summary_mode": result.get("summary_mode", ""),
         "summary_called": bool(result.get("summary_called", False)),
@@ -610,7 +610,7 @@ def _compact_command_output(result):
     return output
 
 #格式化最近一次模型调用的信息
-def _format_usage(agent):
+def _format_usage(agent):  # Format usage.
     metadata = dict(getattr(agent, "last_completion_metadata", {}) or {})
     context_usage = dict(
         (getattr(agent, "last_prompt_metadata", {}) or {}).get("context_usage", {})
@@ -651,7 +651,7 @@ def _format_usage(agent):
     return "\n".join(lines)
 
 #从 base url 里安全提取 host，避免直接显示完整敏感 URL。
-def _safe_url_host(sanitized_url):
+def _safe_url_host(sanitized_url):  # Return the safe url host.
     if not sanitized_url:
         return "-"
     try:
@@ -663,14 +663,14 @@ def _safe_url_host(sanitized_url):
     return _fallback_url_host(sanitized_url)
 
 
-def _fallback_url_host(sanitized_url):
+def _fallback_url_host(sanitized_url):  # Return the fallback url host.
     _, sep, rest = sanitized_url.partition("://")
     candidate = rest if sep else sanitized_url
     candidate = candidate.split("/", 1)[0]
     return candidate or "-"
 
 #生成 /context 命令输出的 JSON 内容。
-def _context_payload(agent):
+def _context_payload(agent):  # Return the context payload.
     metadata = dict(getattr(agent, "last_prompt_metadata", {}) or {})
     if not metadata:
         metadata = agent.prompt_metadata("", "")
@@ -682,7 +682,7 @@ def _context_payload(agent):
     }
 
 #判断上下文压缩/交接状态。
-def _llm_handoff_status(orchestrator):
+def _llm_handoff_status(orchestrator):  # Return the llm handoff status.
     usage = dict(orchestrator.get("compact_call_usage", {}) or {})
     pre = int(orchestrator.get("pre_compact_estimated_tokens", 0) or 0)
     post = int(orchestrator.get("post_compact_estimated_tokens", 0) or 0)
@@ -695,11 +695,11 @@ def _llm_handoff_status(orchestrator):
     }
 
 #输出当前模型。
-def _format_model(agent):
+def _format_model(agent):  # Format model.
     return f"model: {getattr(agent.model_client, 'model', '-') or '-'}"
 
 #格式化历史 session 列表。
-def _format_history(agent):
+def _format_history(agent):  # Format history.
     rows = agent.session_store.list_sessions()
     if not rows:
         return "(no sessions)"
@@ -712,7 +712,7 @@ def _format_history(agent):
     return "\n".join(lines)
 
 #把用户输入的 session 目标解析成真正 session id。
-def _resolve_session_id(agent, target):
+def _resolve_session_id(agent, target):  # Resolve session id.
     if target == "latest":
         return agent.session_store.latest()
     rows = agent.session_store.list_sessions()
@@ -727,7 +727,7 @@ def _resolve_session_id(agent, target):
     return ""
 
 
-def _cli_ask_user(question, choices):
+def _cli_ask_user(question, choices):  # Return the cli ask user.
     if choices:
         print(question)
         for index, choice in enumerate(choices, start=1):
@@ -739,14 +739,14 @@ def _cli_ask_user(question, choices):
     return input(question + " ").strip()
 
 
-def _drain_idle_worker_notifications(agent):
+def _drain_idle_worker_notifications(agent):  # Drain idle worker notifications.
     notifications = agent.engine.drain_worker_notifications()
     for notification in notifications:
         print(f"\n[worker notification]\n{notification}")
     return notifications
 
 
-def interaction_mode(args):
+def interaction_mode(args):  # Return the interaction mode.
     if args.prompt or getattr(args, "prompt_file", None):
         return "one_shot"
     if getattr(args, "repl", False):
@@ -756,7 +756,7 @@ def interaction_mode(args):
     return "repl"
 
 
-def validate_args(args):
+def validate_args(args):  # Validate args.
     if getattr(args, "prompt_file", None) and getattr(args, "prompt", None):
         return "--prompt-file cannot be combined with positional prompt"
     if getattr(args, "session_id", None) and getattr(args, "resume", None):
@@ -772,13 +772,13 @@ def validate_args(args):
     return ""
 
 
-def _one_shot_prompt(args):
+def _one_shot_prompt(args):  # Return the one shot prompt.
     if getattr(args, "prompt_file", None):
         return Path(args.prompt_file).read_text(encoding="utf-8")
     return " ".join(args.prompt).strip()
 
 
-def main(argv=None):
+def main(argv=None):  # Run the command-line entry point.
     args = build_arg_parser().parse_args(argv)
     validation_error = validate_args(args)
     if validation_error:

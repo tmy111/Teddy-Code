@@ -11,7 +11,7 @@ CHECKPOINT_SCHEMA_VERSION = "phase1-v1"
 
 
 class RuntimeCheckpointsMixin:
-    def capture_workspace_snapshot(self):
+    def capture_workspace_snapshot(self):  # Capture workspace snapshot.
         snapshot = {}
         for path in self.root.rglob("*"):
             try:
@@ -27,7 +27,7 @@ class RuntimeCheckpointsMixin:
         return snapshot
 
     @staticmethod
-    def diff_workspace_snapshots(before, after):
+    def diff_workspace_snapshots(before, after):  # Compare workspace snapshots.
         changed_paths = []
         summaries = []
         for path in sorted(set(before) | set(after)):
@@ -42,7 +42,7 @@ class RuntimeCheckpointsMixin:
                 summaries.append(f"modified:{path}")
         return changed_paths, summaries
 
-    def create_checkpoint(self, task_state, user_message, trigger):
+    def create_checkpoint(self, task_state, user_message, trigger):  # Create checkpoint.
         state = self.checkpoint_state()
         current = self.current_checkpoint()
         checkpoint_id = "ckpt_" + uuid.uuid4().hex[:8]

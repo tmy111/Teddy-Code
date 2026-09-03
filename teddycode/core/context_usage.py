@@ -10,10 +10,10 @@ from .context_sections import compute_budget_tokens
 DEFAULT_CONTEXT_WINDOW = 200_000
 TOKEN_ESTIMATION_METHOD = "typed_content_heuristic_v1"
 
-def estimate_tokens(chars):
+def estimate_tokens(chars):  # Return the estimate tokens.
     return max(0, (int(chars) + 3) // 4)
 
-def detect_content_type(text: str) -> str:
+def detect_content_type(text: str) -> str:  # Detect content type.
     if not text:
         return "mixed"
     sample = str(text)[:2000]
@@ -25,7 +25,7 @@ def detect_content_type(text: str) -> str:
         return "code"
     return "mixed"
 
-def estimate_tokens_typed(text: str, content_type: str = "mixed") -> int:
+def estimate_tokens_typed(text: str, content_type: str = "mixed") -> int:  # Return the estimate tokens typed.
     chars = len(str(text))
     if content_type == "code":
         return max(0, (chars * 10 + 31) // 32)
@@ -34,10 +34,10 @@ def estimate_tokens_typed(text: str, content_type: str = "mixed") -> int:
     return estimate_tokens(chars)
 
 class ContextUsageAnalyzer:
-    def __init__(self, agent):
+    def __init__(self, agent):  # Initialize the instance.
         self.agent = agent
 
-    def analyze(self, rendered):
+    def analyze(self, rendered):  # Return the analyze.
         tools_chars = self._tools_chars()
         sections = {}
         raw_total = 0
@@ -89,14 +89,14 @@ class ContextUsageAnalyzer:
             **pressure.to_context_usage_fields(),
         }
 
-    def _context_window(self):
+    def _context_window(self):  # Return the context window.
         client_window = int(getattr(getattr(self.agent, "model_client", None), "context_window", 0) or 0)
         if client_window: return client_window
         model = str(getattr(getattr(self.agent, "model_client", None), "model", "")).lower()
         if "1m" in model or "1000000" in model: return 1_000_000
         return DEFAULT_CONTEXT_WINDOW
 
-    def _tools_chars(self):
+    def _tools_chars(self):  # Return the tools chars.
         total = 0
         for name, tool in self.agent.available_tools().items():
             fields = ", ".join(f"{key}: {value}" for key, value in tool.schema.items())
@@ -104,18 +104,18 @@ class ContextUsageAnalyzer:
             total += len(f"- {name}({fields}) [{risk}] {tool.description}\n")
         return total
 
-    def _prompt_hash(self, rendered):
+    def _prompt_hash(self, rendered):  # Return the prompt hash.
         text = "\n\n".join(section.rendered for section in rendered.values()).strip()
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-    def _provider(self):
+    def _provider(self):  # Return the provider.
         client = getattr(self.agent, "model_client", None)
         return str(getattr(client, "provider", "") or client.__class__.__name__ if client else "")
 
-    def _provider_base_url(self):
+    def _provider_base_url(self):  # Return the provider base url.
         return sanitize_url(getattr(getattr(self.agent, "model_client", None), "base_url", ""))
 
-    def _last_identity(self):
+    def _last_identity(self):  # Return the last identity.
         metadata = dict(getattr(self.agent, "last_prompt_metadata", {}) or {})
         usage = dict(metadata.get("context_usage", {}) or {})
         identity = dict(usage.get("current_identity", {}) or {})

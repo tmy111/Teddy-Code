@@ -6,7 +6,7 @@ MEDIA_INSPECTION_TOOLS = {"inspect_image"}
 MAX_MEDIA_INSPECTIONS_PER_PATH = 2
 
 
-def is_repeated_tool_call(history, name, args):
+def is_repeated_tool_call(history, name, args):  # Return whether is repeated tool call.
     current_turn = _current_turn_history(history)
     tool_events = [
         (index, item)
@@ -30,7 +30,7 @@ def is_repeated_tool_call(history, name, args):
     return len(matches) >= 2
 
 
-def _media_path_inspection_count(tool_events, args):
+def _media_path_inspection_count(tool_events, args):  # Return the media path inspection count.
     path = str((args or {}).get("path", ""))
     if not path:
         return 0
@@ -43,7 +43,7 @@ def _media_path_inspection_count(tool_events, args):
     )
 
 
-def repeated_tool_call_metadata(tool):
+def repeated_tool_call_metadata(tool):  # Return the repeated tool call metadata.
     return {
         "tool_status": "rejected",
         "tool_error_code": "repeated_identical_call",
@@ -56,7 +56,7 @@ def repeated_tool_call_metadata(tool):
     }
 
 
-def _failed_file_write_retry_is_now_informed(current_turn, last_index, last_match):
+def _failed_file_write_retry_is_now_informed(current_turn, last_index, last_match):  # Return the failed file write retry is now informed.
     content = str(last_match.get("content", ""))
     if not content.startswith("error:"):
         return False
@@ -75,7 +75,7 @@ def _failed_file_write_retry_is_now_informed(current_turn, last_index, last_matc
     return False
 
 
-def _current_turn_history(history):
+def _current_turn_history(history):  # Return the current turn history.
     history = list(history)
     for index in range(len(history) - 1, -1, -1):
         if history[index].get("role") == "user":

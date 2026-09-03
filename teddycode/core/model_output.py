@@ -28,7 +28,7 @@ def parse(raw):
     return "retry", retry_notice("missing <tool> or <final> tag")
 
 
-def retry_notice(problem=None):
+def retry_notice(problem=None):  # Return the retry notice.
     detail = f" Problem: {problem}." if problem else ""
     return (
         "Your previous response could not be executed."
@@ -89,13 +89,13 @@ def parse_tool_blocks(raw):
     return []
 
 
-def _tool_kind(tools):
+def _tool_kind(tools):  # Return the tool kind.
     if len(tools) == 1:
         return "tool", tools[0]
     return "tools", tools
 
 
-def parse_xml_tools(raw):
+def parse_xml_tools(raw):  # Parse xml tools.
     tools = []
     for match in re.finditer(
         r"<tool\b(?P<attrs>[^>]*)>(?P<body>.*?)</tool>", str(raw), flags=re.DOTALL
@@ -106,7 +106,7 @@ def parse_xml_tools(raw):
     return tools
 
 
-def parse_xml_tool(raw):
+def parse_xml_tool(raw):  # Parse xml tool.
     match = re.search(
         r"<tool\b(?P<attrs>[^>]*)>(?P<body>.*?)</tool>", str(raw), flags=re.DOTALL
     )
@@ -133,7 +133,7 @@ def parse_xml_tool_match(match):
     return {"name": name, "args": args}
 
 
-def parse_attrs(text):
+def parse_attrs(text):  # Parse attrs.
     attrs = {}
     for key, value in re.findall(
         r'([A-Za-z_][A-Za-z0-9_-]*)="(.*?)"', text, flags=re.DOTALL
@@ -142,14 +142,14 @@ def parse_attrs(text):
     return attrs
 
 
-def extract(text, tag):
+def extract(text, tag):  # Extract the requested operation.
     match = re.search(rf"<{tag}>(.*?)</{tag}>", text, flags=re.DOTALL)
     if not match:
         return text.strip()
     return match.group(1).strip()
 
 
-def extract_raw(text, tag):
+def extract_raw(text, tag):  # Extract raw.
     match = re.search(rf"<{tag}>(.*?)</{tag}>", text, flags=re.DOTALL)
     if not match:
         return None

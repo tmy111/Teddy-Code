@@ -34,7 +34,7 @@ class ContextRetentionPolicy:
     protected_tools = frozenset(PROTECTED_TOOL_NAMES)
     bulk_tools = frozenset(BULK_TOOL_NAMES)
 
-    def should_render_tool_inline(self, item, context):
+    def should_render_tool_inline(self, item, context):  # Return whether to render tool inline.
         if item.get("turn_id") in context.recent_turns:
             return True
         if item.get("name") in self.protected_tools:
@@ -50,14 +50,14 @@ class ContextRetentionPolicy:
             return True
         return bool(self._tool_paths(item) & set(context.changed_paths))
 
-    def can_replace_tool(self, item, context):
+    def can_replace_tool(self, item, context):  # Return whether can replace tool.
         if item.get("role") != "tool":
             return False
         if self.should_render_tool_inline(item, context):
             return False
         return item.get("name") in self.bulk_tools
 
-    def _tool_paths(self, item):
+    def _tool_paths(self, item):  # Return the tool paths.
         paths = {str(path) for path in item.get("affected_paths", []) if str(path).strip()}
         path_arg = str(item.get("args", {}).get("path", "")).strip()
         if path_arg:
@@ -65,6 +65,6 @@ class ContextRetentionPolicy:
         return paths
 
     @staticmethod
-    def _is_failed_tool(item):
+    def _is_failed_tool(item):  # Return whether is failed tool.
         status = str(item.get("tool_status", ""))
         return bool(status and status != "ok") or bool(item.get("tool_error_code"))

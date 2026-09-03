@@ -9,39 +9,39 @@ REDACTED_VALUE = "<redacted>"
 
 class RuntimeSecretsMixin:
     @staticmethod
-    def looks_sensitive_env_name(name):
+    def looks_sensitive_env_name(name):  # Return the looks sensitive env name.
         upper = str(name).upper()
         return any(upper == marker or upper.endswith(marker) or upper.endswith(f"_{marker}") for marker in SENSITIVE_ENV_NAME_MARKERS)
 
-    def is_secret_env_name(self, name):
+    def is_secret_env_name(self, name):  # Return whether is secret env name.
         upper = str(name).upper()
         return upper in self.secret_env_names or self.looks_sensitive_env_name(upper)
 
-    def configured_secret_env_items(self):
+    def configured_secret_env_items(self):  # Return the configured secret env items.
         items = [(name, value) for name, value in os.environ.items() if str(name).upper() in self.secret_env_names and value]
         items.sort(key=lambda item: item[0])
         return items
 
-    def detected_secret_env_items(self):
+    def detected_secret_env_items(self):  # Return the detected secret env items.
         items = [(name, value) for name, value in os.environ.items() if self.is_secret_env_name(name) and value]
         items.sort(key=lambda item: item[0])
         return items
 
-    def secret_env_summary(self):
+    def secret_env_summary(self):  # Return the secret env summary.
         names = [name for name, _ in self.configured_secret_env_items()]
         return {"secret_env_count": len(names), "secret_env_names": names}
 
-    def detected_secret_env_summary(self):
+    def detected_secret_env_summary(self):  # Return the detected secret env summary.
         names = [name for name, _ in self.detected_secret_env_items()]
         return {"secret_env_count": len(names), "secret_env_names": names}
 
-    def redact_text(self, text):
+    def redact_text(self, text):  # Redact text.
         text = str(text)
         for _, value in sorted(self.detected_secret_env_items(), key=lambda item: len(item[1]), reverse=True):
             text = text.replace(value, REDACTED_VALUE)
         return text
 
-    def redact_artifact(self, value, key=None):
+    def redact_artifact(self, value, key=None):  # Redact artifact.
         if key and self.is_secret_env_name(key):
             return REDACTED_VALUE
         if isinstance(value, dict):
@@ -54,7 +54,7 @@ class RuntimeSecretsMixin:
             return self.redact_text(value)
         return value
 
-    def shell_env(self):
+    def shell_env(self):  # Return the shell env.
         env = {name: os.environ[name] for name in self.shell_env_allowlist if name in os.environ}
         env["PWD"] = str(self.root)
         if "PATH" not in env and os.environ.get("PATH"):

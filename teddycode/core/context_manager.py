@@ -41,11 +41,11 @@ class SectionRender:
     details: dict | None = None
 
     @property
-    def raw_chars(self):
+    def raw_chars(self):  # Return the raw chars.
         return len(self.raw)
 
     @property
-    def rendered_chars(self):
+    def rendered_chars(self):  # Return the rendered chars.
         return len(self.rendered)
 
 
@@ -60,7 +60,7 @@ class ContextManager:
         section_budgets=None,
         section_floors=None,
         reduction_order=None,
-    ):
+    ):  # Initialize the instance.
         self.agent = agent
         if total_budget is not None:
             self.total_budget = int(total_budget)
@@ -196,7 +196,7 @@ class ContextManager:
         )
         return prompt, metadata
 
-    def _render_sections_without_reduction(self, section_texts, selected_notes=None):
+    def _render_sections_without_reduction(self, section_texts, selected_notes=None):  # Render sections without reduction.
         selected_notes = selected_notes or []
         relevant_lines = ["Relevant memory:"]
         if selected_notes:
@@ -231,7 +231,7 @@ class ContextManager:
             ),
         }
 
-    def _compute_section_floors(self):
+    def _compute_section_floors(self):  # Compute section floors.
         floors = dict(MIN_SECTION_BUDGETS)
         for section, budget in self.section_budgets.items():
             if section not in floors:
@@ -239,7 +239,7 @@ class ContextManager:
         floors.update(self._section_floor_overrides)
         return floors
 
-    def _render_sections(self, section_texts, budgets, selected_notes=None, pressure=None):
+    def _render_sections(self, section_texts, budgets, selected_notes=None, pressure=None):  # Render sections.
         rendered = {}
         for section in SECTION_ORDER:
             budget = budgets.get(section)
@@ -256,7 +256,7 @@ class ContextManager:
                 rendered[section] = SectionRender(raw=raw, budget=int(budget) if budget is not None else 0, rendered=rendered_text, details={})
         return rendered
 
-    def _prompt_pressure(self, prompt_chars):
+    def _prompt_pressure(self, prompt_chars):  # Return the prompt pressure.
         ratio = int(prompt_chars) / max(1, self.total_budget)
         if ratio >= 0.95:
             tier = "tier3_summary"
@@ -268,7 +268,7 @@ class ContextManager:
             tier = "tier0_observe"
         return _PromptPressure(ratio=round(ratio, 4), tier=tier)
 
-    def _pressure_adjusted_budgets(self, budgets, pressure):
+    def _pressure_adjusted_budgets(self, budgets, pressure):  # Return the pressure adjusted budgets.
         adjusted = dict(budgets)
         tier = str(getattr(pressure, "tier", ""))
         if tier in {"tier1_snip", "tier2_prune"}:
@@ -277,7 +277,7 @@ class ContextManager:
             adjusted["skills"] = int(adjusted.get("skills", 0) * 0.5)
         return adjusted
 
-    def _render_relevant_memory(self, selected_notes, budget):
+    def _render_relevant_memory(self, selected_notes, budget):  # Render relevant memory.
         header = "Relevant memory:"
         note_texts = [str(note.get("text", "")) for note in selected_notes if str(note.get("text", "")).strip()]
         raw_lines = [header] + [f"- {text}" for text in note_texts]
@@ -324,14 +324,14 @@ class ContextManager:
             },
         )
 
-    def _per_note_budget(self, budget, note_count, header):
+    def _per_note_budget(self, budget, note_count, header):  # Return the per note budget.
         if note_count <= 0:
             return 0
         overhead = len(header) + 3 * note_count
         usable = max(0, budget - overhead)
         return max(1, usable // note_count)
 
-    def _render_history_section(self, budget, pressure=None):
+    def _render_history_section(self, budget, pressure=None):  # Render history section.
         history = list(getattr(self.agent, "session", {}).get("history", []))
         raw = self.history_builder.raw_text(history)
         if not history:
@@ -359,11 +359,11 @@ class ContextManager:
             details=history_details,
         )
 
-    def _assemble_prompt(self, rendered):
+    def _assemble_prompt(self, rendered):  # Return the assemble prompt.
         # 顺序是刻意设计的：稳定规则放前面，最新请求放最后。
         return "\n\n".join(rendered[section].rendered for section in SECTION_ORDER).strip()
 
-    def _metadata(self, prompt, rendered, budgets, reduction_log, selected_notes, user_message, section_texts, pressure=None):
+    def _metadata(self, prompt, rendered, budgets, reduction_log, selected_notes, user_message, section_texts, pressure=None):  # Return the metadata.
         metadata = ContextReportBuilder(
             self.agent,
             total_budget=self.total_budget,

@@ -24,7 +24,7 @@ class LoadedImage:
     metadata: dict
 
 
-def load_workspace_image(agent, raw_path):
+def load_workspace_image(agent, raw_path):  # Load workspace image.
     path = agent.path(raw_path)
     if not path.is_file():
         raise ValueError("path is not a file")
@@ -54,7 +54,7 @@ def load_workspace_image(agent, raw_path):
     )
 
 
-def detect_image_mime(filename, data):
+def detect_image_mime(filename, data):  # Detect image mime.
     suffix = "." + str(filename).rsplit(".", 1)[-1].lower() if "." in str(filename) else ""
     expected = IMAGE_MIME_BY_SUFFIX.get(suffix)
     actual = _mime_from_magic(data)
@@ -65,7 +65,7 @@ def detect_image_mime(filename, data):
     return actual
 
 
-def maybe_downsample_image(data, mime_type):
+def maybe_downsample_image(data, mime_type):  # Return the maybe downsample image.
     try:
         from PIL import Image
         from io import BytesIO
@@ -86,7 +86,7 @@ def maybe_downsample_image(data, mime_type):
         return data
 
 
-def _mime_from_magic(data):
+def _mime_from_magic(data):  # Return the mime from magic.
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
     if data.startswith(b"\xff\xd8\xff"):
@@ -98,7 +98,7 @@ def _mime_from_magic(data):
     return ""
 
 
-def _pillow_format(mime_type):
+def _pillow_format(mime_type):  # Return the pillow format.
     return {
         "image/gif": "GIF",
         "image/jpeg": "JPEG",

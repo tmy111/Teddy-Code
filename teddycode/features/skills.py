@@ -34,7 +34,7 @@ class Skill:
     paths: tuple[str, ...] = ()
     prompt_fn: Callable[[str], str] | None = None
 
-    def render(self, arguments=""):
+    def render(self, arguments=""):  # Render the requested operation.
         text = self.prompt_fn(str(arguments)) if self.prompt_fn else self.prompt
         replacements = {
             "$ARGUMENTS": str(arguments),
@@ -47,7 +47,7 @@ class Skill:
             text = text.replace(old, new)
         return text.strip()
 
-    def metadata(self):
+    def metadata(self):  # Return the metadata.
         return {
             "name": self.name,
             "description": self.description,
@@ -61,7 +61,7 @@ class Skill:
         }
 
 
-def discover_skills(root, home=None):
+def discover_skills(root, home=None):  # Discover skills.
     from .skills_bundled import bundled_skills
 
     skills = {skill.name: skill for skill in bundled_skills()}
@@ -78,7 +78,7 @@ def discover_skills(root, home=None):
     return dict(sorted(skills.items()))
 
 
-def _safe_home(home=None):
+def _safe_home(home=None):  # Return the safe home.
     if home is not None:
         return Path(home)
     try:
@@ -87,7 +87,7 @@ def _safe_home(home=None):
         return None
 
 
-def load_skills_from_dir(skills_dir, source):
+def load_skills_from_dir(skills_dir, source):  # Load skills from dir.
     skills_dir = Path(skills_dir).expanduser()
     if not skills_dir.exists():
         return []
@@ -100,7 +100,7 @@ def load_skills_from_dir(skills_dir, source):
     return [skill for path in files if (skill := load_skill_file(path, source=source))]
 
 
-def load_skill_file(path, source):
+def load_skill_file(path, source):  # Load skill file.
     path = Path(path)
     metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"))
     default_name = path.parent.name if path.name == "SKILL.md" else path.stem
@@ -124,7 +124,7 @@ def load_skill_file(path, source):
     )
 
 
-def parse_frontmatter(text):
+def parse_frontmatter(text):  # Parse frontmatter.
     match = FRONTMATTER_RE.match(str(text))
     if not match:
         return {}, str(text)
@@ -138,7 +138,7 @@ def parse_frontmatter(text):
     return metadata, str(text)[match.end() :]
 
 
-def render_prompt_section(skills):
+def render_prompt_section(skills):  # Render prompt section.
     visible = [skill for skill in list_skills(skills, user_invocable_only=False) if _should_show_in_prompt(skill)]
     if not visible:
         return "Available skills:\n- none"
@@ -150,7 +150,7 @@ def render_prompt_section(skills):
     return "\n".join(lines)
 
 
-def render_skills_list(skills):
+def render_skills_list(skills):  # Render skills list.
     lines = []
     for skill in list_skills(skills):
         description = skill.description or skill.when_to_use or "No description"
@@ -159,14 +159,14 @@ def render_skills_list(skills):
     return "\n".join(lines)
 
 
-def list_skills(skills, user_invocable_only=True):
+def list_skills(skills, user_invocable_only=True):  # List skills.
     items = [skills[name] for name in sorted(skills)]
     if user_invocable_only:
         items = [skill for skill in items if skill.user_invocable]
     return sorted(items, key=lambda skill: (skill.source != "builtin", skill.name))
 
 
-def parse_slash_command(text):
+def parse_slash_command(text):  # Parse slash command.
     text = str(text).strip()
     if not text.startswith("/") or text == "/":
         return "", ""
@@ -174,7 +174,7 @@ def parse_slash_command(text):
     return command.strip(), arguments.strip()
 
 
-def _parse_value(value):
+def _parse_value(value):  # Parse value.
     value = value.strip().strip("\"'")
     if value.lower() in {"true", "yes"}:
         return True
@@ -185,13 +185,13 @@ def _parse_value(value):
     return value
 
 
-def _list_value(value):
+def _list_value(value):  # List value.
     if isinstance(value, (list, tuple)):
         return [str(item).strip() for item in value if str(item).strip()]
     return [item.strip() for item in str(value or "").split(",") if item.strip()]
 
 
-def _string(value, default=""):
+def _string(value, default=""):  # Return the string.
     if value is None:
         return default
     if isinstance(value, (list, tuple)):
@@ -199,11 +199,11 @@ def _string(value, default=""):
     return str(value)
 
 
-def _bool_value(value):
+def _bool_value(value):  # Return the bool value.
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() not in {"0", "false", "no", "off"}
 
 
-def _should_show_in_prompt(skill):
+def _should_show_in_prompt(skill):  # Return whether to show in prompt.
     return skill.user_invocable or bool(skill.paths)

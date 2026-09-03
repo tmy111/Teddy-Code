@@ -106,7 +106,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         allowed_tools=None,
         final_readiness_mode="warn",
         before_final_hooks=None,
-    ):
+    ):  # Initialize the instance.
         # 模型相关对象：主客户端负责文本请求，router 负责在图片输入时切到视觉客户端。
         self.model_client = model_client
         self.model_client_factory = model_client_factory
@@ -231,7 +231,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         }
 
     @classmethod
-    def from_session(cls, model_client, workspace, session_store, session_id, **kwargs):
+    def from_session(cls, model_client, workspace, session_store, session_id, **kwargs):  # Create an instance from session.
         return cls(
             model_client=model_client,
             workspace=workspace,
@@ -240,7 +240,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             **kwargs,
         )
 
-    def _resolve_memory_dir(self, memory_dir):
+    def _resolve_memory_dir(self, memory_dir):  # Resolve memory dir.
         if memory_dir:
             path = Path(memory_dir).expanduser()
             path = path if path.is_absolute() else self.root / path
@@ -251,7 +251,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             raise ValueError(f"memory_dir must stay inside workspace: {memory_dir}")
         return resolved
 
-    def _ensure_session_shape(self):
+    def _ensure_session_shape(self):  # Ensure session shape.
         self.session.setdefault("history", [])
         self.session.setdefault("memory", memorylib.default_memory_state())
         checkpoints = self.session.setdefault("checkpoints", {})
@@ -270,7 +270,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         if not isinstance(runtime_mode, dict):
             self.session["runtime_mode"] = {"mode": "default"}
 
-    def current_runtime_identity(self):
+    def current_runtime_identity(self):  # Return the current runtime identity.
         return {
             "session_id": self.session.get("id", ""),
             "cwd": str(self.root),
@@ -290,23 +290,23 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             "tool_signature": self.tool_signature(),
         }
 
-    def checkpoint_state(self):
+    def checkpoint_state(self):  # Return the checkpoint state.
         self._ensure_session_shape()
         return self.session["checkpoints"]
 
-    def current_checkpoint(self):
+    def current_checkpoint(self):  # Return the current checkpoint.
         state = self.checkpoint_state()
         checkpoint_id = str(state.get("current_id", "")).strip()
         if not checkpoint_id:
             return None
         return state.get("items", {}).get(checkpoint_id)
 
-    def invalidate_stale_memory(self):
+    def invalidate_stale_memory(self):  # Invalidate stale memory.
         invalidated = self.memory.invalidate_stale_file_summaries()
         self.session["memory"] = self.memory.to_dict()
         return invalidated
 
-    def evaluate_resume_state(self):
+    def evaluate_resume_state(self):  # Evaluate resume state.
         previous_resume_state = dict(self.session.get("resume_state", {}) or {})
         invalidated = self.invalidate_stale_memory()
         checkpoint = self.current_checkpoint()
@@ -372,7 +372,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         self.session["runtime_identity"] = self.current_runtime_identity()
         return resume_state
 
-    def render_checkpoint_text(self):
+    def render_checkpoint_text(self):  # Render checkpoint text.
         checkpoint = self.current_checkpoint()
         if not checkpoint:
             return ""
@@ -409,7 +409,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         return "\n".join(lines)
 
     @staticmethod
-    def remember(bucket, item, limit):
+    def remember(bucket, item, limit):  # Remember an item within the size limit.
         if not item:
             return
         if item in bucket:
@@ -417,11 +417,11 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         bucket.append(item)
         del bucket[:-limit]
 
-    def build_tools(self):
+    def build_tools(self):  # Build tools.
         return toolkit.build_tool_registry(self)
 
     @staticmethod
-    def _normalize_allowed_tools(allowed_tools):
+    def _normalize_allowed_tools(allowed_tools):  # Normalize allowed tools.
         if allowed_tools is None:
             return None
         normalized = tuple(str(name).strip() for name in allowed_tools)
@@ -429,7 +429,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             raise ValueError("allowed_tools must be a non-empty sequence of tool names")
         return normalized
 
-    def _apply_tool_allowlist(self, tools):
+    def _apply_tool_allowlist(self, tools):  # Apply tool allowlist.
         if self.allowed_tools is None:
             return tools
         unknown = [name for name in self.allowed_tools if name not in tools]
@@ -439,19 +439,19 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         return {name: tool for name, tool in tools.items() if name in allowed}
 
     @property
-    def active_tool_profile(self):
+    def active_tool_profile(self):  # Return the active tool profile.
         return self.tool_profiles[self._active_tool_profile_name]
 
-    def set_tool_profile(self, name):
+    def set_tool_profile(self, name):  # Set tool profile.
         if name not in self.tool_profiles:
             raise ValueError(f"unknown tool profile: {name}")
         self._active_tool_profile_name = name
 
-    def available_tools(self):
+    def available_tools(self):  # Return the available tools.
         profile = self.active_tool_profile
         return {name: tool for name, tool in self.tools.items() if profile.allows(name)}
 
-    def tool_signature(self):
+    def tool_signature(self):  # Return the tool signature.
         payload = []
         for name in sorted(self.available_tools()):
             tool = self.available_tools()[name]
@@ -467,7 +467,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             json.dumps(payload, sort_keys=True).encode("utf-8")
         ).hexdigest()
 
-    def build_prefix(self):
+    def build_prefix(self):  # Build prefix.
         tool_lines = []
         for name, tool in self.available_tools().items():
             fields = ", ".join(
@@ -533,11 +533,11 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             built_at=now(),
         )
 
-    def _apply_prefix_state(self, prefix_state):
+    def _apply_prefix_state(self, prefix_state):  # Apply prefix state.
         self.prefix_state = prefix_state
         self.prefix = prefix_state.text
 
-    def refresh_prefix(self, force=False):
+    def refresh_prefix(self, force=False):  # Refresh prefix.
         previous_hash = getattr(getattr(self, "prefix_state", None), "hash", None)
         previous_workspace_fingerprint = getattr(
             getattr(self, "prefix_state", None), "workspace_fingerprint", None
@@ -568,25 +568,25 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         }
         return dict(self._last_prefix_refresh)
 
-    def memory_text(self):
+    def memory_text(self):  # Return the memory text.
         return self.memory.render_memory_text()
 
     @property
-    def runtime_mode(self):
+    def runtime_mode(self):  # Return the runtime mode.
         return str(
             self.session.get("runtime_mode", {}).get("mode", "default") or "default"
         )
 
-    def runtime_mode_text(self):
+    def runtime_mode_text(self):  # Return the runtime mode text.
         return self.plan_mode.prompt_text()
 
-    def enter_plan_mode(self, topic, path=None):
+    def enter_plan_mode(self, topic, path=None):  # Enter plan mode.
         return self.plan_mode.enter(topic, path=path)
 
-    def exit_plan_mode(self):
+    def exit_plan_mode(self):  # Exit plan mode.
         return self.plan_mode.exit()
 
-    def history_text(self):
+    def history_text(self):  # Return the history text.
         history = self.session["history"]
         if not history:
             return "- empty"
@@ -614,22 +614,22 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
 
         return clip("\n".join(lines), MAX_HISTORY)
 
-    def feature_enabled(self, name):
+    def feature_enabled(self, name):  # Return the feature enabled.
         return bool(self.feature_flags.get(str(name), False))
 
-    def prompt(self, user_message):
+    def prompt(self, user_message):  # Return the prompt.
         prompt, _ = self._build_prompt_and_metadata(user_message)
         return prompt
 
-    def record(self, item):
+    def record(self, item):  # Record the requested operation.
         self.session["history"].append(self.turn_history.enrich(item))
         self.session_path = self.session_store.save(self.session)
 
-    def prompt_metadata(self, user_message, prompt):
+    def prompt_metadata(self, user_message, prompt):  # Return the prompt metadata.
         _, metadata = self._build_prompt_and_metadata(user_message)
         return metadata
 
-    def _build_prompt_and_metadata(self, user_message):
+    def _build_prompt_and_metadata(self, user_message):  # Build prompt and metadata.
         # 每次模型调用前都重新构建 prompt：先刷新稳定前缀，再交给 context_orchestrator
         # 根据历史、memory、上下文压力等信息产出最终 prompt 和可观测 metadata。
         refresh = self.refresh_prefix()
@@ -638,15 +638,15 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         result = self.context_orchestrator.build(snapshot)
         return result.prompt, result.metadata
 
-    def compact_history(self, trigger="manual", keep_recent_turns=2, summary_mode="deterministic"):
+    def compact_history(self, trigger="manual", keep_recent_turns=2, summary_mode="deterministic"):  # Compact history.
         return self.compact_manager.compact(
             trigger=trigger, keep_recent_turns=keep_recent_turns, summary_mode=summary_mode
         )
 
-    def durable_memory_index_text(self):
+    def durable_memory_index_text(self):  # Return the durable memory index text.
         return memorylib.load_memory_index_text(self.memory_dir)
 
-    def remember_durable_note(self, text):
+    def remember_durable_note(self, text):  # Remember durable note.
         path = memorylib.append_to_daily_log(self.memory_dir, text)
         if path:
             self.session_event_bus.emit(
@@ -659,26 +659,26 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             )
         return path
 
-    def memory_command_text(self):
+    def memory_command_text(self):  # Return the memory command text.
         index = self.durable_memory_index_text()
         if index:
             return index
         return "No durable memories yet. Use /remember <text> and /dream to consolidate daily logs."
 
-    def run_dream(self, quiet=False, session_ids=None):
+    def run_dream(self, quiet=False, session_ids=None):  # Run dream.
         return memorylib.run_dream(self, quiet=quiet, session_ids=session_ids)
 
-    def maintain_memory_after_turn(self, final_answer):
+    def maintain_memory_after_turn(self, final_answer):  # Maintain memory after turn.
         return memorylib.maintain_memory_after_turn(self, final_answer)
 
-    def wait_for_memory_maintenance(self, timeout=None):
+    def wait_for_memory_maintenance(self, timeout=None):  # Wait for memory maintenance.
         thread = self._memory_maintenance_thread
         if thread is None:
             return True
         thread.join(timeout=timeout)
         return not thread.is_alive()
 
-    def emit_trace(self, task_state, event, payload=None):
+    def emit_trace(self, task_state, event, payload=None):  # Emit trace.
         # trace 是一次 run 的事实流水线：先脱敏，再落盘，再通知 consumers 派生状态。
         payload = self.redact_artifact(payload or {})
         for path in payload.get("affected_paths", []) or []:
@@ -702,7 +702,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
                     task_state.evidence_summaries.setdefault("consumer_errors", []).append(error)
         self.run_store.write_task_state(task_state)
         return payload
-    def infer_next_step(self, task_state):
+    def infer_next_step(self, task_state):  # Infer next step.
         if task_state.status == "completed":
             return "No next step recorded."
         if task_state.stop_reason == "step_limit_reached":
@@ -753,10 +753,10 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         elif name in {"write_file", "patch_file"}:
             self.memory.invalidate_file_summary(canonical_path)
 
-    def note_tool(self, name, args, result):
+    def note_tool(self, name, args, result):  # Record the completed tool call.
         self.update_memory_after_tool(name, args, result)
 
-    def record_process_note_for_tool(self, name, metadata):
+    def record_process_note_for_tool(self, name, metadata):  # Record process note for tool.
         status = str(metadata.get("tool_status", "")).strip()
         if status not in {"partial_success", "error", "rejected"}:
             return
@@ -776,22 +776,22 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         self.memory.append_note(text, tags=tuple(tags), source=name, kind="process")
         self.session["memory"] = self.memory.to_dict()
 
-    def reject_durable_reason(self, note_text):
+    def reject_durable_reason(self, note_text):  # Reject durable reason.
         return memorylib.reject_durable_reason(note_text, redacted_value=REDACTED_VALUE)
 
-    def extract_durable_promotions(self, user_message, final_answer):
+    def extract_durable_promotions(self, user_message, final_answer):  # Extract durable promotions.
         return memorylib.extract_durable_promotions(
             user_message, final_answer, redacted_value=REDACTED_VALUE
         )
 
-    def promote_durable_memory(self, user_message, final_answer):
+    def promote_durable_memory(self, user_message, final_answer):  # Promote durable memory.
         return memorylib.promote_durable_memory(self, user_message, final_answer)
 
-    def ask(self, user_message):
+    def ask(self, user_message):  # Ask the requested operation.
         # TeddyCode 自身不实现控制循环；真正的模型/工具循环交给 Engine。
         return self.engine.ask(user_message)
 
-    def abort_current_turn(self):
+    def abort_current_turn(self):  # Abort the current turn.
         self.abort_requested = True
         abort = getattr(self.model_client, "abort", None)
         if callable(abort):
@@ -800,27 +800,27 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             except Exception:
                 pass
 
-    def ask_user(self, question, choices=None):
+    def ask_user(self, question, choices=None):  # Ask user.
         if self.ask_user_callback is None:
             return "error: ask_user requires interactive mode"
         choices = [str(choice) for choice in (choices or [])]
         return str(self.ask_user_callback(str(question), choices))
 
-    def resume_session(self, session_id):
+    def resume_session(self, session_id):  # Resume session.
         return resume_runtime_session(self, session_id)
 
-    def clear_session(self):
+    def clear_session(self):  # Clear session.
         return clear_runtime_session(self)
 
-    def run_tool(self, name, args):
+    def run_tool(self, name, args):  # Run tool.
         # 工具执行统一走 tool_executor，便于把校验、审批、策略和证据记录收在一起。
         return tool_executor.run_tool(self, name, args)
 
-    def repeated_tool_call(self, name, args):
+    def repeated_tool_call(self, name, args):  # Return the repeated tool call.
         return is_repeated_tool_call(self.session["history"], name, args)
 
     @staticmethod
-    def new_task_id():
+    def new_task_id():  # Return the new task id.
         return (
             "task_"
             + datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -829,7 +829,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         )
 
     @staticmethod
-    def new_run_id():
+    def new_run_id():  # Return the new run id.
         return (
             "run_"
             + datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -837,7 +837,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             + uuid.uuid4().hex[:6]
         )
 
-    def build_report(self, task_state):
+    def build_report(self, task_state):  # Build report.
         # report 是一次运行的最终摘要；
         return {
             "run_id": task_state.run_id,
@@ -866,17 +866,17 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             "workers": self.worker_manager.to_dict(),
         }
 
-    def tool_example(self, name):
+    def tool_example(self, name):  # Return the tool example.
         return toolkit.tool_example(name)
 
     def validate_tool(self, name, args):
         """把通用工具校验和 runtime 级额外约束串起来。"""
         toolkit.validate_tool(self, name, args)
 
-    def tool_run_shell(self, args):
+    def tool_run_shell(self, args):  # Return the tool run shell.
         return toolkit.tool_run_shell(self, args)
 
-    def approve(self, name, args):
+    def approve(self, name, args):  # Approve the requested operation.
         if self.read_only:
             return False
         if self.approval_policy == "auto":
@@ -898,7 +898,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
     extract = staticmethod(model_output.extract)
     extract_raw = staticmethod(model_output.extract_raw)
 
-    def reset(self):
+    def reset(self):  # Reset the requested operation.
         self.session["history"] = []
         self.session["memory"].clear()
         self.session["memory"].update(memorylib.default_memory_state())
@@ -908,7 +908,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
         self.self_authored_file_freshness.clear()
         self.session_store.save(self.session)
 
-    def path(self, raw_path):
+    def path(self, raw_path):  # Return the path.
         path = Path(raw_path)
         path = path if path.is_absolute() else self.root / path
         resolved = path.resolve()

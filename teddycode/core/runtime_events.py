@@ -26,7 +26,7 @@ PHASE_BY_EVENT = {
 }
 
 
-def build_runtime_event(runtime, task_state, event, payload):
+def build_runtime_event(runtime, task_state, event, payload):  # Build runtime event.
     payload = dict(payload or {})
     payload["event"] = str(event)
     payload["created_at"] = now()
@@ -48,7 +48,7 @@ def build_runtime_event(runtime, task_state, event, payload):
     return payload
 
 
-def _status_for(event, payload):
+def _status_for(event, payload):  # Return the status for.
     if "status" in payload:
         return str(payload.get("status") or "")
     if event == "tool_executed":
@@ -60,5 +60,5 @@ def _status_for(event, payload):
     return "ok"
 
 
-def _error_type(payload):
+def _error_type(payload):  # Return the error type.
     return str(payload.get("tool_error_code") or payload.get("security_event_type") or payload.get("error_type") or "")

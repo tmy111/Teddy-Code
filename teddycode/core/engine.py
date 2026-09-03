@@ -41,10 +41,10 @@ CHECKPOINT_WORKSPACE_MISMATCH_STATUS = "workspace-mismatch"
 class Engine:
     """单轮任务控制器：把用户请求推进成若干次模型调用和工具调用。"""
 
-    def __init__(self, runtime):
+    def __init__(self, runtime):  # Initialize the instance.
         self.runtime = runtime
 
-    def ask(self, user_message):
+    def ask(self, user_message):  # Ask the requested operation.
         # run_turn 会持续产出事件；ask() 只收集最终用户可见的 final/stop 文本。
         final_answer = ""
         for event in self.run_turn(user_message):
@@ -52,7 +52,7 @@ class Engine:
                 final_answer = event["content"]
         return final_answer
 #取出后台 worker 或子 agent 发来的通知，并让主模型在下一轮看到它们。
-    def drain_worker_notifications(self):
+    def drain_worker_notifications(self):  # Drain worker notifications.
         agent = self.runtime
         notifications = agent.worker_manager.drain_notifications()
         for notification in notifications:
@@ -66,7 +66,7 @@ class Engine:
             )
         return notifications
 
-    def _drain_worker_notification_events(self):
+    def _drain_worker_notification_events(self):  # Handle drain worker notification events.
         for notification in self.drain_worker_notifications():
             yield {
                 "type": "worker_notification",
@@ -74,7 +74,7 @@ class Engine:
                 "content": notification,
             }
 
-    def run_turn(self, user_message):
+    def run_turn(self, user_message):  # Run turn.
         agent = self.runtime
         run_started_at = time.monotonic()
         # 每个用户请求都会创建新的 task/run id，后续 trace、artifact、checkpoint 都挂在它下面。

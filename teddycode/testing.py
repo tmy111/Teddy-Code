@@ -4,13 +4,13 @@ from .providers.base import ModelResult
 
 
 class ScriptedModelClient:
-    def __init__(self, outputs):
+    def __init__(self, outputs):  # Initialize the instance.
         self.outputs = list(outputs)
         self.prompts = []
         self.supports_prompt_cache = False
         self.last_completion_metadata = {}
 
-    def complete(self, prompt, max_new_tokens, **kwargs):
+    def complete(self, prompt, max_new_tokens, **kwargs):  # Complete the requested operation.
         self.prompts.append(prompt)
         if not getattr(self, "last_completion_metadata", None):
             self.last_completion_metadata = {}
@@ -21,7 +21,7 @@ class ScriptedModelClient:
             raise output
         return output
 
-    def complete_result(self, prompt, max_new_tokens, **kwargs):
+    def complete_result(self, prompt, max_new_tokens, **kwargs):  # Complete result.
         return ModelResult(
             text=self.complete(prompt, max_new_tokens, **kwargs),
             metadata=dict(self.last_completion_metadata),

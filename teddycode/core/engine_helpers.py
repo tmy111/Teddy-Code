@@ -13,7 +13,7 @@ from ..providers.errors import ProviderError
 from .workspace import clip, now
 
 
-def execute_tool_payload(engine, task_state, user_message, payload):
+def execute_tool_payload(engine, task_state, user_message, payload):  # Execute tool payload.
     agent = engine.runtime
     name = payload.get("name", "")
     args = payload.get("args", {})
@@ -97,7 +97,7 @@ def execute_tool_payload(engine, task_state, user_message, payload):
     }
 
 
-def should_retry_model_error(exc, provider_retries):
+def should_retry_model_error(exc, provider_retries):  # Return whether to retry model error.
     if not isinstance(exc, ProviderError):
         return False
     code = str(getattr(exc, "code", "") or "")

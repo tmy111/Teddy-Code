@@ -4,7 +4,7 @@
 CONTEXT_BUDGET_SCHEMA = "teddycode.context_budget_summary.v1"
 
 
-def context_budget_summary(metadata):
+def context_budget_summary(metadata):  # Return the context budget summary.
     usage = dict(metadata.get("context_usage", {}) or {})
     orchestrator = dict(metadata.get("context_orchestrator", {}) or {})
     history = dict(metadata.get("history", {}) or {})
@@ -51,7 +51,7 @@ def context_budget_summary(metadata):
     }
 
 
-def update_from_orchestrator(summary, event):
+def update_from_orchestrator(summary, event):  # Update from orchestrator.
     summary = dict(summary or {})
     orchestrator = dict(event.get("context_orchestrator", {}) or {})
     usage = dict(event.get("context_usage", {}) or {})
@@ -79,12 +79,12 @@ def update_from_orchestrator(summary, event):
     return summary
 
 
-def _compact_call_usage(orchestrator):
+def _compact_call_usage(orchestrator):  # Compact call usage.
     usage = orchestrator.get("compact_call_usage")
     return dict(usage) if isinstance(usage, dict) else None
 
 
-def _compact_net_benefit(orchestrator, compact_call_usage):
+def _compact_net_benefit(orchestrator, compact_call_usage):  # Compact net benefit.
     if not compact_call_usage:
         return None
     pre_tokens = int(orchestrator.get("pre_compact_estimated_tokens", 0) or 0)
@@ -93,7 +93,7 @@ def _compact_net_benefit(orchestrator, compact_call_usage):
     return pre_tokens - post_tokens - compact_tokens
 
 
-def _saved_chars(metadata, history, orchestrator):
+def _saved_chars(metadata, history, orchestrator):  # Return the saved chars.
     section_saved = sum(
         _section_reduction(item)["saved_chars"]
         for item in metadata.get("budget_reductions", []) or []
@@ -105,7 +105,7 @@ def _saved_chars(metadata, history, orchestrator):
     )
 
 
-def _section_reduction(item):
+def _section_reduction(item):  # Return the section reduction.
     before = int(item.get("before_chars", 0) or 0)
     after = int(item.get("after_chars", 0) or 0)
     return {
@@ -115,7 +115,7 @@ def _section_reduction(item):
     }
 
 
-def _microcompact_reductions(metadata):
+def _microcompact_reductions(metadata):  # Return the microcompact reductions.
     history = dict(metadata.get("history", {}) or {})
     saved = int(history.get("microcompact_saved_chars", 0) or 0)
     refs = list(history.get("microcompact_artifact_refs", []) or [])

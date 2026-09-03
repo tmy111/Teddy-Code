@@ -18,7 +18,7 @@ class ContextReportBuilder:
     total_budget: int
     reduction_order: tuple[str, ...]
 
-    def build(self, prompt, rendered, budgets, reduction_log, selected_notes, user_message, section_texts):
+    def build(self, prompt, rendered, budgets, reduction_log, selected_notes, user_message, section_texts):  # Build the requested operation.
         section_metadata = {}
         for section in SECTION_ORDER[:-1]:
             section_metadata[section] = {
@@ -55,7 +55,7 @@ class ContextReportBuilder:
             "context_usage": ContextUsageAnalyzer(self.agent).analyze(rendered),
         }
 
-    def _relevant_memory_metadata(self, rendered, selected_notes):
+    def _relevant_memory_metadata(self, rendered, selected_notes):  # Return the relevant memory metadata.
         relevant = rendered["relevant_memory"]
         details = relevant.details or {}
         return {
@@ -73,7 +73,7 @@ class ContextReportBuilder:
             "rendered_count": int(details.get("rendered_count", 0)),
         }
 
-    def _history_metadata(self, rendered):
+    def _history_metadata(self, rendered):  # Return the history metadata.
         history = rendered["history"]
         details = history.details or {}
         return {
@@ -94,7 +94,7 @@ class ContextReportBuilder:
             "proposed_replacements": list(details.get("proposed_replacements", [])),
         }
 
-    def _skills_metadata(self):
+    def _skills_metadata(self):  # Return the skills metadata.
         skills = getattr(self.agent, "skills", {})
         items = [skill.metadata() for skill in skillslib.list_skills(skills, user_invocable_only=False)]
         return {

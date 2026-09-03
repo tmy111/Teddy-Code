@@ -4,28 +4,28 @@
 import re
 
 
-def _slug(value):
+def _slug(value):  # Return the slug.
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", str(value).strip().lower()).strip("-")
     return slug or "plan"
 
 
 class PlanModeManager:
-    def __init__(self, runtime):
+    def __init__(self, runtime):  # Initialize the instance.
         self.runtime = runtime
 
     @property
-    def state(self):
+    def state(self):  # Return the state.
         return self.runtime.session.setdefault("runtime_mode", {"mode": "default"})
 
     @property
-    def mode(self):
+    def mode(self):  # Return the mode.
         return str(self.state.get("mode", "default") or "default")
 
     @property
-    def plan_path(self):
+    def plan_path(self):  # Return the plan path.
         return str(self.state.get("plan_path", "") or "")
 
-    def enter(self, topic, path=None):
+    def enter(self, topic, path=None):  # Enter the requested operation.
         plan_path = _plan_path(topic, path)
         self.runtime.session["runtime_mode"] = {
             "mode": "plan",
@@ -43,7 +43,7 @@ class PlanModeManager:
         )
         return plan_path
 
-    def exit(self):
+    def exit(self):  # Handle exit.
         previous = dict(self.state)
         self.runtime.session["runtime_mode"] = {"mode": "default"}
         self.runtime.set_tool_profile("default")
@@ -60,16 +60,16 @@ class PlanModeManager:
             },
         )
 
-    def can_finish(self):
+    def can_finish(self):  # Return whether can finish.
         if self.mode != "plan":
             return True
         path = self.runtime.path(self.plan_path)
         return path.is_file() and bool(path.read_text(encoding="utf-8").strip())
 
-    def final_notice(self):
+    def final_notice(self):  # Return the final notice.
         return f"Plan mode requires writing the active plan artifact before final answer: {self.plan_path}"
 
-    def prompt_text(self):
+    def prompt_text(self):  # Return the prompt text.
         if self.mode != "plan":
             return ""
         return (
@@ -88,7 +88,7 @@ PlanModeController = PlanModeManager
 _PLAN_DIR_MARKER = "/.teddycode/plans/"
 
 
-def _plan_path(topic, path=None):
+def _plan_path(topic, path=None):  # Return the plan path.
     if path:
         value = str(path).strip()
         # 模型有时给绝对路径，如 /Users/u/repo/.teddycode/plans/foo；自动把它相对化。

@@ -20,23 +20,23 @@ class ToolPolicyDecision:
     message: str = ""
 
     @classmethod
-    def allow(cls, reason="policy_ok"):
+    def allow(cls, reason="policy_ok"):  # Return the allow.
         return cls("allow", reason)
 
     @classmethod
-    def deny(cls, reason, message):
+    def deny(cls, reason, message):  # Return the deny.
         return cls("deny", reason, message)
 
     @property
-    def allowed(self):
+    def allowed(self):  # Return the allowed.
         return self.decision == "allow"
 
 
 class ToolPolicyChecker:
-    def __init__(self, runtime):
+    def __init__(self, runtime):  # Initialize the instance.
         self.runtime = runtime
 
-    def check(self, tool, args):
+    def check(self, tool, args):  # Check the requested operation.
         args = args or {}
         if self.runtime.runtime_mode == "plan":
             return ToolPolicyDecision.allow("plan_mode")
@@ -55,7 +55,7 @@ class ToolPolicyChecker:
                 )
         return ToolPolicyDecision.allow()
 
-    def _has_fresh_read(self, path):
+    def _has_fresh_read(self, path):  # Return whether has fresh read.
         canonical = self.runtime.memory.canonical_path(path)
         summary = self.runtime.memory.to_dict().get("file_summaries", {}).get(canonical, {})
         if summary and summary.get("freshness") == memorylib.file_freshness(canonical, self.runtime.root):
@@ -64,7 +64,7 @@ class ToolPolicyChecker:
         return bool(freshness and freshness == memorylib.file_freshness(canonical, self.runtime.root))
 
     @staticmethod
-    def _prior_read_required(tool_name, path):
+    def _prior_read_required(tool_name, path):  # Return the prior read required.
         return ToolPolicyDecision.deny(
             "prior_read_required",
             f"error: {tool_name} requires a fresh read_file of {path} before modifying it",

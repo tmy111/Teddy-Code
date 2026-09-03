@@ -6,7 +6,7 @@ from .turn_transitions import emit_terminal_transition
 from .workspace import clip, now
 
 
-def finish_model_error(engine, task_state, user_message, prompt_metadata, exc, duration_ms, run_duration_ms):
+def finish_model_error(engine, task_state, user_message, prompt_metadata, exc, duration_ms, run_duration_ms):  # Finish model error.
     agent = engine.runtime
     error_metadata = _error_metadata(exc)
     prompt_metadata.update(error_metadata)
@@ -84,7 +84,7 @@ def finish_model_error(engine, task_state, user_message, prompt_metadata, exc, d
     }
 
 
-def _error_metadata(exc):
+def _error_metadata(exc):  # Return the error metadata.
     if isinstance(exc, ProviderError):
         return exc.to_metadata()
     return {

@@ -8,15 +8,15 @@ VALID_PRIORITY = {"low", "normal", "high"}
 
 
 class TodoLedger:
-    def __init__(self, runtime):
+    def __init__(self, runtime):  # Initialize the instance.
         self.runtime = runtime
         self.runtime.session.setdefault("todos", {"next_id": 1, "items": []})
 
     @property
-    def state(self):
+    def state(self):  # Return the state.
         return self.runtime.session.setdefault("todos", {"next_id": 1, "items": []})
 
-    def add(self, content, status="pending", priority="normal", note=""):
+    def add(self, content, status="pending", priority="normal", note=""):  # Add the requested operation.
         status = _clean_status(status)
         priority = _clean_priority(priority)
         todo_id = f"todo_{int(self.state.get('next_id', 1))}"
@@ -34,7 +34,7 @@ class TodoLedger:
         self._record_change("add", item)
         return item
 
-    def update(self, todo_id, **changes):
+    def update(self, todo_id, **changes):  # Update the requested operation.
         item = self.get(todo_id)
         for key in ("content", "note"):
             if key in changes and changes[key] is not None:
@@ -47,13 +47,13 @@ class TodoLedger:
         self._record_change("update", item)
         return item
 
-    def get(self, todo_id):
+    def get(self, todo_id):  # Return the requested.
         for item in self.state.setdefault("items", []):
             if item.get("id") == str(todo_id):
                 return item
         raise ValueError(f"unknown todo_id: {todo_id}")
 
-    def render_list(self):
+    def render_list(self):  # Render list.
         items = list(self.state.setdefault("items", []))
         if not items:
             return "Task ledger:\n- empty"
@@ -63,13 +63,13 @@ class TodoLedger:
             lines.append(f"- {item['id']} [{item['status']}] {item['priority']} - {item['content']}{note}")
         return "\n".join(lines)
 
-    def render_prompt(self):
+    def render_prompt(self):  # Render prompt.
         return self.render_list()
 
-    def to_dict(self):
+    def to_dict(self):  # Return the to dict.
         return {"next_id": int(self.state.get("next_id", 1)), "items": [dict(item) for item in self.state.get("items", [])]}
 
-    def _record_change(self, action, item):
+    def _record_change(self, action, item):  # Record change.
         payload = {"action": action, "todo": dict(item)}
         task_state = getattr(self.runtime, "current_task_state", None)
         if task_state is not None:
@@ -78,14 +78,14 @@ class TodoLedger:
         self.runtime.session_path = self.runtime.session_store.save(self.runtime.session)
 
 
-def _clean_status(value):
+def _clean_status(value):  # Clean status.
     status = str(value or "pending").strip()
     if status not in VALID_STATUS:
         raise ValueError(f"status must be one of {', '.join(sorted(VALID_STATUS))}")
     return status
 
 
-def _clean_priority(value):
+def _clean_priority(value):  # Clean priority.
     priority = str(value or "normal").strip()
     if priority not in VALID_PRIORITY:
         raise ValueError(f"priority must be one of {', '.join(sorted(VALID_PRIORITY))}")

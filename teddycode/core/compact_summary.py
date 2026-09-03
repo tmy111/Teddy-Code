@@ -21,7 +21,7 @@ REJECTED_PATTERNS = (
 )
 
 
-def summarize_compact_items(items, prior_text=""):
+def summarize_compact_items(items, prior_text=""):  # Summarize compact items.
     evidence = _collect_evidence(items)
     summary = "\n".join(
         [
@@ -43,7 +43,7 @@ def summarize_compact_items(items, prior_text=""):
     return summary[:1997].rstrip() + "..." if len(summary) > 2000 else summary
 
 
-def _collect_evidence(items):
+def _collect_evidence(items):  # Collect evidence.
     evidence = {
         "goal": "-",
         "user_constraints": [],
@@ -71,19 +71,19 @@ def _collect_evidence(items):
     return evidence
 
 
-def _collect_artifact(item, evidence):
+def _collect_artifact(item, evidence):  # Collect artifact.
     artifact_ref = str(item.get("artifact_ref", "")).strip()
     if artifact_ref and artifact_ref not in evidence["critical_artifacts"]:
         evidence["critical_artifacts"].append(artifact_ref)
 
 
-def _collect_user_constraints(item, evidence):
+def _collect_user_constraints(item, evidence):  # Collect user constraints.
     for sentence in _sentences(item.get("content", "")):
         if _matches(sentence, CONSTRAINT_PATTERNS):
             _add_unique(evidence["user_constraints"], sentence, 5)
 
 
-def _collect_assistant_evidence(item, evidence):
+def _collect_assistant_evidence(item, evidence):  # Collect assistant evidence.
     for sentence in _sentences(item.get("content", "")):
         if _matches(sentence, DECISION_PATTERNS):
             _add_unique(evidence["key_decisions"], sentence, 3)
@@ -92,7 +92,7 @@ def _collect_assistant_evidence(item, evidence):
             _add_unique(evidence["rejected_paths"], sentence, 3)
 
 
-def _collect_tool_evidence(item, evidence):
+def _collect_tool_evidence(item, evidence):  # Collect tool evidence.
     path = str(item.get("args", {}).get("path", "")).strip()
     if item.get("name") == "read_file" and path:
         evidence["files_read"].append(path)
@@ -100,21 +100,21 @@ def _collect_tool_evidence(item, evidence):
         evidence["files_modified"].append(path)
 
 
-def _sentences(text):
+def _sentences(text):  # Return the sentences.
     parts = re.split(r"[。！？!?]+|\n+|\.(?:\s+|$)", str(text))
     return [part.strip(" \t\r\n:;,.，；、") for part in parts if part.strip()]
 
 
-def _matches(text, patterns):
+def _matches(text, patterns):  # Return whether matches.
     lowered = text.lower()
     return any(str(pattern).lower() in lowered for pattern in patterns)
 
 
-def _add_unique(values, value, limit):
+def _add_unique(values, value, limit):  # Add unique.
     value = value.strip()
     if value and value not in values and len(values) < limit:
         values.append(value)
 
 
-def _joined(values):
+def _joined(values):  # Return the joined.
     return "; ".join(values) if values else "-"

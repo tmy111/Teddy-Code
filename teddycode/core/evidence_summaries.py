@@ -16,7 +16,7 @@ from .turn_transitions import reduce_transition_summary
 from .verification import reduce_verification_signal
 
 
-def update_evidence_summaries(summaries, event, changed_paths=None):
+def update_evidence_summaries(summaries, event, changed_paths=None):  # Update evidence summaries.
     summaries = dict(summaries or {})
     if event.get("event") == "loop_transition":
         summaries["transition_summary"] = reduce_transition_summary(

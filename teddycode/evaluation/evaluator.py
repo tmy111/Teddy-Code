@@ -112,7 +112,7 @@ SCRIPTED_MODEL_OUTPUTS = {
 }
 
 
-def _git_value(args, fallback="", cwd=None):
+def _git_value(args, fallback="", cwd=None):  # Return the git value.
     try:
         result = subprocess.run(
             ["git", *args],
@@ -127,11 +127,11 @@ def _git_value(args, fallback="", cwd=None):
         return fallback
 
 
-def _current_locale():
+def _current_locale():  # Return the current locale.
     return "C.UTF-8"
 
 
-def _verifier_command(command):
+def _verifier_command(command):  # Return the verifier command.
     if os.name != "nt":
         return str(command)
     for prefix in ("python3 ", "python "):
@@ -140,29 +140,29 @@ def _verifier_command(command):
     return str(command)
 
 
-def _now_in_timezone(timezone_name):
+def _now_in_timezone(timezone_name):  # Return the now in timezone.
     return datetime.now(ZoneInfo(timezone_name)).strftime("%Y-%m-%dT%H:%M:%S%z")
 
 
-def _artifact_path_for_task(task):
+def _artifact_path_for_task(task):  # Return the artifact path for task.
     fixture_repo_name = Path(str(task["fixture_repo"])).name
     if fixture_repo_name not in TASK_FIXTURE_ARTIFACTS:
         raise ValueError(f"unsupported fixture repo for artifact lookup: {fixture_repo_name}")
     return TASK_FIXTURE_ARTIFACTS[fixture_repo_name]
 
 
-def _workspace_relative(path, workspace_root):
+def _workspace_relative(path, workspace_root):  # Return the workspace relative.
     return str(Path(path).resolve().relative_to(Path(workspace_root).resolve()))
 
 
-def _scripted_outputs_for_task(task):
+def _scripted_outputs_for_task(task):  # Return the scripted outputs for task.
     outputs = SCRIPTED_MODEL_OUTPUTS.get(task["id"])
     if outputs is None:
         raise ValueError(f"no scripted model outputs for benchmark task: {task['id']}")
     return list(outputs)
 
 
-def _fixture_snapshot_id(fixture_paths):
+def _fixture_snapshot_id(fixture_paths):  # Return the fixture snapshot id.
     sha = hashlib.sha256()
     for fixture_path in sorted({Path(path).resolve() for path in fixture_paths}, key=lambda path: str(path)):
         for path in sorted((item for item in fixture_path.rglob("*") if item.is_file()), key=lambda item: str(item.relative_to(fixture_path))):
@@ -175,7 +175,7 @@ def _fixture_snapshot_id(fixture_paths):
     return "sha256:" + sha.hexdigest()
 
 
-def validate_benchmark(data, repo_root=None):
+def validate_benchmark(data, repo_root=None):  # Validate benchmark.
     if not isinstance(data, dict):
         raise ValueError("benchmark must be a mapping")
 
@@ -245,7 +245,7 @@ def validate_benchmark(data, repo_root=None):
     return normalized
 
 
-def load_benchmark(path=DEFAULT_BENCHMARK_PATH, repo_root=None):
+def load_benchmark(path=DEFAULT_BENCHMARK_PATH, repo_root=None):  # Load benchmark.
     path = Path(path)
     data = json.loads(path.read_text(encoding="utf-8"))
     if repo_root is None:
@@ -253,7 +253,7 @@ def load_benchmark(path=DEFAULT_BENCHMARK_PATH, repo_root=None):
     return validate_benchmark(data, repo_root=repo_root)
 
 
-def summarize_rows(rows):
+def summarize_rows(rows):  # Summarize rows.
     rows = list(rows)
     passed = sum(1 for row in rows if row.get("passed") or row.get("status") == "pass")
     failed = len(rows) - passed
@@ -291,7 +291,7 @@ def _checkpoint_payload(
     key_files=None,
     freshness=None,
     summary="",
-):
+):  # Return the checkpoint payload.
     return {
         "checkpoint_id": checkpoint_id,
         "parent_checkpoint_id": "",
@@ -309,7 +309,7 @@ def _checkpoint_payload(
     }
 
 
-def _apply_task_setup(agent, task, fixture_copy_root):
+def _apply_task_setup(agent, task, fixture_copy_root):  # Apply task setup.
     setup = dict(task.get("setup", {}) or {})
     if not setup:
         return
@@ -397,7 +397,7 @@ class BenchmarkEvaluator:
         max_new_tokens=DEFAULT_MAX_NEW_TOKENS,
         timezone_name=DEFAULT_TIMEZONE,
         model_client_factory=None,
-    ):
+    ):  # Initialize the instance.
         self.benchmark_path = Path(benchmark_path)
         self.artifact_path = Path(artifact_path)
         self.workspace_root = Path(workspace_root) if workspace_root is not None else Path(
@@ -412,10 +412,10 @@ class BenchmarkEvaluator:
         self.model_client_factory = model_client_factory
         self.repo_root = self.benchmark_path.resolve().parent.parent
 
-    def load(self):
+    def load(self):  # Load the requested operation.
         return load_benchmark(self.benchmark_path, repo_root=self.repo_root)
 
-    def run(self):
+    def run(self):  # Run the requested operation.
         benchmark = self.load()
         rows = [self.run_task(task) for task in benchmark["tasks"]]
         summary = summarize_rows(rows)
@@ -451,7 +451,7 @@ class BenchmarkEvaluator:
         self._write_artifact(artifact)
         return artifact
 
-    def run_task(self, task):
+    def run_task(self, task):  # Run task.
         task = dict(task)
         fixture_source = self.repo_root / task["fixture_repo"]
         fixture_copy_root = self.workspace_root / task["id"] / fixture_source.name
@@ -564,7 +564,7 @@ class BenchmarkEvaluator:
         verifier_passed,
         expected_artifact_exists,
         non_failure_stop_reason,
-    ):
+    ):  # Return the failure category.
         if not expected_artifact_exists:
             return "missing_artifact"
         if not within_budget:
@@ -575,12 +575,12 @@ class BenchmarkEvaluator:
             return "failure_stop_reason"
         return "unknown"
 
-    def _write_artifact(self, artifact):
+    def _write_artifact(self, artifact):  # Write artifact.
         self.artifact_path.parent.mkdir(parents=True, exist_ok=True)
         self.artifact_path.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _digest_file(path):
+def _digest_file(path):  # Return the digest file.
     return "sha256:" + hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
@@ -595,7 +595,7 @@ def run_fixed_benchmark(
     max_new_tokens=DEFAULT_MAX_NEW_TOKENS,
     timezone_name=DEFAULT_TIMEZONE,
     model_client_factory=None,
-):
+):  # Run fixed benchmark.
     evaluator = BenchmarkEvaluator(
         benchmark_path=benchmark_path,
         artifact_path=artifact_path,
@@ -622,7 +622,7 @@ def run_harness_regression_v2(
     max_new_tokens=DEFAULT_MAX_NEW_TOKENS,
     timezone_name=DEFAULT_TIMEZONE,
     model_client_factory=None,
-):
+):  # Run harness regression v2.
     return run_fixed_benchmark(
         benchmark_path=benchmark_path,
         artifact_path=artifact_path,

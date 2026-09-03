@@ -16,7 +16,7 @@ IDENTITY_KEYS = (
 )
 
 
-def _optional_int(value):
+def _optional_int(value):  # Return the optional int.
     if value is None:
         return None
     try:
@@ -37,17 +37,17 @@ class ContextPressure:
     cached_tokens: int | None = None
 
     @property
-    def pressure_ratio(self):
+    def pressure_ratio(self):  # Return the pressure ratio.
         budget = max(1, int(self.budget_tokens or 0))
         return round(max(0, int(self.input_tokens or 0)) / budget, 6)
 
     @property
-    def window_ratio(self):
+    def window_ratio(self):  # Return the window ratio.
         window = max(1, int(self.context_window or 0))
         return round(max(0, int(self.input_tokens or 0)) / window, 6)
 
     @property
-    def pressure_tier(self):
+    def pressure_tier(self):  # Return the pressure tier.
         ratio = self.pressure_ratio
         if ratio >= 0.95:
             return "tier3_summary"
@@ -57,7 +57,7 @@ class ContextPressure:
             return "tier1_snip"
         return "tier0_observe"
 
-    def to_context_usage_fields(self):
+    def to_context_usage_fields(self):  # Return the to context usage fields.
         return {
             "pressure_ratio": self.pressure_ratio,
             "window_ratio": self.window_ratio,
@@ -81,7 +81,7 @@ class ContextPressureController:
         current_identity,
         last_completion_metadata=None,
         last_identity=None,
-    ):
+    ):  # Evaluate the requested operation.
         estimated = max(0, int(estimated_input_tokens or 0))
         window = max(1, int(context_window or 0))
         budget = int(budget_tokens or 0) or window
@@ -116,7 +116,7 @@ class ContextPressureController:
             cached_tokens=cached,
         )
 
-    def _identity_matches(self, current_identity, metadata, last_identity):
+    def _identity_matches(self, current_identity, metadata, last_identity):  # Return the identity matches.
         current = dict(current_identity or {})
         previous = dict(last_identity or {})
         previous.update({key: metadata[key] for key in IDENTITY_KEYS if key in metadata})

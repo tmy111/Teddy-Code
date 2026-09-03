@@ -11,7 +11,7 @@ if str(ROOT) not in sys.path:
 from teddycode.evaluation.metrics import collect_resume_metrics, render_resume_metrics_markdown  # noqa: E402
 
 
-def build_arg_parser():
+def build_arg_parser():  # Build arg parser.
     parser = argparse.ArgumentParser(description="Collect teddycode resume metrics from benchmark and run artifacts.")
     parser.add_argument("--benchmark-artifact", required=True, help="Path to benchmark artifact JSON.")
     parser.add_argument("--runs-root", required=True, help="Path to .teddycode/runs root.")
@@ -27,7 +27,7 @@ def build_arg_parser():
     return parser
 
 
-def main(argv=None):
+def main(argv=None):  # Run the command-line entry point.
     args = build_arg_parser().parse_args(argv)
     metrics = collect_resume_metrics(
         args.benchmark_artifact,

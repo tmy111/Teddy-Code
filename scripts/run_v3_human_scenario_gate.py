@@ -55,7 +55,7 @@ class ScenarioResult:
 
 
 class HumanScenarioRunner:
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, args: argparse.Namespace):  # Initialize the instance.
         self.args = args
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         self.output_dir = Path(args.output_dir or Path("/tmp") / "teddycode-v3-human-scenarios" / stamp).resolve()
@@ -71,7 +71,7 @@ class HumanScenarioRunner:
         self.workspaces_dir.mkdir(parents=True, exist_ok=True)
         self.config = Path(args.config).expanduser().resolve()
 
-    def run(self) -> dict:
+    def run(self) -> dict:  # Run the requested operation.
         selected = set(self.args.scenarios or [])
         gate_scenarios = [
             self.r01_student_management,
@@ -164,7 +164,7 @@ class HumanScenarioRunner:
             self._write_incremental_summary(results)
         return self._write_summary(results)
 
-    def r01_student_management(self) -> ScenarioResult:
+    def r01_student_management(self) -> ScenarioResult:  # Run the student management scenario.
         workspace = self._fresh_workspace("r01")
         prompt = (
             "你在一个空 Python workspace。严格按步骤执行，每次只返回一个 <tool> 或最后一个 <final>："
@@ -183,7 +183,7 @@ class HumanScenarioRunner:
         checks.extend(self.run_artifact_checks(workspace, require_completed=True, require_changed_paths=True))
         return self.result("R01", "学生管理系统 CRUD 脚手架", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def r02_order_pricing_bugfix(self) -> ScenarioResult:
+    def r02_order_pricing_bugfix(self) -> ScenarioResult:  # Run the order pricing bugfix scenario.
         workspace = self._fresh_workspace("r02")
         src = workspace / "src"
         tests = workspace / "tests"
@@ -219,7 +219,7 @@ class HumanScenarioRunner:
         checks.extend(self.trace_has_tools(workspace, ["read_file", "patch_file", "run_shell"]))
         return self.result("R02", "订单价格折扣 bugfix", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def r03_release_readiness_skill(self) -> ScenarioResult:
+    def r03_release_readiness_skill(self) -> ScenarioResult:  # Run the release readiness skill scenario.
         workspace = self._fresh_workspace("r03")
         (workspace / "README.md").write_text("# Billing API\n\nRelease candidate.\n", encoding="utf-8")
         (workspace / ".env.example").write_text("DATABASE_URL=\nSTRIPE_API_KEY=\n", encoding="utf-8")
@@ -254,7 +254,7 @@ allowed-tools: read_file, write_file
         checks.extend(self.events_have(workspace, "skill_completed"))
         return self.result("R03", "发布就绪审查报告", "REPL project skill / DeepSeek", workspace, [command], checks)
 
-    def r04_incident_resume_fix(self) -> ScenarioResult:
+    def r04_incident_resume_fix(self) -> ScenarioResult:  # Run the incident resume fix scenario.
         workspace = self._fresh_workspace("r04")
         src = workspace / "src"
         tests = workspace / "tests"
@@ -312,7 +312,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("R04", "线上事故续接修复", "two one-shot CLI runs / DeepSeek", workspace, [first, second], checks)
 
-    def r05_approval_inventory_importer(self) -> ScenarioResult:
+    def r05_approval_inventory_importer(self) -> ScenarioResult:  # Run the approval inventory importer scenario.
         workspace = self._fresh_workspace("r05")
         prompt = (
             "写库存 CSV 导入器。严格按步骤执行，每次只返回一个 <tool> 或最后一个 <final>："
@@ -340,7 +340,7 @@ allowed-tools: read_file, write_file
         checks.extend(self.events_have(workspace, "permission_decision"))
         return self.result("R05", "库存 CSV 导入器审批路径", "one-shot CLI approval prompt / DeepSeek", workspace, [command], checks)
 
-    def s07_repl_help(self) -> ScenarioResult:
+    def s07_repl_help(self) -> ScenarioResult:  # Run the repl help scenario.
         workspace = self._fresh_workspace("s07")
         command = self.run_teddycode("S07", workspace, repl_input="/help\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
@@ -352,7 +352,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S07", "--repl + /help", "PTY-style stdin REPL", workspace, [command], checks)
 
-    def s06_tty_default_tui(self) -> ScenarioResult:
+    def s06_tty_default_tui(self) -> ScenarioResult:  # Run the tty default tui scenario.
         workspace = self._fresh_workspace("s06")
         command = self.run_teddycode_tty_smoke("S06", workspace, timeout=6)
         stdout = self.read_log(command.stdout_path)
@@ -364,7 +364,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S06", "TTY 默认进入 TUI", "PTY TUI smoke", workspace, [command], checks)
 
-    def s08_prompt_one_shot(self) -> ScenarioResult:
+    def s08_prompt_one_shot(self) -> ScenarioResult:  # Run the prompt one shot scenario.
         workspace = self._fresh_workspace("s08")
         (workspace / "README.md").write_text("# One shot\n\nTeddyCode one-shot fixture.\n", encoding="utf-8")
         prompt = "请只读 README 并返回 final。先 read_file README.md start=1 end=20，然后 <final>one-shot ok</final>。"
@@ -377,7 +377,7 @@ allowed-tools: read_file, write_file
         checks.extend(self.trace_has_tools(workspace, ["read_file"]))
         return self.result("S08", "prompt 参数走 one-shot", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s09_piped_stdin_repl(self) -> ScenarioResult:
+    def s09_piped_stdin_repl(self) -> ScenarioResult:  # Run the piped stdin repl scenario.
         workspace = self._fresh_workspace("s09")
         command = self.run_teddycode("S09", workspace, repl_input="/help\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
@@ -388,7 +388,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S09", "piped stdin 使用 REPL", "piped stdin REPL", workspace, [command], checks)
 
-    def s10_slash_suggestion_registry(self) -> ScenarioResult:
+    def s10_slash_suggestion_registry(self) -> ScenarioResult:  # Run the slash suggestion registry scenario.
         workspace = self._fresh_workspace("s10")
         command = self.run_python(
             "S10",
@@ -404,7 +404,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S10", "TUI slash suggestion", "slash registry check", workspace, [command], checks)
 
-    def s11_session_status(self) -> ScenarioResult:
+    def s11_session_status(self) -> ScenarioResult:  # Run the session status scenario.
         workspace = self._fresh_workspace("s11")
         command = self.run_teddycode("S11", workspace, repl_input="/plan refactor-auth\n/session\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
@@ -416,7 +416,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S11", "/session 展示 runtime 状态", "PTY REPL slash command", workspace, [command], checks)
 
-    def s12_usage_metadata(self) -> ScenarioResult:
+    def s12_usage_metadata(self) -> ScenarioResult:  # Run the usage metadata scenario.
         workspace = self._fresh_workspace("s12")
         first = self.run_teddycode(
             "S12-task",
@@ -436,7 +436,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S12", "/usage 展示 provider metadata", "one-shot + REPL resume", workspace, [first, second], checks)
 
-    def s13_model_runtime_switch(self) -> ScenarioResult:
+    def s13_model_runtime_switch(self) -> ScenarioResult:  # Run the model runtime switch scenario.
         workspace = self._fresh_workspace("s13")
         command = self.run_teddycode("S13", workspace, repl_input="/model gpt-test-local\n/model\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
@@ -447,7 +447,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S13", "/model 只改当前 runtime", "PTY REPL slash command", workspace, [command], checks)
 
-    def s14_clear_new_session(self) -> ScenarioResult:
+    def s14_clear_new_session(self) -> ScenarioResult:  # Run the clear new session scenario.
         workspace = self._fresh_workspace("s14")
         command = self.run_teddycode("S14", workspace, repl_input="/session\n/clear\n/session\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
@@ -459,7 +459,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S14", "/clear 开新 session", "PTY REPL slash command", workspace, [command], checks)
 
-    def s15_plan_mode_active_artifact(self) -> ScenarioResult:
+    def s15_plan_mode_active_artifact(self) -> ScenarioResult:  # Run the plan mode active artifact scenario.
         workspace = self._fresh_workspace("s15")
         prompt = (
             "请验证 plan mode 写保护。你必须先返回这个工具调用，不要解释："
@@ -497,7 +497,7 @@ allowed-tools: read_file, write_file
         checks.extend(self.events_have(workspace, "permission_decision", reason="plan_mode_path_mismatch"))
         return self.result("S15", "plan mode 只能写 active plan", "REPL + resume / DeepSeek", workspace, commands, checks)
 
-    def s16_plan_final_gate(self) -> ScenarioResult:
+    def s16_plan_final_gate(self) -> ScenarioResult:  # Run the plan final gate scenario.
         workspace = self._fresh_workspace("s16")
         prompt = (
             "先只返回 <final>plan verbally complete</final>。如果 runtime 提醒不能 final，"
@@ -513,7 +513,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S16", "未写计划不能 final", "PTY REPL / DeepSeek", workspace, [command], checks)
 
-    def s17_absolute_plan_path(self) -> ScenarioResult:
+    def s17_absolute_plan_path(self) -> ScenarioResult:  # Run the absolute plan path scenario.
         workspace = self._fresh_workspace("s17")
         absolute_plan = workspace / ".teddycode" / "plans" / "student-plan.md"
         prompt = "write_file .teddycode/plans/student-plan.md，内容为 # Student Plan，然后 final。"
@@ -533,7 +533,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S17", "absolute plan path 自动归一", "PTY REPL / DeepSeek", workspace, [command], checks)
 
-    def s18_plan_path_escape_rejected(self) -> ScenarioResult:
+    def s18_plan_path_escape_rejected(self) -> ScenarioResult:  # Run the plan path escape rejected scenario.
         workspace = self._fresh_workspace("s18")
         command = self.run_teddycode("S18", workspace, repl_input="/plan student .teddycode/plans/../escape.md\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
@@ -544,7 +544,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S18", "越界 plan path 被拒", "PTY REPL slash command", workspace, [command], checks)
 
-    def s19_plan_allows_explore(self) -> ScenarioResult:
+    def s19_plan_allows_explore(self) -> ScenarioResult:  # Run the plan allows explore scenario.
         workspace = self._fresh_workspace("s19")
         (workspace / "README.md").write_text("# Payments\n\nExplore me.\n", encoding="utf-8")
         prompt = (
@@ -562,7 +562,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S19", "plan mode 允许 Explore 子 agent", "PTY REPL / DeepSeek", workspace, [command], checks)
 
-    def s20_plan_rejects_worker_write(self) -> ScenarioResult:
+    def s20_plan_rejects_worker_write(self) -> ScenarioResult:  # Run the plan rejects worker write scenario.
         workspace = self._fresh_workspace("s20")
         command = self.run_teddycode(
             "S20",
@@ -578,7 +578,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S20", "plan mode 禁止 worker 写入", "PTY REPL slash command", workspace, [command], checks)
 
-    def s21_prior_read_required(self) -> ScenarioResult:
+    def s21_prior_read_required(self) -> ScenarioResult:  # Run the prior read required scenario.
         workspace = self._fresh_workspace("s21")
         (workspace / "README.md").write_text("hello world\n", encoding="utf-8")
         prompt = (
@@ -597,7 +597,7 @@ allowed-tools: read_file, write_file
         checks.extend(self.report_has_runtime_reminder(workspace, "prior_read_required"))
         return self.result("S21", "改文件前必须先读", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s22_new_file_then_overwrite_requires_read(self) -> ScenarioResult:
+    def s22_new_file_then_overwrite_requires_read(self) -> ScenarioResult:  # Run the new file then overwrite requires read scenario.
         workspace = self._fresh_workspace("s22")
         (workspace / "README.md").write_text("old readme\n", encoding="utf-8")
         prompt = (
@@ -616,7 +616,7 @@ allowed-tools: read_file, write_file
         checks.extend(self.report_has_runtime_reminder(workspace, "prior_read_required"))
         return self.result("S22", "新文件可直接写，覆盖必须读", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s23_self_authored_patch(self) -> ScenarioResult:
+    def s23_self_authored_patch(self) -> ScenarioResult:  # Run the self authored patch scenario.
         workspace = self._fresh_workspace("s23")
         prompt = (
             "严格按步骤执行：1) write_file scripts/check.py 内容 `VALUE = False\\n`。"
@@ -632,7 +632,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S23", "自己刚写的文件可 patch", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s24_shell_search_denied(self) -> ScenarioResult:
+    def s24_shell_search_denied(self) -> ScenarioResult:  # Run the shell search denied scenario.
         workspace = self._fresh_workspace("s24")
         (workspace / "README.md").write_text("TODO: search target\n", encoding="utf-8")
         prompt = "严格先调用 run_shell 命令 `grep -R TODO .`。如果被拒绝，调用 search pattern='TODO' path='.'，然后 final。"
@@ -644,7 +644,7 @@ allowed-tools: read_file, write_file
         checks.extend(self.events_have(workspace, "tool_policy_decision", reason="shell_search_should_use_tool"))
         return self.result("S24", "shell 搜索类命令被拒", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s25_pipe_output_management_allowed(self) -> ScenarioResult:
+    def s25_pipe_output_management_allowed(self) -> ScenarioResult:  # Run the pipe output management allowed scenario.
         workspace = self._fresh_workspace("s25")
         command_text = f"{json.dumps(sys.executable)} --version 2>&1 | head -3"
         prompt = (
@@ -660,7 +660,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S25", "pipe 后 head/tail/grep 用于输出管理允许", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s26_long_shell_output_artifact(self) -> ScenarioResult:
+    def s26_long_shell_output_artifact(self) -> ScenarioResult:  # Run the long shell output artifact scenario.
         workspace = self._fresh_workspace("s26")
         command_text = f"{json.dumps(sys.executable)} -c \"print('x'*6000)\""
         prompt = (
@@ -677,7 +677,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S26", "长 shell 输出落 artifact", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s27_approval_never_rejects_risky_tool(self) -> ScenarioResult:
+    def s27_approval_never_rejects_risky_tool(self) -> ScenarioResult:  # Run the approval never rejects risky tool scenario.
         workspace = self._fresh_workspace("s27")
         prompt = "严格调用 write_file denied.txt 内容 no，然后 final。"
         command = self.run_teddycode("S27", workspace, prompt=prompt, approval="never", max_steps=3, max_new_tokens=768, timeout=240)
@@ -688,7 +688,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S27", "approval never 拒绝 risky tool", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s28_sandbox_required_fails_closed(self) -> ScenarioResult:
+    def s28_sandbox_required_fails_closed(self) -> ScenarioResult:  # Run the sandbox required fails closed scenario.
         workspace = self._fresh_workspace("s28")
         prompt = "严格调用 run_shell `echo hi`，然后 final。"
         command = self.run_teddycode(
@@ -708,7 +708,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S28", "sandbox required 缺 backend fail closed", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s29_sandbox_best_effort_degrades(self) -> ScenarioResult:
+    def s29_sandbox_best_effort_degrades(self) -> ScenarioResult:  # Run the sandbox best effort degrades scenario.
         workspace = self._fresh_workspace("s29")
         prompt = "严格调用 run_shell `echo hi`，然后 final。"
         command = self.run_teddycode(
@@ -728,7 +728,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S29", "sandbox best_effort degrade 可见", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s30_skills_list_local(self) -> ScenarioResult:
+    def s30_skills_list_local(self) -> ScenarioResult:  # Run the skills list local scenario.
         workspace = self._fresh_workspace("s30")
         command = self.run_teddycode("S30", workspace, repl_input="/skills\n/exit\n", timeout=120)
         stdout = self.read_log(command.stdout_path)
@@ -739,7 +739,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S30", "/skills 不调用模型", "PTY REPL slash command", workspace, [command], checks)
 
-    def s31_builtin_review_with_arguments(self) -> ScenarioResult:
+    def s31_builtin_review_with_arguments(self) -> ScenarioResult:  # Run the builtin review with arguments scenario.
         workspace = self._fresh_workspace("s31")
         command = self.run_teddycode(
             "S31",
@@ -757,7 +757,7 @@ allowed-tools: read_file, write_file
         ]
         return self.result("S31", "内置 /review 带参数", "PTY REPL builtin skill / DeepSeek", workspace, [command], checks)
 
-    def s32_project_skill_arguments(self) -> ScenarioResult:
+    def s32_project_skill_arguments(self) -> ScenarioResult:  # Run the project skill arguments scenario.
         workspace = self._fresh_workspace("s32")
         skill_dir = workspace / ".teddycode" / "skills" / "deploy"
         skill_dir.mkdir(parents=True)
@@ -781,7 +781,7 @@ argument-hint: target
         checks.extend(self.events_have(workspace, "skill_invoked"))
         return self.result("S32", "项目 skill 参数替换", "REPL slash skill / DeepSeek", workspace, [command], checks)
 
-    def s33_skill_allowed_tools_restricts_write(self) -> ScenarioResult:
+    def s33_skill_allowed_tools_restricts_write(self) -> ScenarioResult:  # Run the skill allowed tools restricts write scenario.
         workspace = self._fresh_workspace("s33")
         skill_dir = workspace / ".teddycode" / "skills" / "readonly"
         skill_dir.mkdir(parents=True)
@@ -803,7 +803,7 @@ allowed-tools: read_file
         ]
         return self.result("S33", "allowed-tools 限制写操作", "PTY REPL project skill / DeepSeek", workspace, [command], checks)
 
-    def s34_fork_skill_keeps_parent_history(self) -> ScenarioResult:
+    def s34_fork_skill_keeps_parent_history(self) -> ScenarioResult:  # Run the fork skill keeps parent history scenario.
         workspace = self._fresh_workspace("s34")
         skill_dir = workspace / ".teddycode" / "skills" / "inspect"
         skill_dir.mkdir(parents=True)
@@ -827,7 +827,7 @@ context: fork
         ]
         return self.result("S34", "fork skill 不污染主 history", "one-shot + REPL fork skill", workspace, [first, second], checks)
 
-    def s35_prompt_only_skill(self) -> ScenarioResult:
+    def s35_prompt_only_skill(self) -> ScenarioResult:  # Run the prompt only skill scenario.
         workspace = self._fresh_workspace("s35")
         skill_dir = workspace / ".teddycode" / "skills" / "template"
         skill_dir.mkdir(parents=True)
@@ -851,7 +851,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S35", "prompt-only skill 不发模型请求", "PTY REPL prompt-only skill", workspace, [command], checks)
 
-    def s36_invalid_skill_frontmatter_diagnostic(self) -> ScenarioResult:
+    def s36_invalid_skill_frontmatter_diagnostic(self) -> ScenarioResult:  # Run the invalid skill frontmatter diagnostic scenario.
         workspace = self._fresh_workspace("s36")
         skill_dir = workspace / ".teddycode" / "skills" / "bad"
         skill_dir.mkdir(parents=True)
@@ -865,7 +865,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S36", "invalid skill frontmatter 可诊断", "PTY REPL slash command", workspace, [command], checks)
 
-    def s37_explore_subagent(self) -> ScenarioResult:
+    def s37_explore_subagent(self) -> ScenarioResult:  # Run the explore subagent scenario.
         workspace = self._fresh_workspace("s37")
         (workspace / "README.md").write_text("# Demo\n\nSubagent target.\n", encoding="utf-8")
         prompt = (
@@ -884,7 +884,7 @@ hello $ARGUMENTS from prompt only
         checks.extend(self.events_have(workspace, "worker_started"))
         return self.result("S37", "Explore 子 agent 只读探索", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s38_worker_write_scope(self) -> ScenarioResult:
+    def s38_worker_write_scope(self) -> ScenarioResult:  # Run the worker write scope scenario.
         workspace = self._fresh_workspace("s38")
         prompt = (
             "严格调用 agent 工具：description='Write notes'，subagent_type='worker'，write_scope=['notes']，"
@@ -900,7 +900,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S38", "worker 只能写 scope 内", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s39_worker_continuation(self) -> ScenarioResult:
+    def s39_worker_continuation(self) -> ScenarioResult:  # Run the worker continuation scenario.
         workspace = self._fresh_workspace("s39")
         prompt = (
             "严格按步骤执行："
@@ -919,7 +919,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S39", "worker 续接同一个 child context", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s40_running_worker_send_guard(self) -> ScenarioResult:
+    def s40_running_worker_send_guard(self) -> ScenarioResult:  # Run the running worker send guard scenario.
         workspace = self._fresh_workspace("s40")
         prompt = (
             "严格按步骤执行："
@@ -935,7 +935,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S40", "running worker 不能 send_message", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s41_task_stop_worker(self) -> ScenarioResult:
+    def s41_task_stop_worker(self) -> ScenarioResult:  # Run the task stop worker scenario.
         workspace = self._fresh_workspace("s41")
         prompt = (
             "严格按步骤执行："
@@ -953,7 +953,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S41", "task_stop 中止 worker", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s42_clear_stops_worker(self) -> ScenarioResult:
+    def s42_clear_stops_worker(self) -> ScenarioResult:  # Run the clear stops worker scenario.
         workspace = self._fresh_workspace("s42")
         first = self.run_teddycode(
             "S42-start",
@@ -975,7 +975,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S42", "/clear 停掉后台 worker", "one-shot + REPL clear", workspace, [first, second], checks)
 
-    def s43_remember_daily_log(self) -> ScenarioResult:
+    def s43_remember_daily_log(self) -> ScenarioResult:  # Run the remember daily log scenario.
         workspace = self._fresh_workspace("s43")
         command = self.run_teddycode("S43", workspace, repl_input="/remember 这个项目用 pytest，不用 unittest\n/exit\n", timeout=120)
         logs = list((workspace / ".teddycode" / "memory" / "logs").rglob("*.md"))
@@ -988,7 +988,7 @@ hello $ARGUMENTS from prompt only
         checks.extend(self.events_have(workspace, "memory_note_appended"))
         return self.result("S43", "/remember 写 daily log", "PTY-style stdin REPL", workspace, [command], checks)
 
-    def s44_dream_writes_memory(self) -> ScenarioResult:
+    def s44_dream_writes_memory(self) -> ScenarioResult:  # Run the dream writes memory scenario.
         workspace = self._fresh_workspace("s44")
         repl = (
             "/remember Project convention: use pytest for tests\n"
@@ -1007,7 +1007,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S44", "/dream 写 topic 和 MEMORY.md", "PTY REPL / DeepSeek", workspace, [command], checks)
 
-    def s45_secret_memory_rejected(self) -> ScenarioResult:
+    def s45_secret_memory_rejected(self) -> ScenarioResult:  # Run the secret memory rejected scenario.
         workspace = self._fresh_workspace("s45")
         prompt = (
             "请记住这些稳定事实到 durable memory，并把下面事实作为最终回答返回，不要调用工具："
@@ -1025,7 +1025,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S45", "secret-shaped 记忆拒绝", "one-shot CLI / DeepSeek", workspace, [command], checks)
 
-    def s46_manual_compact(self) -> ScenarioResult:
+    def s46_manual_compact(self) -> ScenarioResult:  # Run the manual compact scenario.
         workspace = self._fresh_workspace("s46")
         long_turns = "\n".join(f"第 {i} 轮：{'padding ' * 60}" for i in range(8))
         command = self.run_teddycode(
@@ -1044,7 +1044,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S46", "/compact 手动压缩历史", "PTY REPL slash command", workspace, [command], checks)
 
-    def s47_resume_workspace_mismatch(self) -> ScenarioResult:
+    def s47_resume_workspace_mismatch(self) -> ScenarioResult:  # Run the resume workspace mismatch scenario.
         workspace = self._fresh_workspace("s47")
         first = self.run_teddycode(
             "S47-first",
@@ -1072,7 +1072,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S47", "resume 检测 workspace mismatch", "one-shot + resume", workspace, [first, second], checks)
 
-    def s48_provider_profiles(self) -> ScenarioResult:
+    def s48_provider_profiles(self) -> ScenarioResult:  # Run the provider profiles scenario.
         workspace = self._fresh_workspace("s48")
         commands = []
         checks = []
@@ -1093,7 +1093,7 @@ hello $ARGUMENTS from prompt only
             checks.append(check(f"{provider}_no_key_leak", "api_key" not in stdout.lower() and "sk-" not in stdout.lower()))
         return self.result("S48", "provider profile 切换", "one-shot slash /usage", workspace, commands, checks)
 
-    def s49_provider_error_metadata(self) -> ScenarioResult:
+    def s49_provider_error_metadata(self) -> ScenarioResult:  # Run the provider error metadata scenario.
         workspace = self._fresh_workspace("s49")
         command = self.run_teddycode(
             "S49",
@@ -1112,7 +1112,7 @@ hello $ARGUMENTS from prompt only
         ]
         return self.result("S49", "provider 错误进入审计", "one-shot CLI bad endpoint", workspace, [command], checks)
 
-    def s50_path_traversal_and_redaction(self) -> ScenarioResult:
+    def s50_path_traversal_and_redaction(self) -> ScenarioResult:  # Run the path traversal and redaction scenario.
         workspace = self._fresh_workspace("s50")
         outside = self.output_dir / "outside-secret.txt"
         outside.write_text("outside\n", encoding="utf-8")
@@ -1158,7 +1158,7 @@ hello $ARGUMENTS from prompt only
         max_steps: int = 8,
         max_new_tokens: int = 1024,
         timeout: int = 300,
-    ) -> CommandRecord:
+    ) -> CommandRecord:  # Run teddycode.
         args = [
             "uv",
             "run",
@@ -1236,7 +1236,7 @@ hello $ARGUMENTS from prompt only
             stderr_path=self._rel(stderr_path),
         )
 
-    def run_teddycode_tty_smoke(self, name: str, workspace: Path, *, timeout: int = 6) -> CommandRecord:
+    def run_teddycode_tty_smoke(self, name: str, workspace: Path, *, timeout: int = 6) -> CommandRecord:  # Run teddycode tty smoke.
         args = [
             "uv",
             "run",
@@ -1334,7 +1334,7 @@ hello $ARGUMENTS from prompt only
             stderr_path=self._rel(stderr_path),
         )
 
-    def run_python(self, name: str, workspace: Path, code: str, *, timeout: int = 120) -> CommandRecord:
+    def run_python(self, name: str, workspace: Path, code: str, *, timeout: int = 120) -> CommandRecord:  # Run python.
         args = ["uv", "run", "python", "-c", code]
         started = time.monotonic()
         proc = subprocess.run(
@@ -1374,7 +1374,7 @@ hello $ARGUMENTS from prompt only
             stderr_path=self._rel(stderr_path),
         )
 
-    def external_pytest(self, workspace: Path) -> bool:
+    def external_pytest(self, workspace: Path) -> bool:  # Return the external pytest.
         proc = subprocess.run(
             ["uv", "run", "--with", "pytest", "python", "-m", "pytest", "-q"],
             cwd=workspace,
@@ -1388,7 +1388,7 @@ hello $ARGUMENTS from prompt only
         path.write_text(proc.stdout, encoding="utf-8")
         return proc.returncode == 0
 
-    def run_artifact_checks(self, workspace: Path, *, require_completed: bool = False, require_changed_paths: bool = False) -> list[dict]:
+    def run_artifact_checks(self, workspace: Path, *, require_completed: bool = False, require_changed_paths: bool = False) -> list[dict]:  # Run artifact checks.
         evidence = self.evidence(workspace)
         report = evidence.report
         checks = [
@@ -1404,15 +1404,15 @@ hello $ARGUMENTS from prompt only
             checks.append(check("report_changed_paths", bool(changed), changed))
         return checks
 
-    def trace_has_tools(self, workspace: Path, tools: list[str]) -> list[dict]:
+    def trace_has_tools(self, workspace: Path, tools: list[str]) -> list[dict]:  # Return the trace has tools.
         seen = self.evidence(workspace).tool_names()
         return [check(f"trace_has_{tool}", tool in seen, seen) for tool in tools]
 
-    def latest_full_output_artifact(self, workspace: Path) -> str:
+    def latest_full_output_artifact(self, workspace: Path) -> str:  # Return the latest full output artifact.
         artifacts = self.evidence(workspace).full_output_artifacts()
         return artifacts[-1] if artifacts else ""
 
-    def events_have(self, workspace: Path, event_name: str, *, reason: str | None = None) -> list[dict]:
+    def events_have(self, workspace: Path, event_name: str, *, reason: str | None = None) -> list[dict]:  # Return the events have.
         events = self.evidence(workspace).session_events
         matched = [
             event
@@ -1422,11 +1422,11 @@ hello $ARGUMENTS from prompt only
         label = f"events_have_{event_name}" + (f"_{reason}" if reason else "")
         return [check(label, bool(matched), matched[:3])]
 
-    def report_has_runtime_reminder(self, workspace: Path, code: str) -> list[dict]:
+    def report_has_runtime_reminder(self, workspace: Path, code: str) -> list[dict]:  # Return the report has runtime reminder.
         reminders = self.evidence(workspace).report.get("runtime_reminders") or []
         return [check(f"runtime_reminder_{code}", any(code in json.dumps(item, ensure_ascii=False) for item in reminders), reminders)]
 
-    def latest_trace_and_report_text(self, workspace: Path) -> tuple[str, str]:
+    def latest_trace_and_report_text(self, workspace: Path) -> tuple[str, str]:  # Return the latest trace and report text.
         trace_path = self.latest_trace(workspace)
         report_path = self.latest_report_path(workspace)
         return (
@@ -1434,35 +1434,35 @@ hello $ARGUMENTS from prompt only
             report_path.read_text(encoding="utf-8") if report_path else "",
         )
 
-    def latest_report(self, workspace: Path) -> dict | None:
+    def latest_report(self, workspace: Path) -> dict | None:  # Return the latest report.
         path = self.latest_report_path(workspace)
         if path is None:
             return None
         return json.loads(path.read_text(encoding="utf-8"))
 
-    def latest_report_path(self, workspace: Path) -> Path | None:
+    def latest_report_path(self, workspace: Path) -> Path | None:  # Return the latest report path.
         run = self.latest_run_dir(workspace)
         path = run / "report.json" if run else None
         return path if path and path.exists() else None
 
-    def latest_trace(self, workspace: Path) -> Path | None:
+    def latest_trace(self, workspace: Path) -> Path | None:  # Return the latest trace.
         run = self.latest_run_dir(workspace)
         path = run / "trace.jsonl" if run else None
         return path if path and path.exists() else None
 
-    def latest_trace_jsonl(self, workspace: Path) -> list[dict]:
+    def latest_trace_jsonl(self, workspace: Path) -> list[dict]:  # Return the latest trace jsonl.
         path = self.latest_trace(workspace)
         return read_jsonl(path) if path else []
 
-    def latest_events_path(self, workspace: Path) -> Path | None:
+    def latest_events_path(self, workspace: Path) -> Path | None:  # Return the latest events path.
         events = sorted((workspace / ".teddycode" / "sessions").glob("*.events.jsonl"), key=lambda path: path.stat().st_mtime)
         return events[-1] if events else None
 
-    def latest_events_jsonl(self, workspace: Path) -> list[dict]:
+    def latest_events_jsonl(self, workspace: Path) -> list[dict]:  # Return the latest events jsonl.
         path = self.latest_events_path(workspace)
         return read_jsonl(path) if path else []
 
-    def latest_run_dir(self, workspace: Path) -> Path | None:
+    def latest_run_dir(self, workspace: Path) -> Path | None:  # Return the latest run dir.
         runs_dir = workspace / ".teddycode" / "runs"
         if not runs_dir.exists():
             return None
@@ -1471,17 +1471,17 @@ hello $ARGUMENTS from prompt only
             return None
         return max(runs, key=lambda path: path.stat().st_mtime)
 
-    def evidence(self, workspace: Path) -> RunEvidence:
+    def evidence(self, workspace: Path) -> RunEvidence:  # Return the evidence.
         return RunEvidence.latest(workspace)
 
-    def latest_session_id(self, workspace: Path) -> str:
+    def latest_session_id(self, workspace: Path) -> str:  # Return the latest session id.
         sessions = sorted((workspace / ".teddycode" / "sessions").glob("*.json"), key=lambda path: path.stat().st_mtime)
         return sessions[-1].stem if sessions else ""
 
-    def read_log(self, rel_path: str) -> str:
+    def read_log(self, rel_path: str) -> str:  # Read log.
         return (self.output_dir / rel_path).read_text(encoding="utf-8")
 
-    def result(self, scenario_id: str, title: str, driver: str, workspace: Path, commands: list[CommandRecord], checks: list[dict]) -> ScenarioResult:
+    def result(self, scenario_id: str, title: str, driver: str, workspace: Path, commands: list[CommandRecord], checks: list[dict]) -> ScenarioResult:  # Return the result.
         status = "passed" if all(item["status"] == "passed" for item in checks) else "failed"
         duration_ms = sum(command.duration_ms for command in commands)
         evidence = {
@@ -1501,7 +1501,7 @@ hello $ARGUMENTS from prompt only
             evidence=evidence,
         )
 
-    def _fresh_workspace(self, name: str) -> Path:
+    def _fresh_workspace(self, name: str) -> Path:  # Return the fresh workspace.
         workspace = self.workspaces_dir / name
         if workspace.exists():
             shutil.rmtree(workspace)
@@ -1510,10 +1510,10 @@ hello $ARGUMENTS from prompt only
         subprocess.run(["git", "init", "-q"], cwd=workspace, check=True)
         return workspace
 
-    def _write_incremental_summary(self, results: list[ScenarioResult]) -> None:
+    def _write_incremental_summary(self, results: list[ScenarioResult]) -> None:  # Write incremental summary.
         self._write_summary(results, incremental=True)
 
-    def _write_summary(self, results: list[ScenarioResult], incremental: bool = False) -> dict:
+    def _write_summary(self, results: list[ScenarioResult], incremental: bool = False) -> dict:  # Write summary.
         summary = {
             "status": "passed" if results and all(item.status == "passed" for item in results) else "failed",
             "scenario_count": len(results),
@@ -1531,17 +1531,17 @@ hello $ARGUMENTS from prompt only
             print(json.dumps({"status": summary["status"], "passed": summary["passed"], "failed": summary["failed"], "output_dir": str(self.output_dir)}, ensure_ascii=False, sort_keys=True))
         return summary
 
-    def _rel(self, path: Path | None) -> str:
+    def _rel(self, path: Path | None) -> str:  # Return the rel.
         if path is None:
             return ""
         return Path(path).resolve().relative_to(self.output_dir).as_posix()
 
 
-def check(name: str, condition: bool, detail="") -> dict:
+def check(name: str, condition: bool, detail="") -> dict:  # Check the requested operation.
     return {"name": name, "status": "passed" if condition else "failed", "detail": detail}
 
 
-def read_jsonl(path: Path) -> list[dict]:
+def read_jsonl(path: Path) -> list[dict]:  # Read jsonl.
     rows = []
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
@@ -1550,7 +1550,7 @@ def read_jsonl(path: Path) -> list[dict]:
     return rows
 
 
-def _is_relative_to(path: Path, parent: Path) -> bool:
+def _is_relative_to(path: Path, parent: Path) -> bool:  # Return whether is relative to.
     try:
         path.resolve().relative_to(parent.resolve())
         return True
@@ -1558,7 +1558,7 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
         return False
 
 
-def redact_command(command: list[str]) -> list[str]:
+def redact_command(command: list[str]) -> list[str]:  # Redact command.
     redacted = []
     skip_next = False
     for index, item in enumerate(command):
@@ -1572,7 +1572,7 @@ def redact_command(command: list[str]) -> list[str]:
     return redacted
 
 
-def to_jsonable(result: ScenarioResult) -> dict:
+def to_jsonable(result: ScenarioResult) -> dict:  # Return the to jsonable.
     return {
         "id": result.id,
         "title": result.title,
@@ -1587,7 +1587,7 @@ def to_jsonable(result: ScenarioResult) -> dict:
     }
 
 
-def render_markdown(summary: dict) -> str:
+def render_markdown(summary: dict) -> str:  # Render markdown.
     lines = [
         "# TeddyCode v3 Human Scenario Gate",
         "",
@@ -1611,7 +1611,7 @@ def render_markdown(summary: dict) -> str:
     return "\n".join(lines)
 
 
-def build_arg_parser() -> argparse.ArgumentParser:
+def build_arg_parser() -> argparse.ArgumentParser:  # Build arg parser.
     parser = argparse.ArgumentParser(description="Run TeddyCode v3 human-scenario release gate.")
     parser.add_argument("--suite", choices=("gate", "full"), default="gate", help="Run the 12-scenario release gate or all 50 designed scenarios.")
     parser.add_argument("--output-dir", default="", help="Output directory for logs, workspaces, and summary. Must be outside this git repo.")
@@ -1621,7 +1621,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv=None) -> int:
+def main(argv=None) -> int:  # Run the command-line entry point.
     args = build_arg_parser().parse_args(argv)
     runner = HumanScenarioRunner(args)
     summary = runner.run()

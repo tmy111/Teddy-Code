@@ -21,7 +21,7 @@ def record_governance_decision(
     security_event_type="",
     effects=None,
     source="tool_executor",
-):
+):  # Record governance decision.
     task_state = getattr(agent, "current_task_state", None)
     if task_state is None:
         return None
@@ -44,7 +44,7 @@ def record_governance_decision(
     )
 
 
-def reduce_governance_summary(summary, event):
+def reduce_governance_summary(summary, event):  # Reduce governance summary.
     summary = dict(summary or {})
     summary.setdefault("schema_version", GOVERNANCE_SUMMARY_SCHEMA)
     decision = str(event.get("decision", ""))

@@ -17,11 +17,11 @@ class SandboxConfig:
     deny_write: tuple[str, ...] = ()
 
     @property
-    def enabled(self):
+    def enabled(self):  # Return the enabled.
         return self.mode != "off"
 
 
-def resolve_sandbox_config(values):
+def resolve_sandbox_config(values):  # Resolve sandbox config.
     sandbox = dict((values or {}).get("sandbox", {}) or {})
     filesystem = dict(sandbox.get("filesystem", {}) or {})
     mode = str(sandbox.get("mode", "off") or "off")

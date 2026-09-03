@@ -32,7 +32,7 @@ def run_dogfood(
     api_key=None,
     max_steps=8,
     max_new_tokens=1024,
-):
+):  # Run dogfood.
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     client_factory, provider_meta = _build_client_factory(
@@ -83,7 +83,7 @@ def run_dogfood(
     return summary
 
 
-def render_markdown(summary):
+def render_markdown(summary):  # Render markdown.
     provider = summary.get("provider", {})
     lines = [
         "# TeddyCode Business Scenario Dogfood",
@@ -108,7 +108,7 @@ def render_markdown(summary):
     return "\n".join(lines)
 
 
-def _run_scenario(output_dir, scenario_id, runner, client_factory, max_steps, max_new_tokens):
+def _run_scenario(output_dir, scenario_id, runner, client_factory, max_steps, max_new_tokens):  # Run scenario.
     workspace = output_dir / "workspaces" / scenario_id
     if workspace.exists():
         _remove_tree(workspace)
@@ -127,7 +127,7 @@ def _run_scenario(output_dir, scenario_id, runner, client_factory, max_steps, ma
         }
 
 
-def _scenario_order_pricing_bugfix(output_dir, workspace, client_factory, max_steps, max_new_tokens):
+def _scenario_order_pricing_bugfix(output_dir, workspace, client_factory, max_steps, max_new_tokens):  # Run the order pricing bugfix scenario.
     src = workspace / "src"
     tests = workspace / "tests"
     src.mkdir()
@@ -168,7 +168,7 @@ def _scenario_order_pricing_bugfix(output_dir, workspace, client_factory, max_st
     )
 
 
-def _scenario_release_readiness_review(output_dir, workspace, client_factory, max_steps, max_new_tokens):
+def _scenario_release_readiness_review(output_dir, workspace, client_factory, max_steps, max_new_tokens):  # Run the release readiness review scenario.
     (workspace / "README.md").write_text("# Billing API\n\nRelease candidate for tenant billing.\n", encoding="utf-8")
     (workspace / ".env.example").write_text("DATABASE_URL=\nSTRIPE_API_KEY=\n", encoding="utf-8")
     (workspace / "deploy.md").write_text("- migrations applied\n- rollback owner assigned\n", encoding="utf-8")
@@ -209,7 +209,7 @@ blocking/non-blocking checklist to reports/release-readiness.md. Do not edit sou
     )
 
 
-def _scenario_incident_resume_fix(output_dir, workspace, client_factory, max_steps, max_new_tokens):
+def _scenario_incident_resume_fix(output_dir, workspace, client_factory, max_steps, max_new_tokens):  # Run the incident resume fix scenario.
     src = workspace / "src"
     tests = workspace / "tests"
     src.mkdir()
@@ -277,7 +277,7 @@ def _scenario_incident_resume_fix(output_dir, workspace, client_factory, max_ste
     )
 
 
-def _build_agent(workspace, client_factory, max_steps=8, max_new_tokens=1024):
+def _build_agent(workspace, client_factory, max_steps=8, max_new_tokens=1024):  # Build agent.
     return TeddyCode(
         model_client=client_factory(),
         workspace=_scenario_workspace(workspace),
@@ -288,11 +288,11 @@ def _build_agent(workspace, client_factory, max_steps=8, max_new_tokens=1024):
     )
 
 
-def _scenario_workspace(workspace):
+def _scenario_workspace(workspace):  # Run the workspace scenario.
     return WorkspaceContext.build(workspace, repo_root_override=workspace)
 
 
-def _build_client_factory(*, config_path=None, provider=None, model=None, base_url=None, api_key=None):
+def _build_client_factory(*, config_path=None, provider=None, model=None, base_url=None, api_key=None):  # Build client factory.
     config = resolve_provider_config(
         provider,
         start=ROOT,
@@ -304,7 +304,7 @@ def _build_client_factory(*, config_path=None, provider=None, model=None, base_u
     if not config.api_key:
         raise ValueError(f"provider {config.name!r} has no api key; configure .teddycode.toml or pass --api-key")
 
-    def factory():
+    def factory():  # Return the factory.
         if config.protocol == "openai":
             return OpenAICompatibleModelClient(
                 model=config.model,
@@ -331,7 +331,7 @@ def _build_client_factory(*, config_path=None, provider=None, model=None, base_u
     }
 
 
-def _finalize(output_dir, workspace, agent, scenario_id, checks):
+def _finalize(output_dir, workspace, agent, scenario_id, checks):  # Finalize the requested operation.
     run_dir = agent.current_run_dir
     report_path = run_dir / "report.json"
     trace_path = run_dir / "trace.jsonl"
@@ -354,7 +354,7 @@ def _finalize(output_dir, workspace, agent, scenario_id, checks):
     }
 
 
-def _read_events(agent):
+def _read_events(agent):  # Read events.
     return [
         json.loads(line)
         for line in agent.session_event_bus.path.read_text(encoding="utf-8").splitlines()
@@ -362,7 +362,7 @@ def _read_events(agent):
     ]
 
 
-def _history_contains(agent, tool_name, text):
+def _history_contains(agent, tool_name, text):  # Return the history contains.
     return any(
         item.get("role") == "tool"
         and item.get("name") == tool_name
@@ -371,7 +371,7 @@ def _history_contains(agent, tool_name, text):
     )
 
 
-def _run_pytest(workspace):
+def _run_pytest(workspace):  # Run pytest.
     return subprocess.run(
         ["uv", "run", "--with", "pytest", "python", "-m", "pytest", "-q"],
         cwd=workspace,
@@ -383,15 +383,15 @@ def _run_pytest(workspace):
     )
 
 
-def _check(name, condition, detail=""):
+def _check(name, condition, detail=""):  # Check the requested operation.
     return {"name": name, "status": "passed" if condition else "failed", "detail": str(detail)}
 
 
-def _relpath(path, root):
+def _relpath(path, root):  # Return the relpath.
     return Path(path).resolve().relative_to(Path(root).resolve()).as_posix()
 
 
-def _remove_tree(path):
+def _remove_tree(path):  # Remove tree.
     for child in sorted(path.rglob("*"), key=lambda item: len(item.parts), reverse=True):
         if child.is_dir():
             child.rmdir()
@@ -400,7 +400,7 @@ def _remove_tree(path):
     path.rmdir()
 
 
-def build_arg_parser():
+def build_arg_parser():  # Build arg parser.
     parser = argparse.ArgumentParser(description="Run TeddyCode business scenario dogfood against a real provider.")
     parser.add_argument("--output-dir", default="/tmp/teddycode-business-scenario-dogfood", help="Directory for workspaces and summary artifacts.")
     parser.add_argument("--config", default=None, help="Path to a TeddyCode TOML config file.")
@@ -413,7 +413,7 @@ def build_arg_parser():
     return parser
 
 
-def main(argv=None):
+def main(argv=None):  # Run the command-line entry point.
     args = build_arg_parser().parse_args(argv)
     summary = run_dogfood(
         Path(args.output_dir),

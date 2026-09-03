@@ -40,7 +40,7 @@ class BeforeFinalHookDecision:
 BeforeFinalHook = Callable[[BeforeFinalContext], BeforeFinalHookDecision | dict | None]
 
 
-def run_before_final_hooks(agent, task_state, proposed_final):
+def run_before_final_hooks(agent, task_state, proposed_final):  # Run before final hooks.
     hooks = list(getattr(agent, "before_final_hooks", ()) or ())
     if not hooks:
         return {"action": "allow", "decisions": [], "hook_count": 0}
@@ -75,7 +75,7 @@ def run_before_final_hooks(agent, task_state, proposed_final):
     }
 
 
-def reduce_before_final_hook_summary(summary, event):
+def reduce_before_final_hook_summary(summary, event):  # Reduce before final hook summary.
     summary = dict(summary or {})
     summary.setdefault("schema_version", HOOK_SUMMARY_SCHEMA)
     action = str(event.get("action", "allow"))
@@ -87,7 +87,7 @@ def reduce_before_final_hook_summary(summary, event):
     summary["last_hook"] = str(event.get("hook", ""))
     return summary
 
-def _call_hook(hook, context):
+def _call_hook(hook, context):  # Return the call hook.
     try:
         return hook(context)
     except Exception as exc:  # hooks are policy, not core runtime stability
@@ -99,7 +99,7 @@ def _call_hook(hook, context):
         )
 
 
-def _decision_to_dict(decision, hook):
+def _decision_to_dict(decision, hook):  # Return the decision to dict.
     if decision is None:
         decision = BeforeFinalHookDecision(hook=_hook_name(hook))
     if isinstance(decision, BeforeFinalHookDecision):
@@ -127,7 +127,7 @@ def _decision_to_dict(decision, hook):
     return payload
 
 
-def _select_decision(decisions):
+def _select_decision(decisions):  # Select decision.
     if not decisions:
         return {"action": "allow"}
     for action in ("block", "runtime_notice", "warn"):
@@ -137,5 +137,5 @@ def _select_decision(decisions):
     return {"action": "allow"}
 
 
-def _hook_name(hook):
+def _hook_name(hook):  # Return the hook name.
     return getattr(hook, "__name__", hook.__class__.__name__)

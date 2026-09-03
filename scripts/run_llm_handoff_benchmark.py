@@ -15,7 +15,7 @@ if str(ROOT) not in sys.path:
 from teddycode.evaluation.context_cost import generate_report, run_paired_experiment  # noqa: E402
 
 
-def main(argv=None):
+def main(argv=None):  # Run the command-line entry point.
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["scripted", "live"], default="scripted")
     parser.add_argument("--provider", default="deepseek")

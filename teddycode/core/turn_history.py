@@ -22,7 +22,7 @@ PRESSURE_LIMITS = {
 }
 
 
-def tail_clip(text, limit):
+def tail_clip(text, limit):  # Tail clip.
     text = str(text)
     if limit <= 0:
         return ""
@@ -34,10 +34,10 @@ def tail_clip(text, limit):
 
 
 class TurnHistoryBuilder:
-    def __init__(self, agent):
+    def __init__(self, agent):  # Initialize the instance.
         self.agent = agent
 
-    def enrich(self, item):
+    def enrich(self, item):  # Return the enrich.
         item = dict(item)
         if not item.get("turn_id"):
             current_turn = str(getattr(self.agent, "current_turn_id", "") or "")
@@ -55,12 +55,12 @@ class TurnHistoryBuilder:
         item.setdefault("source", "runtime")
         return item
 
-    def raw_text(self, history):
+    def raw_text(self, history):  # Return the raw text.
         if not history:
             return "Transcript:\n- empty"
         return "\n".join(["Transcript:", *self._render_turn_lines(history, line_limit=2000)])
 
-    def render_section(self, budget, pressure=None):
+    def render_section(self, budget, pressure=None):  # Render section.
         history = list(getattr(self.agent, "session", {}).get("history", []))
         raw = self.raw_text(history)
         if not history:
@@ -97,14 +97,14 @@ class TurnHistoryBuilder:
         details["rendered_turns"] = sum(1 for line in rendered_entries if line.startswith("Turn "))
         return rendered, details
 
-    def _group_turns(self, history):
+    def _group_turns(self, history):  # Return the group turns.
         turns = OrderedDict()
         for item in history:
             turn_id = str(item.get("turn_id") or "legacy")
             turns.setdefault(turn_id, []).append(item)
         return turns
 
-    def _compressed_turn_entries(self, turns, recent_turns, old_turn_line_limit=80):
+    def _compressed_turn_entries(self, turns, recent_turns, old_turn_line_limit=80):  # Return the compressed turn entries.
         entries = []
         seen_older_reads = set()
         history_items = [item for items in turns.values() for item in items]
@@ -178,14 +178,14 @@ class TurnHistoryBuilder:
             entries.append({"turn_id": turn_id, "lines": lines})
         return entries, details
 
-    def _pressure_limits(self, pressure):
+    def _pressure_limits(self, pressure):  # Return the pressure limits.
         tier = (
             str(getattr(pressure, "tier", "") or "")
             or str(getattr(pressure, "pressure_tier", "") or "tier0_observe")
         )
         return PRESSURE_LIMITS.get(tier, (3, 80))
 
-    def _render_turn_lines(self, history, line_limit):
+    def _render_turn_lines(self, history, line_limit):  # Render turn lines.
         lines = []
         for turn_id, items in self._group_turns(history).items():
             lines.append(f"Turn {turn_id}:")
@@ -193,7 +193,7 @@ class TurnHistoryBuilder:
                 lines.extend(self._render_item(item, line_limit))
         return lines
 
-    def _render_item(self, item, line_limit):
+    def _render_item(self, item, line_limit):  # Render item.
         if item.get("kind") == "compact_summary":
             return str(item.get("content", "")).splitlines()
         if item.get("role") == "tool":
@@ -205,14 +205,14 @@ class TurnHistoryBuilder:
             return [prefix, content]
         return [f"[{item.get('role', '')}] {tail_clip(item.get('content', ''), line_limit)}"]
 
-    def _reusable_file_summary(self, path):
+    def _reusable_file_summary(self, path):  # Return the reusable file summary.
         memory = getattr(self.agent, "memory", None)
         if memory is None or not hasattr(memory, "to_dict"):
             return ""
         summary = memory.to_dict().get("file_summaries", {}).get(str(path), {})
         return str(summary.get("summary", "")).strip()
 
-    def _summarize_old_tool_item(self, item):
+    def _summarize_old_tool_item(self, item):  # Summarize old tool item.
         artifact_ref = str(item.get("artifact_ref", "")).strip()
         if item.get("media_refs"):
             refs = render_media_refs(item)
@@ -229,11 +229,11 @@ class TurnHistoryBuilder:
             return f"{command} -> {' | '.join(lines[:3]) if lines else '(empty)'}"
         return self._render_item(item, 80)[0]
 
-    def _current_changed_paths(self):
+    def _current_changed_paths(self):  # Return the current changed paths.
         task_state = getattr(self.agent, "current_task_state", None)
         return {str(path) for path in getattr(task_state, "changed_paths", []) if str(path).strip()}
 
-    def _ledger_replacement(self, item, ledger, details):
+    def _ledger_replacement(self, item, ledger, details):  # Return the ledger replacement.
         record = ledger.matching_record(item)
         if record:
             details["replacement_cache_hits"] += 1
@@ -248,7 +248,7 @@ class TurnHistoryBuilder:
         details["proposed_replacements"].append(proposed.to_dict())
         return summary
 
-    def _record_stub_metadata(self, item, summary, details):
+    def _record_stub_metadata(self, item, summary, details):  # Record stub metadata.
         details["summarized_tool_count"] += 1
         artifact_ref = str(item.get("artifact_ref", "")).strip()
         if artifact_ref:
@@ -258,17 +258,17 @@ class TurnHistoryBuilder:
             )
 
     @staticmethod
-    def _last_matching_tool(history, predicate):
+    def _last_matching_tool(history, predicate):  # Return the last matching tool.
         for item in reversed(history):
             if item.get("role") == "tool" and predicate(item):
                 return item
         return None
 
     @staticmethod
-    def _is_failed_tool(item):
+    def _is_failed_tool(item):  # Return whether is failed tool.
         status = str(item.get("tool_status", ""))
         return bool(status and status != "ok") or bool(item.get("tool_error_code"))
 
 
-def should_render_tool_inline(item, context):
+def should_render_tool_inline(item, context):  # Return whether to render tool inline.
     return ContextRetentionPolicy().should_render_tool_inline(item, context)

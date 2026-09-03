@@ -16,7 +16,7 @@ INLINE_TOOL_OUTPUT_LIMITS = {
 }
 
 
-def prepare_tool_result_observation(agent, name, full_result):
+def prepare_tool_result_observation(agent, name, full_result):  # Prepare tool result observation.
     full_result = str(full_result)
     inline_limit = INLINE_TOOL_OUTPUT_LIMITS.get(name, INLINE_TOOL_OUTPUT_LIMIT)
     metadata = {

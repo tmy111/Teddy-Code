@@ -12,7 +12,7 @@ from .workspace import clip
 
 
 class ArtifactGraphConsumer:
-    def handle(self, runtime, task_state, event):
+    def handle(self, runtime, task_state, event):  # Handle the requested operation.
         if event.get("event") not in {"tool_executed", "run_finished", "checkpoint_created"}:
             return
         if not task_state.changed_paths and not event.get("artifact_paths"):
@@ -22,7 +22,7 @@ class ArtifactGraphConsumer:
 
 
 class VerifierSuggestionConsumer:
-    def handle(self, runtime, task_state, event):
+    def handle(self, runtime, task_state, event):  # Handle the requested operation.
         if event.get("event") not in {"tool_executed", "run_finished", "checkpoint_created"}:
             return
         graph = task_state.artifact_graph or build_artifact_graph(runtime.root, task_state.changed_paths)
@@ -30,7 +30,7 @@ class VerifierSuggestionConsumer:
 
 
 class ReminderConsumer:
-    def handle(self, runtime, task_state, event):
+    def handle(self, runtime, task_state, event):  # Handle the requested operation.
         if event.get("event") != "tool_executed":
             return
         status = str(event.get("status", ""))
@@ -53,13 +53,13 @@ class ReminderConsumer:
 class EvidenceSummaryConsumer:
     critical = True
 
-    def handle(self, runtime, task_state, event):
+    def handle(self, runtime, task_state, event):  # Handle the requested operation.
         task_state.evidence_summaries = update_evidence_summaries(
             task_state.evidence_summaries, event, changed_paths=task_state.changed_paths
         )
 
 
-def default_runtime_consumers():
+def default_runtime_consumers():  # Return the default runtime consumers.
     return [
         ArtifactGraphConsumer(),
         VerifierSuggestionConsumer(),

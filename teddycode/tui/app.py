@@ -51,7 +51,7 @@ class TeddyCodeTuiApp(App):
         Binding("ctrl+q", "quit", "Quit"),
     ]
 
-    def __init__(self, agent, **kwargs) -> None:
+    def __init__(self, agent, **kwargs) -> None:  # Initialize the instance.
         super().__init__(**kwargs)
         self.agent = agent
         # TUI 需要把 runtime 的阻塞式 approve/ask_user 回调桥接到界面弹窗。
@@ -93,7 +93,7 @@ class TeddyCodeTuiApp(App):
             self.agent.approve = self._previous_approve
         self.agent.ask_user_callback = self._previous_ask_user
 
-    def action_clear_screen(self) -> None:
+    def action_clear_screen(self) -> None:  # Handle action clear screen.
         self.query_one(ChatLog).clear_messages()
 
     def action_submit_input(self) -> None:
@@ -195,7 +195,7 @@ class TeddyCodeTuiApp(App):
         )
         asyncio.create_task(self._agent_task(text))
 
-    def _drain_idle_worker_notifications(self) -> None:
+    def _drain_idle_worker_notifications(self) -> None:  # Handle drain idle worker notifications.
         if self.query_one(InputBar).input.disabled:
             return
         notifications = self.agent.engine.drain_worker_notifications()
@@ -271,7 +271,7 @@ class TeddyCodeTuiApp(App):
             )
             return
 
-    def _finish_tool_card(self, event: dict) -> None:
+    def _finish_tool_card(self, event: dict) -> None:  # Finish tool card.
         name = str(event.get("name", ""))
         card = None
         for candidate in reversed(self._running_tool_cards):
@@ -290,7 +290,7 @@ class TeddyCodeTuiApp(App):
         else:
             card.set_success(content)
 
-    def _hide_welcome_banner(self) -> None:
+    def _hide_welcome_banner(self) -> None:  # Handle hide welcome banner.
         try:
             self.query_one(WelcomeBanner).add_class("hidden")
         except NoMatches:
@@ -318,7 +318,7 @@ class TeddyCodeTuiApp(App):
         except NoMatches:
             return
 
-    def _stop_thinking(self) -> None:
+    def _stop_thinking(self) -> None:  # Handle stop thinking.
         timer = getattr(self, "_thinking_timer", None)
         if timer is not None:
             timer.stop()
@@ -342,7 +342,7 @@ class TeddyCodeTuiApp(App):
 
     def _show_confirm(
         self, name: str, args: dict, event: threading.Event, decision: dict
-    ) -> None:
+    ) -> None:  # Handle show confirm.
         prompt = ConfirmPrompt(name, format_tool_args(name, args))
         self._confirm_prompt = prompt
         self._confirm_decision = (event, decision)
@@ -379,7 +379,7 @@ class TeddyCodeTuiApp(App):
 
     def _show_ask_user(
         self, question: str, choices: list[str], event: threading.Event, decision: dict
-    ) -> None:
+    ) -> None:  # Handle show ask user.
         prompt = AskUserPrompt(question, choices)
         self._ask_user_prompt = prompt
         self._ask_user_decision = (event, decision)

@@ -64,7 +64,7 @@ class WelcomeBanner(Static):
     }
     """
 
-    def __init__(self, model_name: str = "", cwd: str = "", approval: str = "") -> None:
+    def __init__(self, model_name: str = "", cwd: str = "", approval: str = "") -> None:  # Initialize the instance.
         super().__init__()
         self.model_name = model_name
         self.cwd = cwd
@@ -124,11 +124,11 @@ class UserMessage(Static):
     }
     """
 
-    def __init__(self, content: str) -> None:
+    def __init__(self, content: str) -> None:  # Initialize the instance.
         super().__init__("", markup=False)
         self.content = content
 
-    def compose(self):
+    def compose(self):  # Handle compose.
         yield Static(f"> {self.content}", classes="message-label")
 
 
@@ -159,11 +159,11 @@ class AssistantMessage(Static):
     }
     """
 
-    def __init__(self, content: str) -> None:
+    def __init__(self, content: str) -> None:  # Initialize the instance.
         super().__init__(markup=False)
         self.content = content
 
-    def compose(self):
+    def compose(self):  # Handle compose.
         yield Static("teddycode", classes="message-label")
         yield Markdown(self.content)
 
@@ -197,7 +197,7 @@ class ToolCard(Static):
     }
     """
 
-    def __init__(self, tool_name: str, args_summary: str = "") -> None:
+    def __init__(self, tool_name: str, args_summary: str = "") -> None:  # Initialize the instance.
         super().__init__()
         self.tool_name = tool_name
         self.args_summary = args_summary[:120]
@@ -206,7 +206,7 @@ class ToolCard(Static):
         self._collapsible: Collapsible | None = None
         self._output_widget: Static | None = None
 
-    def compose(self):
+    def compose(self):  # Handle compose.
         self._output_widget = Static("", classes="tool-output")
         self._collapsible = Collapsible(
             self._output_widget, title=self._label(), collapsed=False
@@ -223,11 +223,11 @@ class ToolCard(Static):
             return f"[{icon}] {self.tool_name}: {self.args_summary}"
         return f"[{icon}] {self.tool_name}"
 
-    def _refresh_label(self) -> None:
+    def _refresh_label(self) -> None:  # Handle refresh label.
         if self._collapsible is not None:
             self._collapsible.title = self._label()
 
-    def set_success(self, output: str = "") -> None:
+    def set_success(self, output: str = "") -> None:  # Set success.
         self.status = "success"
         self.output = output
         self._refresh_label()
@@ -236,7 +236,7 @@ class ToolCard(Static):
         if self._collapsible is not None:
             self._collapsible.collapsed = True
 
-    def set_error(self, output: str = "") -> None:
+    def set_error(self, output: str = "") -> None:  # Set error.
         self.status = "error"
         self.output = output
         self._refresh_label()
@@ -261,7 +261,7 @@ class ConfirmPrompt(Static):
     }
     """
 
-    def __init__(self, tool_name: str, args_summary: str) -> None:
+    def __init__(self, tool_name: str, args_summary: str) -> None:  # Initialize the instance.
         super().__init__()
         self.tool_name = tool_name
         self.args_summary = args_summary
@@ -282,11 +282,11 @@ class ConfirmPrompt(Static):
             Text(allow, style="bold green"),
         )
 
-    def select_allow(self) -> None:
+    def select_allow(self) -> None:  # Select allow.
         self.selected = True
         self.refresh()
 
-    def select_deny(self) -> None:
+    def select_deny(self) -> None:  # Select deny.
         self.selected = False
         self.refresh()
 
@@ -306,7 +306,7 @@ class AskUserPrompt(Static):
     }
     """
 
-    def __init__(self, question: str, choices: list[str]) -> None:
+    def __init__(self, question: str, choices: list[str]) -> None:  # Initialize the instance.
         super().__init__()
         self.question = question
         self.choices = list(choices or [])
@@ -320,7 +320,7 @@ class AskUserPrompt(Static):
             return ""
         return self.choices[self.selected_index]
 
-    def render(self) -> Text:
+    def render(self) -> Text:  # Render the requested operation.
         if not self.choices:
             return Text.assemble(
                 Text(self.question + "\n", style="bold #d0ebff"),
@@ -341,12 +341,12 @@ class AskUserPrompt(Static):
         )
         return Text.assemble(*parts)
 
-    def select_next(self) -> None:
+    def select_next(self) -> None:  # Select next.
         if self.choices:
             self.selected_index = min(len(self.choices) - 1, self.selected_index + 1)
             self.refresh()
 
-    def select_previous(self) -> None:
+    def select_previous(self) -> None:  # Select previous.
         if self.choices:
             self.selected_index = max(0, self.selected_index - 1)
             self.refresh()
@@ -396,7 +396,7 @@ class ChatLog(VerticalScroll):
         self.call_after_refresh(self.scroll_end, animate=False)
         return card
 
-    def clear_messages(self) -> None:
+    def clear_messages(self) -> None:  # Clear messages.
         for child in list(self.children):
             child.remove()
 
@@ -418,26 +418,26 @@ class ThinkingIndicator(Static):
 
     FRAMES = ("thinking", "thinking.", "thinking..", "thinking...")
 
-    def __init__(self) -> None:
+    def __init__(self) -> None:  # Initialize the instance.
         super().__init__("")
         self.frame = 0
         self.detail = ""
         self.add_class("hidden")
 
-    def show(self, detail: str = "") -> None:
+    def show(self, detail: str = "") -> None:  # Handle show.
         self.detail = detail
         self.remove_class("hidden")
         self.advance()
 
-    def hide(self) -> None:
+    def hide(self) -> None:  # Handle hide.
         self.add_class("hidden")
         self.update("")
 
-    def set_detail(self, detail: str) -> None:
+    def set_detail(self, detail: str) -> None:  # Set detail.
         self.detail = detail
         self.advance()
 
-    def advance(self) -> None:
+    def advance(self) -> None:  # Handle advance.
         label = self.FRAMES[self.frame % len(self.FRAMES)]
         self.frame += 1
         if self.detail:
@@ -457,20 +457,20 @@ class StatusBar(Static):
     }
     """
 
-    def __init__(self) -> None:
+    def __init__(self) -> None:  # Initialize the instance.
         super().__init__("")
         self.turns = 0
         self.context_text = "context -"
         self.agent_text = ""
 
-    def update_agent(self, agent) -> None:
+    def update_agent(self, agent) -> None:  # Update agent.
         model = getattr(agent.model_client, "model", "")
         mode = getattr(agent, "runtime_mode", "default")
         session = str(agent.session.get("id", ""))[-10:]
         self.agent_text = f"model {model or '-'} | mode {mode} | session {session}"
         self._render_status()
 
-    def update_turns(self, count: int) -> None:
+    def update_turns(self, count: int) -> None:  # Update turns.
         self.turns = int(count)
         self._render_status()
 
@@ -506,7 +506,7 @@ class StatusBar(Static):
             self.context_text = f"{self.context_text} ({', '.join(extras)})"
         self._render_status()
 
-    def _render_status(self) -> None:
+    def _render_status(self) -> None:  # Render status.
         self.update(
             f"{self.agent_text} | turns {self.turns} | {self.context_text}".strip()
         )
@@ -530,7 +530,7 @@ class SlashSuggestions(Static):
     }
     """
 
-    def __init__(self) -> None:
+    def __init__(self) -> None:  # Initialize the instance.
         super().__init__("")
         self.suggestions: list[SlashCommand] = []
         self.selected_index = 0
@@ -549,10 +549,10 @@ class SlashSuggestions(Static):
         self.set_class(self.visible, "visible")
         self.refresh()
 
-    def hide_suggestions(self) -> None:
+    def hide_suggestions(self) -> None:  # Handle hide suggestions.
         self.update_suggestions([])
 
-    def render(self) -> Text:
+    def render(self) -> Text:  # Render the requested operation.
         if not self.suggestions:
             return Text("")
         lines = []
@@ -584,7 +584,7 @@ class InputBar(Static):
     }
     """
 
-    def __init__(self) -> None:
+    def __init__(self) -> None:  # Initialize the instance.
         super().__init__()
         self.input = Input(placeholder="Ask teddycode or type /help")
         self.history: list[str] = []
@@ -592,11 +592,11 @@ class InputBar(Static):
         self._slash_suggestions: list[SlashCommand] = []
         self._slash_index = 0
 
-    def compose(self):
+    def compose(self):  # Handle compose.
         yield self.input
         yield SlashSuggestions()
 
-    def focus_input(self) -> None:
+    def focus_input(self) -> None:  # Handle focus input.
         self.input.focus()
 
     def set_busy(self, busy: bool) -> None:
@@ -607,13 +607,13 @@ class InputBar(Static):
             "teddycode is working..." if busy else "Ask teddycode or type /help"
         )
 
-    def history_prev(self) -> None:
+    def history_prev(self) -> None:  # Handle history prev.
         if not self.history:
             return
         self.history_index = max(0, self.history_index - 1)
         self.input.value = self.history[self.history_index]
 
-    def history_next(self) -> None:
+    def history_next(self) -> None:  # Handle history next.
         if not self.history:
             return
         self.history_index = min(len(self.history), self.history_index + 1)
@@ -623,7 +623,7 @@ class InputBar(Static):
             else self.history[self.history_index]
         )
 
-    def on_input_changed(self, event: Input.Changed) -> None:
+    def on_input_changed(self, event: Input.Changed) -> None:  # Handle the input changed event.
         self.update_slash_suggestions(event.value)
 
     def update_slash_suggestions(self, text: str | None = None) -> None:
@@ -636,7 +636,7 @@ class InputBar(Static):
             self._slash_suggestions, self._slash_index
         )
 
-    def hide_slash_suggestions(self) -> None:
+    def hide_slash_suggestions(self) -> None:  # Handle hide slash suggestions.
         self._slash_suggestions = []
         self._slash_index = 0
         self.query_one(SlashSuggestions).hide_suggestions()
@@ -657,7 +657,7 @@ class InputBar(Static):
         self.hide_slash_suggestions()
         return True
 
-    def move_slash_selection(self, direction: int) -> bool:
+    def move_slash_selection(self, direction: int) -> bool:  # Move slash selection.
         if not self._slash_suggestions:
             return False
         self._slash_index = (self._slash_index + direction) % len(
@@ -668,7 +668,7 @@ class InputBar(Static):
         )
         return True
 
-    def apply_slash_completion(self) -> bool:
+    def apply_slash_completion(self) -> bool:  # Apply slash completion.
         return self.complete_slash_suggestion()
 
 

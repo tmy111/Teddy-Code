@@ -152,19 +152,19 @@ SECTION_POLICIES_BY_NAME = {policy.name: policy for policy in SECTION_POLICIES}
 CURRENT_REQUEST_SECTION = "current_request"
 
 
-def section_order():
+def section_order():  # Return the section order.
     return SECTION_ORDER
 
 
-def section_budgets(total_budget_chars=None):
+def section_budgets(total_budget_chars=None):  # Return the section budgets.
     if total_budget_chars is None:
         return dict(DEFAULT_SECTION_BUDGETS)
     return compute_section_budgets(total_budget_chars)
 
 
-def section_floors():
+def section_floors():  # Return the section floors.
     return dict(MIN_SECTION_BUDGETS)
 
 
-def reduction_order():
+def reduction_order():  # Return the reduction order.
     return REDUCTION_ORDER

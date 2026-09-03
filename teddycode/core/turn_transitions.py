@@ -22,7 +22,7 @@ TERMINAL_KIND = "terminal"
 TRANSITION_SUMMARY_SCHEMA = "teddycode.transition_summary.v1"
 
 
-def build_transition(*, kind, reason, attempt_index, tool_call_count=0, tool_requested_count=0, tool_executed_count=0, stop_reason=""):
+def build_transition(*, kind, reason, attempt_index, tool_call_count=0, tool_requested_count=0, tool_executed_count=0, stop_reason=""):  # Build transition.
     payload = {
         "kind": str(kind),
         "reason": str(reason),
@@ -40,7 +40,7 @@ def build_transition(*, kind, reason, attempt_index, tool_call_count=0, tool_req
     return payload
 
 
-def reduce_transition_summary(summary, transition):
+def reduce_transition_summary(summary, transition):  # Reduce transition summary.
     summary = dict(summary or {})
     summary.setdefault("schema_version", TRANSITION_SUMMARY_SCHEMA)
     kind = str(transition.get("kind", ""))
@@ -68,7 +68,7 @@ def reduce_transition_summary(summary, transition):
     return summary
 
 
-def emit_transition(agent, task_state, *, kind, reason, tool_call_count=0, tool_requested_count=0, tool_executed_count=0, stop_reason=""):
+def emit_transition(agent, task_state, *, kind, reason, tool_call_count=0, tool_requested_count=0, tool_executed_count=0, stop_reason=""):  # Emit transition.
     payload = build_transition(
         kind=kind,
         reason=reason,
@@ -80,8 +80,8 @@ def emit_transition(agent, task_state, *, kind, reason, tool_call_count=0, tool_
     )
     return agent.emit_trace(task_state, "loop_transition", payload)
 
-def emit_continue_transition(agent, task_state, reason, **evidence):
+def emit_continue_transition(agent, task_state, reason, **evidence):  # Emit continue transition.
     return emit_transition(agent, task_state, kind=CONTINUE_KIND, reason=reason, **evidence)
 
-def emit_terminal_transition(agent, task_state, reason, **evidence):
+def emit_terminal_transition(agent, task_state, reason, **evidence):  # Emit terminal transition.
     return emit_transition(agent, task_state, kind=TERMINAL_KIND, reason=reason, **evidence)

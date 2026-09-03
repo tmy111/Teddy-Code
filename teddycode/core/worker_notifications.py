@@ -4,7 +4,7 @@
 from xml.sax.saxutils import escape
 
 
-def render_worker_notification(item):
+def render_worker_notification(item):  # Render worker notification.
     result = str(item.get("result", ""))
     parts = [
         "<task-notification>",

@@ -9,11 +9,11 @@ class ToolSetProfile:
     name: str
     allowed_tools: frozenset[str]
 
-    def allows(self, tool_name):
+    def allows(self, tool_name):  # Return the allows.
         return tool_name in self.allowed_tools
 
 
-def build_tool_profiles(tools):
+def build_tool_profiles(tools):  # Build tool profiles.
     all_tools = frozenset(tools)
     coordinator_tools = frozenset({"agent", "send_message", "task_stop"})
     mode_tools = frozenset({"enter_plan_mode", "exit_plan_mode"})

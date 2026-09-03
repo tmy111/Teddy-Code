@@ -14,13 +14,13 @@ from .config import SandboxConfig
 
 
 class SandboxRunner:
-    def __init__(self, config=None, *, which=None, run=None, emit_event=None):
+    def __init__(self, config=None, *, which=None, run=None, emit_event=None):  # Initialize the instance.
         self.config = config or SandboxConfig()
         self.which = which or default_which
         self.run_process = run
         self.emit_event = emit_event or (lambda event, payload: None)
 
-    def run(self, command, *, cwd, env, timeout):
+    def run(self, command, *, cwd, env, timeout):  # Run the requested operation.
         config = self.config
         if config.mode == "off" or (
             config.mode != "required"
@@ -48,7 +48,7 @@ class SandboxRunner:
             argv, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env
         )
 
-    def _plain(self, command, *, cwd, env, timeout):
+    def _plain(self, command, *, cwd, env, timeout):  # Return the plain.
         run_process = self.run_process or subprocess.run
         shell_command = command
         shell_kwargs = {"shell": True}
@@ -78,28 +78,28 @@ class SandboxRunner:
         )
 
     @staticmethod
-    def _looks_like_windows_executable(command):
+    def _looks_like_windows_executable(command):  # Return the looks like windows executable.
         parts = shlex.split(command, posix=False)
         return bool(parts and parts[0].lower().endswith((".exe", ".bat", ".cmd")))
 
     @staticmethod
-    def _looks_like_python_command(command):
+    def _looks_like_python_command(command):  # Return the looks like python command.
         parts = shlex.split(command, posix=False)
         return bool(parts and parts[0].lower() in {"python", "python3"})
 
     @staticmethod
-    def _python_argv(command):
+    def _python_argv(command):  # Return the python argv.
         parts = SandboxRunner._split_windows_args(command)
         return [sys.executable, *parts[1:]]
 
     @staticmethod
-    def _split_windows_args(command):
+    def _split_windows_args(command):  # Split windows args.
         return [
             part[1:-1] if len(part) > 1 and part[0] == part[-1] and part[0] in {"'", '"'} else part
             for part in shlex.split(command, posix=False)
         ]
 
-    def _bubblewrap_argv(self, backend_path, command, cwd, config):
+    def _bubblewrap_argv(self, backend_path, command, cwd, config):  # Return the bubblewrap argv.
         argv = [
             backend_path,
             "--die-with-parent",

@@ -16,7 +16,7 @@ from pathlib import Path
 _REPLACE_RETRY_DELAYS = (0.02, 0.04, 0.08, 0.16, 0.25, 0.25)
 
 
-def _fs_path(path):
+def _fs_path(path):  # Return the fs path.
     path = Path(path)
     if os.name != "nt":
         return str(path)
@@ -28,33 +28,33 @@ def _fs_path(path):
     return "\\\\?\\" + resolved
 
 
-def _run_id(value):
+def _run_id(value):  # Run id.
     if hasattr(value, "run_id"):
         return value.run_id
     return str(value)
 
 
 class RunStore:
-    def __init__(self, root):
+    def __init__(self, root):  # Initialize the instance.
         self.root = Path(root)
         os.makedirs(_fs_path(self.root), exist_ok=True)
 
-    def run_dir(self, run_id):
+    def run_dir(self, run_id):  # Run dir.
         return self.root / _run_id(run_id)
 
-    def task_state_path(self, run_id):
+    def task_state_path(self, run_id):  # Return the task state path.
         return self.run_dir(run_id) / "task_state.json"
 
-    def trace_path(self, run_id):
+    def trace_path(self, run_id):  # Return the trace path.
         return self.run_dir(run_id) / "trace.jsonl"
 
-    def report_path(self, run_id):
+    def report_path(self, run_id):  # Return the report path.
         return self.run_dir(run_id) / "report.json"
 
-    def artifacts_dir(self, run_id):
+    def artifacts_dir(self, run_id):  # Return the artifacts dir.
         return self.run_dir(run_id) / "artifacts"
 
-    def start_run(self, task_state):
+    def start_run(self, task_state):  # Start run.
         # 每次 ask() 都会生成一个 run 目录。
         # 这样一次用户请求对应一组独立工件，后续排查更容易。
         run_dir = self.run_dir(task_state)
@@ -62,13 +62,13 @@ class RunStore:
         self.write_task_state(task_state)
         return run_dir
 
-    def write_task_state(self, task_state):
+    def write_task_state(self, task_state):  # Write task state.
         path = self.task_state_path(task_state)
         os.makedirs(_fs_path(path.parent), exist_ok=True)
         self._write_json_atomic(path, task_state.to_dict())
         return path
 
-    def append_trace(self, task_state, event):
+    def append_trace(self, task_state, event):  # Append trace.
         path = self.trace_path(task_state)
         os.makedirs(_fs_path(path.parent), exist_ok=True)
         # trace 采用 jsonl 追加写入，原因是 agent 运行过程是流式事件序列，
@@ -78,7 +78,7 @@ class RunStore:
             handle.write("\n")
         return path
 
-    def write_text_artifact(self, task_state, stem, content):
+    def write_text_artifact(self, task_state, stem, content):  # Write text artifact.
         directory = self.artifacts_dir(task_state)
         os.makedirs(_fs_path(directory), exist_ok=True)
         index = len(list(directory.glob(f"{stem}-*.txt"))) + 1
@@ -87,7 +87,7 @@ class RunStore:
             handle.write(str(content))
         return path
 
-    def write_binary_artifact(self, task_state, stem, content, suffix):
+    def write_binary_artifact(self, task_state, stem, content, suffix):  # Write binary artifact.
         directory = self.artifacts_dir(task_state)
         os.makedirs(_fs_path(directory), exist_ok=True)
         suffix = str(suffix or "").strip()
@@ -99,25 +99,25 @@ class RunStore:
             handle.write(bytes(content))
         return path
 
-    def artifact_ref(self, task_state, path):
+    def artifact_ref(self, task_state, path):  # Return the artifact ref.
         base = self.root.parent.parent if self.root.parent.name == ".teddycode" else self.root.parent
         return path.relative_to(base).as_posix()
 
-    def write_report(self, task_state, report):
+    def write_report(self, task_state, report):  # Write report.
         path = self.report_path(task_state)
         os.makedirs(_fs_path(path.parent), exist_ok=True)
         self._write_json_atomic(path, report)
         return path
 
-    def load_task_state(self, task_id):
+    def load_task_state(self, task_id):  # Load task state.
         with open(_fs_path(self.task_state_path(task_id)), encoding="utf-8") as handle:
             return json.load(handle)
 
-    def load_report(self, task_id):
+    def load_report(self, task_id):  # Load report.
         with open(_fs_path(self.report_path(task_id)), encoding="utf-8") as handle:
             return json.load(handle)
 
-    def _write_json_atomic(self, path, payload):
+    def _write_json_atomic(self, path, payload):  # Write json atomic.
         # 原子写：先写临时文件，再 replace。
         # 这样即使中途异常，也不容易留下半截 JSON。
         with tempfile.NamedTemporaryFile(

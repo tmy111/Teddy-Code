@@ -36,7 +36,7 @@ _WORKSPACE_FINGERPRINT_CACHE = {}
 MAX_ANCHOR_HASH_BYTES = 10 * 1024 * 1024
 
 
-def _fs_path(path):
+def _fs_path(path):  # Return the fs path.
     path = Path(path)
     if os.name != "nt":
         return str(path)
@@ -48,16 +48,16 @@ def _fs_path(path):
     return "\\\\?\\" + resolved
 
 
-def _mkdir(path):
+def _mkdir(path):  # Create the directory.
     os.makedirs(_fs_path(path), exist_ok=True)
 
 
-def _read_text(path, **kwargs):
+def _read_text(path, **kwargs):  # Read text.
     with open(_fs_path(path), encoding="utf-8", **kwargs) as handle:
         return handle.read()
 
 
-def _write_text(path, text):
+def _write_text(path, text):  # Write text.
     with open(_fs_path(path), "w", encoding="utf-8") as handle:
         handle.write(text)
 
@@ -101,7 +101,7 @@ DURABLE_TOPIC_DEFAULTS = {
 }
 
 
-def ensure_memory_dir(memory_dir):
+def ensure_memory_dir(memory_dir):  # Ensure memory dir.
     memory_dir = Path(memory_dir)
     _mkdir(memory_dir)
     _mkdir(memory_dir / "logs")
@@ -117,7 +117,7 @@ def ensure_memory_dir(memory_dir):
     return memory_dir
 
 
-def daily_log_path(memory_dir, today=None):
+def daily_log_path(memory_dir, today=None):  # Return the daily log path.
     today = today or date.today()
     memory_dir = ensure_memory_dir(memory_dir)
     path = memory_dir / "logs" / str(today.year) / f"{today.month:02d}" / f"{today.isoformat()}.md"
@@ -125,7 +125,7 @@ def daily_log_path(memory_dir, today=None):
     return path
 
 
-def append_to_daily_log(memory_dir, entry, today=None):
+def append_to_daily_log(memory_dir, entry, today=None):  # Append to daily log.
     entry = str(entry).strip()
     if not entry:
         return None
@@ -136,7 +136,7 @@ def append_to_daily_log(memory_dir, entry, today=None):
     return path
 
 
-def default_memory_maintenance_audit(auto_dream=True):
+def default_memory_maintenance_audit(auto_dream=True):  # Return the default memory maintenance audit.
     return {
         "memory_tags_appended": [],
         "auto_dream": {
@@ -151,14 +151,14 @@ def default_memory_maintenance_audit(auto_dream=True):
     }
 
 
-def _agent_relative_path(agent, path):
+def _agent_relative_path(agent, path):  # Return the agent relative path.
     try:
         return Path(path).resolve().relative_to(agent.root).as_posix()
     except ValueError:
         return str(path)
 
 
-def memory_file_read_payloads(memory_dir, workspace_root=None, reason="retrieval"):
+def memory_file_read_payloads(memory_dir, workspace_root=None, reason="retrieval"):  # Return the memory file read payloads.
     memory_dir = Path(memory_dir)
     index_path = memory_dir / ENTRYPOINT_NAME
     paths = ([index_path] if index_path.exists() else []) + sorted((memory_dir / "topics").glob("*.md"))
@@ -176,7 +176,7 @@ def memory_file_read_payloads(memory_dir, workspace_root=None, reason="retrieval
     return payloads
 
 
-def _memory_file_snapshot(agent):
+def _memory_file_snapshot(agent):  # Return the memory file snapshot.
     memory_dir = Path(agent.memory_dir)
     if not memory_dir.exists():
         return {}
@@ -194,11 +194,11 @@ def _memory_file_snapshot(agent):
     return snapshot
 
 
-def _changed_memory_files(before, after):
+def _changed_memory_files(before, after):  # Return the changed memory files.
     return sorted(path for path in set(before) | set(after) if before.get(path) != after.get(path))
 
 
-def _dream_topic_notes(memory_dir):
+def _dream_topic_notes(memory_dir):  # Return the dream topic notes.
     store = DurableMemoryStore(memory_dir)
     topics_dir = Path(memory_dir) / "topics"
     if not topics_dir.exists():
@@ -231,22 +231,22 @@ def _dream_topic_notes(memory_dir):
     return records
 
 
-def _dream_note_active(note):
+def _dream_note_active(note):  # Return the dream note active.
     return str(note.get("status", "active") or "active") == "active"
 
 
-def _dream_note_secret(note):
+def _dream_note_secret(note):  # Return the dream note secret.
     text = str(note.get("text", ""))
     return any(pattern.search(text) for pattern in SECRET_PATTERNS)
 
 
-def _dream_note_noise(note):
+def _dream_note_noise(note):  # Return the dream note noise.
     evidence = note.get("evidence") if isinstance(note.get("evidence"), dict) else {}
     session_id = str(evidence.get("session_id", "")).strip().lower()
     return session_id == "noise" or bool(DREAM_NOISE_PATTERN.search(str(note.get("text", ""))))
 
 
-def build_dream_report(before_notes, after_notes):
+def build_dream_report(before_notes, after_notes):  # Build dream report.
     active_after = [note for note in after_notes if _dream_note_active(note)]
     active_after_texts = [note["text"] for note in active_after]
     active_after_text_set = set(active_after_texts)
@@ -285,7 +285,7 @@ def build_dream_report(before_notes, after_notes):
     }
 
 
-def write_dream_report(memory_dir, report, iso_ts=None):
+def write_dream_report(memory_dir, report, iso_ts=None):  # Write dream report.
     iso_ts = iso_ts or datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     reports_dir = Path(memory_dir) / "dream_reports"
     _mkdir(reports_dir)
@@ -294,14 +294,14 @@ def write_dream_report(memory_dir, report, iso_ts=None):
     return path
 
 
-def _emit_memory_trace(agent, event, payload):
+def _emit_memory_trace(agent, event, payload):  # Emit memory trace.
     task_state = getattr(agent, "current_task_state", None)
     if task_state is None:
         return None
     return agent.emit_trace(task_state, event, payload)
 
 
-def _write_memory_maintenance_report(agent, task_state, audit):
+def _write_memory_maintenance_report(agent, task_state, audit):  # Write memory maintenance report.
     try:
         if agent.run_store.report_path(task_state).exists():
             report = agent.run_store.load_report(task_state)
@@ -313,7 +313,7 @@ def _write_memory_maintenance_report(agent, task_state, audit):
     agent.run_store.write_report(task_state, agent.redact_artifact(report))
 
 
-def load_memory_index_text(memory_dir):
+def load_memory_index_text(memory_dir):  # Load memory index text.
     path = Path(memory_dir) / ENTRYPOINT_NAME
     if not path.exists():
         return ""
@@ -328,22 +328,22 @@ def load_memory_index_text(memory_dir):
     return text
 
 
-def extract_memory_tags(text):
+def extract_memory_tags(text):  # Extract memory tags.
     return [match.strip() for match in re.findall(r"<memory>(.*?)</memory>", str(text), re.DOTALL) if match.strip()]
 
 
-def _lock_path(memory_dir):
+def _lock_path(memory_dir):  # Return the lock path.
     return Path(memory_dir) / LOCK_FILE_NAME
 
 
-def read_last_consolidated_at(memory_dir):
+def read_last_consolidated_at(memory_dir):  # Read last consolidated at.
     try:
         return _lock_path(memory_dir).stat().st_mtime
     except OSError:
         return 0.0
 
 
-def try_acquire_lock(memory_dir):
+def try_acquire_lock(memory_dir):  # Return the try acquire lock.
     ensure_memory_dir(memory_dir)
     lock_path = _lock_path(memory_dir)
     current_pid = os.getpid()
@@ -363,7 +363,7 @@ def try_acquire_lock(memory_dir):
     return True
 
 
-def release_lock(memory_dir):
+def release_lock(memory_dir):  # Release the lock.
     lock_path = _lock_path(memory_dir)
     try:
         timestamp = datetime.now().timestamp()
@@ -373,7 +373,7 @@ def release_lock(memory_dir):
         pass
 
 
-def record_consolidation(memory_dir):
+def record_consolidation(memory_dir):  # Record consolidation.
     ensure_memory_dir(memory_dir)
     lock_path = _lock_path(memory_dir)
     lock_path.write_text(str(os.getpid()), encoding="utf-8")
@@ -381,7 +381,7 @@ def record_consolidation(memory_dir):
     os.utime(lock_path, (timestamp, timestamp))
 
 
-def list_sessions_since(since_ts, sessions_dir=None, current_session_id=""):
+def list_sessions_since(since_ts, sessions_dir=None, current_session_id=""):  # List sessions since.
     scan_dir = Path(sessions_dir) if sessions_dir is not None else None
     if scan_dir is None or not scan_dir.exists():
         return []
@@ -397,11 +397,11 @@ def list_sessions_since(since_ts, sessions_dir=None, current_session_id=""):
     return sorted(result)
 
 
-def should_auto_dream(memory_dir, min_hours, min_sessions, current_session_id, sessions_dir=None):
+def should_auto_dream(memory_dir, min_hours, min_sessions, current_session_id, sessions_dir=None):  # Return whether to auto dream.
     return evaluate_auto_dream_gate(memory_dir, min_hours, min_sessions, current_session_id, sessions_dir=sessions_dir)["should_run"]
 
 
-def evaluate_auto_dream_gate(memory_dir, min_hours, min_sessions, current_session_id, sessions_dir=None):
+def evaluate_auto_dream_gate(memory_dir, min_hours, min_sessions, current_session_id, sessions_dir=None):  # Evaluate auto dream gate.
     last = read_last_consolidated_at(memory_dir)
     current = datetime.now().timestamp()
     hours_since = (current - last) / 3600 if last > 0 else float("inf")
@@ -422,7 +422,7 @@ def evaluate_auto_dream_gate(memory_dir, min_hours, min_sessions, current_sessio
     return result
 
 
-def build_memory_system_section(memory_dir):
+def build_memory_system_section(memory_dir):  # Build memory system section.
     index = load_memory_index_text(memory_dir)
     if index:
         index_section = f"## Current Memory Index ({ENTRYPOINT_NAME})\n{index}\n"
@@ -510,7 +510,7 @@ Then add a pointer to that file in `{Path(memory_dir)}/{ENTRYPOINT_NAME}`. MEMOR
     return section
 
 
-def build_dream_prompt(memory_dir, transcript_dir="", session_ids=None):
+def build_dream_prompt(memory_dir, transcript_dir="", session_ids=None):  # Build dream prompt.
     session_ids = list(session_ids or [])
     total = len(session_ids)
     truncated = False
@@ -585,7 +585,7 @@ Update `{ENTRYPOINT_NAME}` so it stays under {MAX_ENTRYPOINT_LINES} lines and un
 Return a brief summary of what you consolidated, updated, or pruned. If nothing changed, say so.{extra_section}"""
 
 
-def reject_durable_reason(note_text, redacted_value="<redacted>"):
+def reject_durable_reason(note_text, redacted_value="<redacted>"):  # Reject durable reason.
     text = str(note_text or "").strip()
     lowered = text.lower()
     if not text:
@@ -614,7 +614,7 @@ def reject_durable_reason(note_text, redacted_value="<redacted>"):
     return ""
 
 
-def extract_durable_promotions(user_message, final_answer, redacted_value="<redacted>"):
+def extract_durable_promotions(user_message, final_answer, redacted_value="<redacted>"):  # Extract durable promotions.
     user_text = str(user_message or "")
     if not (DURABLE_MEMORY_INTENT_PATTERN.search(user_text) or DURABLE_MEMORY_INTENT_ZH_PATTERN.search(user_text)):
         return [], []
@@ -639,7 +639,7 @@ def extract_durable_promotions(user_message, final_answer, redacted_value="<reda
     return promotions, rejections
 
 
-def promote_durable_memory(agent, user_message, final_answer):
+def promote_durable_memory(agent, user_message, final_answer):  # Promote durable memory.
     promotions, rejections = extract_durable_promotions(user_message, final_answer)
     promoted, superseded = agent.memory.promote_durable(promotions)
     agent.session["memory"] = agent.memory.to_dict()
@@ -649,7 +649,7 @@ def promote_durable_memory(agent, user_message, final_answer):
     return promoted, rejections, superseded
 
 
-def run_dream(agent, quiet=False, session_ids=None):
+def run_dream(agent, quiet=False, session_ids=None):  # Run dream.
     from ..core.runtime import TeddyCode
 
     ensure_memory_dir(agent.memory_dir)
@@ -699,7 +699,7 @@ def run_dream(agent, quiet=False, session_ids=None):
     return result
 
 
-def maintain_memory_after_turn(agent, final_answer):
+def maintain_memory_after_turn(agent, final_answer):  # Maintain memory after turn.
     audit = default_memory_maintenance_audit(auto_dream=agent.auto_dream)
     agent.last_memory_maintenance = audit
     for entry in extract_memory_tags(final_answer):
@@ -737,7 +737,7 @@ def maintain_memory_after_turn(agent, final_answer):
     agent.session_event_bus.emit("auto_dream_started", started_payload)
     _emit_memory_trace(agent, "memory_auto_dream_started", started_payload)
 
-    def _background_dream():
+    def _background_dream():  # Run memory consolidation in the background.
         try:
             run_dream(agent, quiet=True, session_ids=session_ids)
             audit["auto_dream"]["status"] = "finished"
@@ -767,7 +767,7 @@ def maintain_memory_after_turn(agent, final_answer):
     return audit
 
 
-def default_memory_state():
+def default_memory_state():  # Return the default memory state.
     # 用一个小而结构化的状态，而不是一大段自由文本摘要。
     return {
         "working": {
@@ -784,21 +784,21 @@ def default_memory_state():
 
 
 class DurableMemoryStore:
-    def __init__(self, root):
+    def __init__(self, root):  # Initialize the instance.
         self.root = Path(root)
         self.index_path = self.root / "MEMORY.md"
         self.topics_dir = self.root / "topics"
 
-    def _topic_path(self, topic):
+    def _topic_path(self, topic):  # Return the topic path.
         return self.topics_dir / f"{topic}.md"
 
-    def _metadata_path(self, topic):
+    def _metadata_path(self, topic):  # Return the metadata path.
         return self.topics_dir / f"{topic}.metadata.jsonl"
 
-    def topic_slugs(self):
+    def topic_slugs(self):  # Return the topic slugs.
         return [topic["topic"] for topic in self.load_index()]
 
-    def load_index(self):
+    def load_index(self):  # Load index.
         if not self.index_path.exists():
             return []
         lines = self.index_path.read_text(encoding="utf-8").splitlines()
@@ -827,7 +827,7 @@ class DurableMemoryStore:
                 current["tags"] = [tag.strip() for tag in tags_match.group(1).split(",") if tag.strip()]
         return topics
 
-    def _load_topic_metadata(self, topic):
+    def _load_topic_metadata(self, topic):  # Load topic metadata.
         path = self._metadata_path(topic)
         if not path.exists():
             return {}
@@ -844,14 +844,14 @@ class DurableMemoryStore:
                 rows[note_id] = row
         return rows
 
-    def _write_topic_metadata(self, topic, rows):
+    def _write_topic_metadata(self, topic, rows):  # Write topic metadata.
         path = self._metadata_path(topic)
         self.topics_dir.mkdir(parents=True, exist_ok=True)
         ordered = sorted(rows.values(), key=lambda row: str(row.get("note_id", "")))
         lines = [json.dumps(row, ensure_ascii=False, sort_keys=True) for row in ordered]
         path.write_text("\n".join(lines).rstrip() + ("\n" if lines else ""), encoding="utf-8")
 
-    def _default_note_metadata(self, topic, note_text, topic_path=None):
+    def _default_note_metadata(self, topic, note_text, topic_path=None):  # Return the default note metadata.
         topic_path = Path(topic_path) if topic_path is not None else self._topic_path(topic)
         created_at = datetime.fromtimestamp(topic_path.stat().st_mtime).astimezone().isoformat() if topic_path.exists() else now()
         return {
@@ -867,7 +867,7 @@ class DurableMemoryStore:
             "scope": "workspace_fingerprint",
         }
 
-    def _metadata_for_note(self, topic, note_text, metadata, topic_path=None):
+    def _metadata_for_note(self, topic, note_text, metadata, topic_path=None):  # Return the metadata for note.
         note_id = _note_id_for(topic, note_text)
         row = dict(metadata.get(note_id) or self._default_note_metadata(topic, note_text, topic_path=topic_path))
         row["note_id"] = note_id
@@ -885,7 +885,7 @@ class DurableMemoryStore:
         row.setdefault("scope", "workspace_fingerprint")
         return row
 
-    def load_topic_notes(self, topic):
+    def load_topic_notes(self, topic):  # Load topic notes.
         path = self._topic_path(topic)
         if not path.exists():
             return []
@@ -926,7 +926,7 @@ class DurableMemoryStore:
         return notes
 
     @staticmethod
-    def _subject_key(text):
+    def _subject_key(text):  # Return the subject key.
         text = str(text).strip()
         patterns = (
             r"^(.+?)\s+is\s+.+$",
@@ -943,7 +943,7 @@ class DurableMemoryStore:
                 return subject or None
         return None
 
-    def retrieval_candidates(self, query, limit=3):
+    def retrieval_candidates(self, query, limit=3):  # Return the retrieval candidates.
         query_tokens = _tokenize(query)
         ranked = []
         for topic in self.load_index():
@@ -960,7 +960,7 @@ class DurableMemoryStore:
         ranked.sort(key=lambda item: item[0], reverse=True)
         return [note for _, note in ranked[:limit]]
 
-    def _write_index(self, topics):
+    def _write_index(self, topics):  # Write index.
         self.root.mkdir(parents=True, exist_ok=True)
         self.topics_dir.mkdir(parents=True, exist_ok=True)
         lines = ["# Durable Memory Index", ""]
@@ -970,7 +970,7 @@ class DurableMemoryStore:
             lines.append(f"  - tags: {', '.join(topic['tags'])}")
         self.index_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
-    def _write_topic(self, topic, notes, metadata=None):
+    def _write_topic(self, topic, notes, metadata=None):  # Write topic.
         self.topics_dir.mkdir(parents=True, exist_ok=True)
         meta = DURABLE_TOPIC_DEFAULTS[topic]
         lines = [
@@ -993,7 +993,7 @@ class DurableMemoryStore:
             metadata[row["note_id"]] = row
         self._write_topic_metadata(topic, metadata)
 
-    def promote(self, promotions):
+    def promote(self, promotions):  # Promote the requested operation.
         if not promotions:
             return [], []
         topics = {topic["topic"]: topic for topic in self.load_index()}
@@ -1046,7 +1046,7 @@ class DurableMemoryStore:
         return results, superseded
 
 
-def _ensure_list(value):
+def _ensure_list(value):  # Ensure list.
     if isinstance(value, list):
         return value
     if isinstance(value, tuple):
@@ -1058,7 +1058,7 @@ def _ensure_list(value):
     return [value]
 
 
-def _dedupe_preserve_order(items):
+def _dedupe_preserve_order(items):  # Deduplicate preserve order.
     seen = set()
     result = []
     for item in items:
@@ -1069,7 +1069,7 @@ def _dedupe_preserve_order(items):
     return result
 
 
-def resolve_workspace_path(raw_path, workspace_root=None):
+def resolve_workspace_path(raw_path, workspace_root=None):  # Resolve workspace path.
     path = Path(str(raw_path))
     if workspace_root is None:
         return path
@@ -1084,7 +1084,7 @@ def resolve_workspace_path(raw_path, workspace_root=None):
     return resolved
 
 
-def canonicalize_path(raw_path, workspace_root=None):
+def canonicalize_path(raw_path, workspace_root=None):  # Return the canonicalize path.
     resolved = resolve_workspace_path(raw_path, workspace_root)
     if resolved is None:
         return Path(str(raw_path)).as_posix()
@@ -1094,14 +1094,14 @@ def canonicalize_path(raw_path, workspace_root=None):
     return resolved.relative_to(root).as_posix()
 
 
-def file_freshness(raw_path, workspace_root=None):
+def file_freshness(raw_path, workspace_root=None):  # Return the file freshness.
     resolved = resolve_workspace_path(raw_path, workspace_root)
     if resolved is None or not resolved.exists() or not resolved.is_file():
         return None
     return hashlib.sha256(resolved.read_bytes()).hexdigest()
 
 
-def compute_anchor_hash(path):
+def compute_anchor_hash(path):  # Compute anchor hash.
     path = Path(path)
     if not path.exists() or not path.is_file():
         return None
@@ -1110,7 +1110,7 @@ def compute_anchor_hash(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def workspace_fingerprint(workspace_root):
+def workspace_fingerprint(workspace_root):  # Return the workspace fingerprint.
     root = str(Path(workspace_root).resolve())
     cached = _WORKSPACE_FINGERPRINT_CACHE.get(root)
     if cached:
@@ -1128,11 +1128,11 @@ def workspace_fingerprint(workspace_root):
     return fingerprint
 
 
-def _tokenize(text):
+def _tokenize(text):  # Return the tokenize.
     return {token.lower() for token in re.findall(r"[A-Za-z0-9_]+", str(text))}
 
 
-def _parse_timestamp(value):
+def _parse_timestamp(value):  # Parse timestamp.
     if not value:
         return 0.0
     try:
@@ -1141,15 +1141,15 @@ def _parse_timestamp(value):
         return 0.0
 
 
-def _query_hash(query):
+def _query_hash(query):  # Return the query hash.
     return hashlib.sha256(str(query).encode("utf-8")).hexdigest()[:12]
 
 
-def _note_id_for(topic_slug, note_text):
+def _note_id_for(topic_slug, note_text):  # Return the note id for.
     return hashlib.sha256(f"{topic_slug}\n{note_text}".encode("utf-8")).hexdigest()[:12]
 
 
-def _note_layer(note):
+def _note_layer(note):  # Return the note layer.
     kind = str(note.get("kind", "")).strip()
     if kind == "durable":
         return "durable"
@@ -1158,7 +1158,7 @@ def _note_layer(note):
     return "episodic"
 
 
-def _retrieval_note_id(note):
+def _retrieval_note_id(note):  # Return the retrieval note id.
     explicit = str(note.get("note_id", "")).strip()
     if explicit:
         return explicit
@@ -1166,7 +1166,7 @@ def _retrieval_note_id(note):
     return _note_id_for(source, str(note.get("text", "")))
 
 
-def _retrieval_reject_reason(note, workspace_root=None):
+def _retrieval_reject_reason(note, workspace_root=None):  # Return the retrieval reject reason.
     status = str(note.get("status", "active")).strip() or "active"
     if status == "quarantined":
         return "quarantined"
@@ -1182,7 +1182,7 @@ def _retrieval_reject_reason(note, workspace_root=None):
     return ""
 
 
-def _retrieval_record(note, score, reject_reason=""):
+def _retrieval_record(note, score, reject_reason=""):  # Return the retrieval record.
     enriched = dict(note)
     enriched["note_id"] = _retrieval_note_id(enriched)
     enriched["layer"] = _note_layer(enriched)
@@ -1192,7 +1192,7 @@ def _retrieval_record(note, score, reject_reason=""):
     return enriched
 
 
-def _source_path_for_evidence(workspace_root, source_path):
+def _source_path_for_evidence(workspace_root, source_path):  # Return the source path for evidence.
     source_path = str(source_path or "").strip()
     if not source_path:
         return None
@@ -1204,7 +1204,7 @@ def _source_path_for_evidence(workspace_root, source_path):
     return Path(workspace_root) / path
 
 
-def _apply_evidence_staleness(note, workspace_root):
+def _apply_evidence_staleness(note, workspace_root):  # Apply evidence staleness.
     evidence = note.get("evidence") if isinstance(note.get("evidence"), dict) else {}
     stored_hash = str(evidence.get("evidence_anchor_hash", "") or "").strip()
     source_path = evidence.get("source_path")
@@ -1217,7 +1217,7 @@ def _apply_evidence_staleness(note, workspace_root):
     return note
 
 
-def _normalize_note(note, index):
+def _normalize_note(note, index):  # Normalize note.
     if isinstance(note, str):
         text = clip(note.strip(), 500)
         return {
@@ -1260,7 +1260,7 @@ def _normalize_note(note, index):
     return normalized
 
 
-def normalize_memory_state(state, workspace_root=None):
+def normalize_memory_state(state, workspace_root=None):  # Normalize memory state.
     if state is None:
         state = default_memory_state()
     elif not isinstance(state, dict):
@@ -1353,14 +1353,14 @@ def normalize_memory_state(state, workspace_root=None):
     return state
 
 
-def set_task_summary(state, summary, workspace_root=None):
+def set_task_summary(state, summary, workspace_root=None):  # Set task summary.
     state = normalize_memory_state(state, workspace_root)
     state["working"]["task_summary"] = clip(str(summary).strip(), 300)
     state["task"] = state["working"]["task_summary"]
     return state
 
 
-def remember_file(state, path, workspace_root=None):
+def remember_file(state, path, workspace_root=None):  # Remember file.
     state = normalize_memory_state(state, workspace_root)
     path = canonicalize_path(path, workspace_root).strip()
     if not path:
@@ -1372,7 +1372,7 @@ def remember_file(state, path, workspace_root=None):
     return state
 
 
-def append_note(state, text, tags=(), source="", created_at=None, workspace_root=None, kind="episodic"):
+def append_note(state, text, tags=(), source="", created_at=None, workspace_root=None, kind="episodic"):  # Append note.
     state = normalize_memory_state(state, workspace_root)
     text = clip(str(text).strip(), 500)
     if not text:
@@ -1396,7 +1396,7 @@ def append_note(state, text, tags=(), source="", created_at=None, workspace_root
     state["episodic_notes"] = notes[-EPISODIC_NOTE_LIMIT:]
     state["notes"] = [item["text"] for item in state["episodic_notes"]]
     return state
-def set_file_summary(state, path, summary, workspace_root=None):
+def set_file_summary(state, path, summary, workspace_root=None):  # Set file summary.
     state = normalize_memory_state(state, workspace_root)
     path = canonicalize_path(path, workspace_root).strip()
     summary = clip(str(summary).strip(), 500)
@@ -1410,7 +1410,7 @@ def set_file_summary(state, path, summary, workspace_root=None):
     return state
 
 
-def invalidate_file_summary(state, path, workspace_root=None):
+def invalidate_file_summary(state, path, workspace_root=None):  # Invalidate file summary.
     state = normalize_memory_state(state, workspace_root)
     path = canonicalize_path(path, workspace_root).strip()
     if not path:
@@ -1419,7 +1419,7 @@ def invalidate_file_summary(state, path, workspace_root=None):
     return state
 
 
-def invalidate_stale_file_summaries(state, workspace_root=None):
+def invalidate_stale_file_summaries(state, workspace_root=None):  # Invalidate stale file summaries.
     state = normalize_memory_state(state, workspace_root)
     invalidated = []
     for path, summary in list(state["file_summaries"].items()):
@@ -1431,7 +1431,7 @@ def invalidate_stale_file_summaries(state, workspace_root=None):
     return state, invalidated
 
 
-def summarize_read_result(result, limit=180):
+def summarize_read_result(result, limit=180):  # Summarize read result.
     # 我们不会把完整文件内容塞进记忆层，
     # 这里只保留足够提醒下一轮“刚刚读到了什么”的短摘要。
     lines = [line.strip() for line in str(result).splitlines() if line.strip()]
@@ -1445,7 +1445,7 @@ def summarize_read_result(result, limit=180):
     return clip(summary, limit)
 
 
-def _iter_retrieval_notes(state, workspace_root=None):
+def _iter_retrieval_notes(state, workspace_root=None):  # Iterate over retrieval notes.
     for note in state["episodic_notes"]:
         yield dict(note)
     if workspace_root is not None:
@@ -1455,7 +1455,7 @@ def _iter_retrieval_notes(state, workspace_root=None):
                 yield _apply_evidence_staleness(dict(note), workspace_root)
 
 
-def _ranked_retrieval_notes(state, query, workspace_root=None):
+def _ranked_retrieval_notes(state, query, workspace_root=None):  # Return the ranked retrieval notes.
     state = normalize_memory_state(state, workspace_root)
     query_tokens = _tokenize(query)
     ranked = []
@@ -1477,7 +1477,7 @@ def _ranked_retrieval_notes(state, query, workspace_root=None):
     return ranked
 
 
-def retrieval_view_structured(state, query, limit=3, workspace_root=None):
+def retrieval_view_structured(state, query, limit=3, workspace_root=None):  # Return the retrieval view structured.
     selected = []
     rejected = []
     for _, score, note in _ranked_retrieval_notes(state, query, workspace_root):
@@ -1492,12 +1492,12 @@ def retrieval_view_structured(state, query, limit=3, workspace_root=None):
     return {"selected": selected, "rejected": rejected, "query_hash": _query_hash(query)}
 
 
-def retrieval_candidates(state, query, limit=3, workspace_root=None):
+def retrieval_candidates(state, query, limit=3, workspace_root=None):  # Return the retrieval candidates.
     structured = retrieval_view_structured(state, query, limit=limit, workspace_root=workspace_root)
     return structured["selected"]
 
 
-def retrieval_view(state, query, limit=3, workspace_root=None):
+def retrieval_view(state, query, limit=3, workspace_root=None):  # Return the retrieval view.
     structured = retrieval_view_structured(state, query, limit=limit, workspace_root=workspace_root)
     candidates = structured["selected"]
     lines = ["Relevant memory:"]
@@ -1509,7 +1509,7 @@ def retrieval_view(state, query, limit=3, workspace_root=None):
     return "\n".join(lines)
 
 
-def render_memory_text(state, workspace_root=None):
+def render_memory_text(state, workspace_root=None):  # Render memory text.
     state = normalize_memory_state(state, workspace_root)
     # 这里渲染的是给模型看的紧凑“仪表盘”，不是完整回放。
     # 笔记正文默认不展开，只有在相关召回时才按需拿出来。
@@ -1537,7 +1537,7 @@ def render_memory_text(state, workspace_root=None):
     return "\n".join(lines)
 
 
-def is_effectively_empty(state, workspace_root=None):
+def is_effectively_empty(state, workspace_root=None):  # Return whether is effectively empty.
     state = normalize_memory_state(state, workspace_root)
     return (
         not str(state["working"]["task_summary"]).strip()
@@ -1548,28 +1548,28 @@ def is_effectively_empty(state, workspace_root=None):
 
 
 class LayeredMemory:
-    def __init__(self, state=None, workspace_root=None):
+    def __init__(self, state=None, workspace_root=None):  # Initialize the instance.
         self.workspace_root = workspace_root
         self.state = normalize_memory_state(state, workspace_root)
         self.durable_store = DurableMemoryStore(Path(workspace_root) / ".teddycode" / "memory") if workspace_root is not None else None
         self.last_retrieval = None
 
-    def to_dict(self):
+    def to_dict(self):  # Return the to dict.
         self.state = normalize_memory_state(self.state, self.workspace_root)
         return self.state
 
-    def canonical_path(self, path):
+    def canonical_path(self, path):  # Return the canonical path.
         return canonicalize_path(path, self.workspace_root)
 
-    def set_task_summary(self, summary):
+    def set_task_summary(self, summary):  # Set task summary.
         self.state = set_task_summary(self.state, summary, self.workspace_root)
         return self
 
-    def remember_file(self, path):
+    def remember_file(self, path):  # Remember file.
         self.state = remember_file(self.state, path, self.workspace_root)
         return self
 
-    def append_note(self, text, tags=(), source="", created_at=None, kind="episodic"):
+    def append_note(self, text, tags=(), source="", created_at=None, kind="episodic"):  # Append note.
         self.state = append_note(
             self.state,
             text,
@@ -1581,33 +1581,33 @@ class LayeredMemory:
         )
         return self
 
-    def set_file_summary(self, path, summary):
+    def set_file_summary(self, path, summary):  # Set file summary.
         self.state = set_file_summary(self.state, path, summary, self.workspace_root)
         return self
 
-    def invalidate_file_summary(self, path):
+    def invalidate_file_summary(self, path):  # Invalidate file summary.
         self.state = invalidate_file_summary(self.state, path, self.workspace_root)
         return self
 
-    def invalidate_stale_file_summaries(self):
+    def invalidate_stale_file_summaries(self):  # Invalidate stale file summaries.
         self.state, invalidated = invalidate_stale_file_summaries(self.state, self.workspace_root)
         return invalidated
 
-    def retrieval_candidates(self, query, limit=3):
+    def retrieval_candidates(self, query, limit=3):  # Return the retrieval candidates.
         self.last_retrieval = retrieval_view_structured(self.state, query, limit=limit, workspace_root=self.workspace_root)
         return self.last_retrieval["selected"]
 
-    def retrieval_view_structured(self, query, limit=3):
+    def retrieval_view_structured(self, query, limit=3):  # Return the retrieval view structured.
         self.last_retrieval = retrieval_view_structured(self.state, query, limit=limit, workspace_root=self.workspace_root)
         return self.last_retrieval
 
-    def retrieval_view(self, query, limit=3):
+    def retrieval_view(self, query, limit=3):  # Return the retrieval view.
         return retrieval_view(self.state, query, limit=limit, workspace_root=self.workspace_root)
 
-    def render_memory_text(self):
+    def render_memory_text(self):  # Render memory text.
         return render_memory_text(self.state, self.workspace_root)
 
-    def promote_durable(self, promotions):
+    def promote_durable(self, promotions):  # Promote durable.
         if self.durable_store is None:
             return [], []
         self.state = normalize_memory_state(self.state, self.workspace_root)

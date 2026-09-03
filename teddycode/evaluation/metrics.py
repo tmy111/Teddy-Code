@@ -42,20 +42,20 @@ RUN_NAMES = (
 )
 
 
-def _safe_mean(values):
+def _safe_mean(values):  # Return the safe mean.
     values = list(values)
     if not values:
         return 0.0
     return sum(values) / len(values)
 
 
-def _safe_ratio(numerator, denominator):
+def _safe_ratio(numerator, denominator):  # Return the safe ratio.
     if not denominator:
         return 0.0
     return numerator / denominator
 
 
-def _parse_iso8601(value):
+def _parse_iso8601(value):  # Parse iso8601.
     if not value:
         return None
     try:
@@ -64,7 +64,7 @@ def _parse_iso8601(value):
         return None
 
 
-def aggregate_benchmark_artifact(path):
+def aggregate_benchmark_artifact(path):  # Return the aggregate benchmark artifact.
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     rows = list(payload.get("rows", []))
     summary = dict(payload.get("summary", {}))
@@ -92,7 +92,7 @@ def aggregate_benchmark_artifact(path):
     }
 
 
-def _infer_run_duration_ms(events):
+def _infer_run_duration_ms(events):  # Infer run duration ms.
     finished = next((event for event in reversed(events) if event.get("event") == "run_finished"), None)
     if finished and finished.get("run_duration_ms") is not None:
         return float(finished["run_duration_ms"])
@@ -106,7 +106,7 @@ def _infer_run_duration_ms(events):
     return max(0.0, (end_dt - start_dt).total_seconds() * 1000.0)
 
 
-def aggregate_run_artifacts(runs_root):
+def aggregate_run_artifacts(runs_root):  # Return the aggregate run artifacts.
     runs_root = Path(runs_root)
     run_dirs = sorted(path for path in runs_root.glob("*") if path.is_dir())
     reports = []
@@ -180,7 +180,7 @@ def aggregate_run_artifacts(runs_root):
 
 
 @contextmanager
-def _temporary_feature_flags(agent, updates):
+def _temporary_feature_flags(agent, updates):  # Handle temporary feature flags.
     previous = dict(getattr(agent, "feature_flags", {}))
     merged = dict(previous)
     merged.update(updates)
@@ -191,7 +191,7 @@ def _temporary_feature_flags(agent, updates):
         agent.feature_flags = previous
 
 
-def measure_feature_ablation_metrics(agent, user_message):
+def measure_feature_ablation_metrics(agent, user_message):  # Measure feature ablation metrics.
     variants = {
         "full": {},
         "no_context_reduction": {"context_reduction": False},
@@ -212,7 +212,7 @@ def measure_feature_ablation_metrics(agent, user_message):
     return results
 
 
-def build_stress_agent_metrics():
+def build_stress_agent_metrics():  # Build stress agent metrics.
     with tempfile.TemporaryDirectory(prefix="teddycode-metrics-") as temp_dir:
         workspace_root = Path(temp_dir)
         (workspace_root / "README.md").write_text("demo\n", encoding="utf-8")
@@ -241,14 +241,14 @@ def build_stress_agent_metrics():
 
 
 class _MemoryExperimentModelClient(ScriptedModelClient):
-    def __init__(self, expected_fact, filename):
+    def __init__(self, expected_fact, filename):  # Initialize the instance.
         super().__init__([])
         self.expected_fact = str(expected_fact).strip().lower()
         self.filename = str(filename).strip()
         self.phase = "bootstrap_tool"
         self.followup_reads = 0
 
-    def complete(self, prompt, max_new_tokens, **kwargs):
+    def complete(self, prompt, max_new_tokens, **kwargs):  # Complete the requested operation.
         del max_new_tokens, kwargs
         self.prompts.append(prompt)
         self.last_completion_metadata = {}
@@ -277,7 +277,7 @@ class _MemoryExperimentModelClient(ScriptedModelClient):
         return f"<final>{self.expected_fact.capitalize()}.</final>"
 
 
-def _build_memory_experiment_agent(workspace_root, expected_fact, filename):
+def _build_memory_experiment_agent(workspace_root, expected_fact, filename):  # Build memory experiment agent.
     workspace = WorkspaceContext.build(workspace_root)
     store = SessionStore(workspace_root / ".teddycode" / "sessions")
     return TeddyCode(
@@ -288,7 +288,7 @@ def _build_memory_experiment_agent(workspace_root, expected_fact, filename):
     )
 
 
-def _set_irrelevant_memory(agent):
+def _set_irrelevant_memory(agent):  # Set irrelevant memory.
     state = agent.memory.to_dict()
     state["episodic_notes"] = [
         {
@@ -305,7 +305,7 @@ def _set_irrelevant_memory(agent):
     agent.session["memory"] = agent.memory.to_dict()
 
 
-def _run_memory_variant(mode):
+def _run_memory_variant(mode):  # Run memory variant.
     with tempfile.TemporaryDirectory(prefix="teddycode-memory-experiment-") as temp_dir:
         workspace_root = Path(temp_dir)
         (workspace_root / "README.md").write_text("demo\n", encoding="utf-8")
@@ -330,7 +330,7 @@ def _run_memory_variant(mode):
         }
 
 
-def run_memory_dependency_experiment(repetitions=3):
+def run_memory_dependency_experiment(repetitions=3):  # Run memory dependency experiment.
     variants = {
         "memory_on": [],
         "memory_off": [],
@@ -367,17 +367,17 @@ MEMORY_EXPERIMENT_TASKS = [
 ]
 
 
-def _write_memory_task_files(workspace_root, task):
+def _write_memory_task_files(workspace_root, task):  # Write memory task files.
     filename = task["filename"]
     payload = task["fact"]
     (workspace_root / filename).write_text(payload + "\n", encoding="utf-8")
 
 
-def _bootstrap_prompt(task):
+def _bootstrap_prompt(task):  # Bootstrap prompt.
     return f"Read {task['filename']} and remember the key fact."
 
 
-def _followup_prompt(task):
+def _followup_prompt(task):  # Return the followup prompt.
     if task["category"] == "fact_lookup":
         return f"What does {task['filename']} say?"
     if task["category"] == "edit_dependency":
@@ -385,7 +385,7 @@ def _followup_prompt(task):
     return f"What was the conclusion we already established from {task['filename']}?"
 
 
-def _set_irrelevant_memory_for_task(agent):
+def _set_irrelevant_memory_for_task(agent):  # Set irrelevant memory for task.
     state = agent.memory.to_dict()
     state["episodic_notes"] = [
         {
@@ -402,7 +402,7 @@ def _set_irrelevant_memory_for_task(agent):
     agent.session["memory"] = agent.memory.to_dict()
 
 
-def _run_memory_task_variant(task, variant):
+def _run_memory_task_variant(task, variant):  # Run memory task variant.
     with tempfile.TemporaryDirectory(prefix="teddycode-memory-large-") as temp_dir:
         workspace_root = Path(temp_dir)
         (workspace_root / "README.md").write_text("demo\n", encoding="utf-8")
@@ -424,7 +424,7 @@ def _run_memory_task_variant(task, variant):
         }
 
 
-def run_large_scale_memory_experiment(repetitions=5):
+def run_large_scale_memory_experiment(repetitions=5):  # Run large scale memory experiment.
     repetitions = int(repetitions)
     variants = {
         "memory_on": [],
@@ -459,7 +459,7 @@ def run_large_scale_memory_experiment(repetitions=5):
     }
 
 
-def _run_memory_fidelity_irrelevant_case():
+def _run_memory_fidelity_irrelevant_case():  # Run memory fidelity irrelevant case.
     memory = LayeredMemory()
     memory.append_note("deploy key is blue and unrelated", tags=("deploy",), created_at="2026-06-24T10:00:00+00:00")
     memory.append_note("deploy key is red", tags=("deploy",), created_at="2026-06-24T10:01:00+00:00")
@@ -476,7 +476,7 @@ def _run_memory_fidelity_irrelevant_case():
     }
 
 
-def _run_memory_fidelity_superseded_case():
+def _run_memory_fidelity_superseded_case():  # Run memory fidelity superseded case.
     memory = LayeredMemory()
     memory.append_note("capital is X", tags=("capital",), created_at="2026-06-24T10:00:00+00:00")
     memory.append_note("capital is Y", tags=("capital",), created_at="2026-06-24T10:01:00+00:00")
@@ -500,7 +500,7 @@ def _run_memory_fidelity_superseded_case():
     }
 
 
-def _run_memory_fidelity_secret_case():
+def _run_memory_fidelity_secret_case():  # Run memory fidelity secret case.
     memory = LayeredMemory()
     memory.append_note(
         "api key sk-AAAAAAAAAAAAAAAAAAAA for service X",
@@ -523,7 +523,7 @@ def _run_memory_fidelity_secret_case():
     }
 
 
-def _run_memory_fidelity_stale_case():
+def _run_memory_fidelity_stale_case():  # Run memory fidelity stale case.
     with tempfile.TemporaryDirectory(prefix="teddycode-memory-fidelity-stale-") as temp_dir:
         workspace_root = Path(temp_dir)
         (workspace_root / "README.md").write_text("demo\n", encoding="utf-8")
@@ -552,7 +552,7 @@ def _run_memory_fidelity_stale_case():
     }
 
 
-def _run_memory_fidelity_prompt_injection_case():
+def _run_memory_fidelity_prompt_injection_case():  # Run memory fidelity prompt injection case.
     with tempfile.TemporaryDirectory(prefix="teddycode-memory-fidelity-poison-") as temp_dir:
         workspace_root = Path(temp_dir)
         (workspace_root / "README.md").write_text("demo\n", encoding="utf-8")
@@ -582,7 +582,7 @@ def _run_memory_fidelity_prompt_injection_case():
     }
 
 
-def run_memory_fidelity_v1(artifact_path=DEFAULT_MEMORY_FIDELITY_V1_PATH):
+def run_memory_fidelity_v1(artifact_path=DEFAULT_MEMORY_FIDELITY_V1_PATH):  # Run memory fidelity v1.
     rows = [
         _run_memory_fidelity_irrelevant_case(),
         _run_memory_fidelity_superseded_case(),
@@ -618,7 +618,7 @@ def run_memory_fidelity_v1(artifact_path=DEFAULT_MEMORY_FIDELITY_V1_PATH):
     return _write_json_artifact(artifact_path, artifact)
 
 
-def run_context_stress_matrix(repetitions=5):
+def run_context_stress_matrix(repetitions=5):  # Run context stress matrix.
     repetitions = int(repetitions)
     history_levels = [("short", 4), ("medium", 12), ("long", 24)]
     note_levels = [("low", 2), ("high", 10)]
@@ -702,7 +702,7 @@ def run_context_stress_matrix(repetitions=5):
     }
 
 
-def _security_agent(workspace_root, approval_policy="auto", read_only=False):
+def _security_agent(workspace_root, approval_policy="auto", read_only=False):  # Return the security agent.
     workspace = WorkspaceContext.build(workspace_root)
     store = SessionStore(workspace_root / ".teddycode" / "sessions")
     return TeddyCode(
@@ -714,39 +714,39 @@ def _security_agent(workspace_root, approval_policy="auto", read_only=False):
     )
 
 
-def _scenario_invalid_patch_nonunique(workspace_root):
+def _scenario_invalid_patch_nonunique(workspace_root):  # Run the invalid patch nonunique scenario.
     (workspace_root / "sample.txt").write_text("beta\nbeta\n", encoding="utf-8")
     agent = _security_agent(workspace_root)
     agent.run_tool("patch_file", {"path": "sample.txt", "old_text": "beta", "new_text": "locked"})
     return dict(agent._last_tool_result_metadata)
 
 
-def _scenario_invalid_patch_missing_field(workspace_root):
+def _scenario_invalid_patch_missing_field(workspace_root):  # Run the invalid patch missing field scenario.
     (workspace_root / "sample.txt").write_text("beta\n", encoding="utf-8")
     agent = _security_agent(workspace_root)
     agent.run_tool("patch_file", {"path": "sample.txt", "old_text": "beta"})
     return dict(agent._last_tool_result_metadata)
 
 
-def _scenario_timeout_out_of_range(workspace_root):
+def _scenario_timeout_out_of_range(workspace_root):  # Run the timeout out of range scenario.
     agent = _security_agent(workspace_root)
     agent.run_tool("run_shell", {"command": "echo hi", "timeout": 121})
     return dict(agent._last_tool_result_metadata)
 
 
-def _scenario_empty_command(workspace_root):
+def _scenario_empty_command(workspace_root):  # Run the empty command scenario.
     agent = _security_agent(workspace_root)
     agent.run_tool("run_shell", {"command": "", "timeout": 20})
     return dict(agent._last_tool_result_metadata)
 
 
-def _scenario_empty_agent_prompt(workspace_root):
+def _scenario_empty_agent_prompt(workspace_root):  # Run the empty agent prompt scenario.
     agent = _security_agent(workspace_root)
     agent.run_tool("agent", {"description": "Inspect", "prompt": "", "subagent_type": "Explore"})
     return dict(agent._last_tool_result_metadata)
 
 
-def _scenario_path_escape_read(workspace_root):
+def _scenario_path_escape_read(workspace_root):  # Run the path escape read scenario.
     outside = workspace_root.parent / f"{workspace_root.name}-outside.txt"
     outside.write_text("outside\n", encoding="utf-8")
     agent = _security_agent(workspace_root)
@@ -754,7 +754,7 @@ def _scenario_path_escape_read(workspace_root):
     return dict(agent._last_tool_result_metadata)
 
 
-def _scenario_symlink_escape(workspace_root):
+def _scenario_symlink_escape(workspace_root):  # Run the symlink escape scenario.
     outside = workspace_root.parent / f"{workspace_root.name}-symlink-target.txt"
     outside.write_text("outside\n", encoding="utf-8")
     (workspace_root / "linked.txt").symlink_to(outside)
@@ -763,25 +763,25 @@ def _scenario_symlink_escape(workspace_root):
     return dict(agent._last_tool_result_metadata)
 
 
-def _scenario_search_escape(workspace_root):
+def _scenario_search_escape(workspace_root):  # Run the search escape scenario.
     agent = _security_agent(workspace_root)
     agent.run_tool("search", {"pattern": "abc", "path": "../outside"})
     return dict(agent._last_tool_result_metadata)
 
 
-def _scenario_approval_denied(workspace_root):
+def _scenario_approval_denied(workspace_root):  # Run the approval denied scenario.
     agent = _security_agent(workspace_root, approval_policy="never")
     agent.run_tool("run_shell", {"command": "echo hi", "timeout": 20})
     return dict(agent._last_tool_result_metadata)
 
 
-def _scenario_read_only_block(workspace_root):
+def _scenario_read_only_block(workspace_root):  # Run the read only block scenario.
     agent = _security_agent(workspace_root, read_only=True)
     agent.run_tool("write_file", {"path": "x.txt", "content": "nope"})
     return dict(agent._last_tool_result_metadata)
 
 
-def _scenario_repeated_call(workspace_root):
+def _scenario_repeated_call(workspace_root):  # Run the repeated call scenario.
     (workspace_root / "README.md").write_text("demo\n", encoding="utf-8")
     agent = _security_agent(workspace_root)
     args = {"path": "README.md", "start": 1, "end": 1}
@@ -806,7 +806,7 @@ SECURITY_SCENARIOS = [
 ]
 
 
-def run_security_experiment_suite(repetitions=3):
+def run_security_experiment_suite(repetitions=3):  # Run security experiment suite.
     repetitions = int(repetitions)
     rows = []
     security_event_counts = {}
@@ -834,7 +834,7 @@ def run_security_experiment_suite(repetitions=3):
     }
 
 
-def _provider_summary_from_artifact(payload):
+def _provider_summary_from_artifact(payload):  # Return the provider summary from artifact.
     rows = list(payload.get("rows", []))
     cached_tokens = []
     cache_hits = []
@@ -860,7 +860,7 @@ def _provider_summary_from_artifact(payload):
     }
 
 
-def _provider_profile(provider):
+def _provider_profile(provider):  # Return the provider profile.
     config = resolve_provider_config(provider, start=Path.cwd())
     if not config.api_key:
         return {
@@ -880,7 +880,7 @@ def _provider_profile(provider):
     }
 
 
-def _make_provider_client(provider):
+def _make_provider_client(provider):  # Create provider client.
     profile = _provider_profile(provider)
     if profile["status"] != "ready":
         raise RuntimeError(profile["reason"])
@@ -902,14 +902,14 @@ def _make_provider_client(provider):
     )
 
 
-def _normalize_text(value):
+def _normalize_text(value):  # Normalize text.
     text = str(value).strip().lower()
     while text.endswith((".", "!", "?", "\"", "'")):
         text = text[:-1].strip()
     return text
 
 
-def run_provider_experiments(benchmark_path, workspace_root, artifact_root, max_new_tokens=64):
+def run_provider_experiments(benchmark_path, workspace_root, artifact_root, max_new_tokens=64):  # Run provider experiments.
     benchmark_path = Path(benchmark_path)
     workspace_root = Path(workspace_root)
     artifact_root = Path(artifact_root)
@@ -920,7 +920,7 @@ def run_provider_experiments(benchmark_path, workspace_root, artifact_root, max_
             providers.append(profile)
             continue
         if provider_name == "gpt":
-            def factory(task, workspace, profile=profile):
+            def factory(task, workspace, profile=profile):  # Return the factory.
                 del task, workspace
                 return OpenAICompatibleModelClient(
                     model=profile["model"],
@@ -930,7 +930,7 @@ def run_provider_experiments(benchmark_path, workspace_root, artifact_root, max_
                     timeout=300,
                 )
         else:
-            def factory(task, workspace, profile=profile):
+            def factory(task, workspace, profile=profile):  # Return the factory.
                 del task, workspace
                 return AnthropicCompatibleModelClient(
                     model=profile["model"],
@@ -967,14 +967,14 @@ def run_provider_experiments(benchmark_path, workspace_root, artifact_root, max_
     return {"providers": providers}
 
 
-def _followup_trace_metrics(agent):
+def _followup_trace_metrics(agent):  # Return the followup trace metrics.
     trace_path = agent.run_store.trace_path(agent.current_task_state)
     events = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     repeated_reads = sum(1 for event in events if event.get("event") == "tool_executed" and event.get("name") == "read_file")
     return repeated_reads
 
 
-def _inject_memory_noise(agent, rounds=8):
+def _inject_memory_noise(agent, rounds=8):  # Inject memory noise.
     for index in range(int(rounds)):
         agent.record(
             {
@@ -985,7 +985,7 @@ def _inject_memory_noise(agent, rounds=8):
         )
 
 
-def _truncate_read_history(agent):
+def _truncate_read_history(agent):  # Handle truncate read history.
     updated = []
     for item in agent.session["history"]:
         if item.get("role") == "tool" and item.get("name") == "read_file":
@@ -998,7 +998,7 @@ def _truncate_read_history(agent):
     agent.session_path = agent.session_store.save(agent.session)
 
 
-def _build_real_agent(workspace_root, provider, approval_policy="auto", read_only=False):
+def _build_real_agent(workspace_root, provider, approval_policy="auto", read_only=False):  # Build real agent.
     workspace = WorkspaceContext.build(workspace_root)
     store = SessionStore(workspace_root / ".teddycode" / "sessions")
     return TeddyCode(
@@ -1010,7 +1010,7 @@ def _build_real_agent(workspace_root, provider, approval_policy="auto", read_onl
     )
 
 
-def run_real_memory_experiment(provider="gpt", repetitions=1):
+def run_real_memory_experiment(provider="gpt", repetitions=1):  # Run real memory experiment.
     repetitions = int(repetitions)
     provider = str(provider)
     variants = {"memory_on": [], "memory_off": [], "memory_irrelevant": []}
@@ -1076,7 +1076,7 @@ def run_real_memory_experiment(provider="gpt", repetitions=1):
     }
 
 
-def run_real_context_experiment(provider="gpt", repetitions=1):
+def run_real_context_experiment(provider="gpt", repetitions=1):  # Run real context experiment.
     repetitions = int(repetitions)
     provider = str(provider)
     history_levels = [("short", 4), ("medium", 12), ("long", 24)]
@@ -1165,7 +1165,7 @@ REAL_SECURITY_SCENARIOS = [
 ]
 
 
-def _setup_real_security_workspace(workspace_root, scenario_id):
+def _setup_real_security_workspace(workspace_root, scenario_id):  # Handle setup real security workspace.
     (workspace_root / "README.md").write_text("demo\n", encoding="utf-8")
     if scenario_id == "path_escape_read":
         outside = workspace_root.parent / "outside.txt"
@@ -1179,7 +1179,7 @@ def _setup_real_security_workspace(workspace_root, scenario_id):
         (workspace_root / "sample.txt").write_text(text, encoding="utf-8")
 
 
-def _security_result_row(scenario_id, provider, metadata):
+def _security_result_row(scenario_id, provider, metadata):  # Return the security result row.
     row = dict(metadata)
     row["scenario_id"] = scenario_id
     row["provider"] = provider
@@ -1189,7 +1189,7 @@ def _security_result_row(scenario_id, provider, metadata):
     return row
 
 
-def _run_real_repeated_call_scenario(provider):
+def _run_real_repeated_call_scenario(provider):  # Run real repeated call scenario.
     with tempfile.TemporaryDirectory(prefix="teddycode-real-security-repeat-") as temp_dir:
         workspace_root = Path(temp_dir)
         (workspace_root / "README.md").write_text("demo\n", encoding="utf-8")
@@ -1200,7 +1200,7 @@ def _run_real_repeated_call_scenario(provider):
         return _security_result_row("repeated_identical_call", provider, dict(agent._last_tool_result_metadata))
 
 
-def run_real_security_experiment_suite(provider="gpt", repetitions=1):
+def run_real_security_experiment_suite(provider="gpt", repetitions=1):  # Run real security experiment suite.
     repetitions = int(repetitions)
     provider = str(provider)
     rows = []
@@ -1250,7 +1250,7 @@ def collect_resume_metrics(
     security_repetitions=3,
     experiment_mode="synthetic",
     real_provider="gpt",
-):
+):  # Collect resume metrics.
     benchmark = aggregate_benchmark_artifact(benchmark_artifact_path)
     runs = aggregate_run_artifacts(runs_root)
     experiment_mode = str(experiment_mode)
@@ -1305,7 +1305,7 @@ def collect_resume_metrics(
     }
 
 
-def render_resume_metrics_markdown(metrics):
+def render_resume_metrics_markdown(metrics):  # Render resume metrics markdown.
     benchmark = metrics["benchmark"]
     runs = metrics["runs"]
     stress = metrics["stress_ablation"]
@@ -1354,7 +1354,7 @@ def render_resume_metrics_markdown(metrics):
     return "\n".join(lines)
 
 
-def render_large_scale_experiment_report(metrics):
+def render_large_scale_experiment_report(metrics):  # Render large scale experiment report.
     benchmark = metrics["benchmark"]
     memory_small = metrics["memory_experiment"]
     memory_large = metrics["memory_large_experiment"]
@@ -1425,7 +1425,7 @@ def render_large_scale_experiment_report(metrics):
     return "\n".join(lines)
 
 
-def _write_json_artifact(path, payload):
+def _write_json_artifact(path, payload):  # Write json artifact.
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -1433,12 +1433,12 @@ def _write_json_artifact(path, payload):
 
 
 class _RecoveryScenarioModelClient(ScriptedModelClient):
-    def __init__(self, required_fragments, success_answer):
+    def __init__(self, required_fragments, success_answer):  # Initialize the instance.
         super().__init__([])
         self.required_fragments = [str(fragment).lower() for fragment in required_fragments]
         self.success_answer = str(success_answer)
 
-    def complete(self, prompt, max_new_tokens, **kwargs):
+    def complete(self, prompt, max_new_tokens, **kwargs):  # Complete the requested operation.
         del max_new_tokens, kwargs
         self.prompts.append(prompt)
         self.last_completion_metadata = {}
@@ -1449,10 +1449,10 @@ class _RecoveryScenarioModelClient(ScriptedModelClient):
 
 
 class _MemoryContinuityModelClient(ScriptedModelClient):
-    def __init__(self):
+    def __init__(self):  # Initialize the instance.
         super().__init__([])
 
-    def complete(self, prompt, max_new_tokens, **kwargs):
+    def complete(self, prompt, max_new_tokens, **kwargs):  # Complete the requested operation.
         del max_new_tokens, kwargs
         self.prompts.append(prompt)
         self.last_completion_metadata = {}
@@ -1532,7 +1532,7 @@ RECOVERY_ABLATION_TASKS = [
 ]
 
 
-def _build_recovery_agent(workspace_root, required_fragments):
+def _build_recovery_agent(workspace_root, required_fragments):  # Build recovery agent.
     workspace = WorkspaceContext.build(workspace_root)
     store = SessionStore(workspace_root / ".teddycode" / "sessions")
     return TeddyCode(
@@ -1544,7 +1544,7 @@ def _build_recovery_agent(workspace_root, required_fragments):
     )
 
 
-def _apply_recovery_setup(agent, task, workspace_root):
+def _apply_recovery_setup(agent, task, workspace_root):  # Apply recovery setup.
     setup = task["setup"]
     workspace_root = Path(workspace_root)
     (workspace_root / "sample.txt").write_text("alpha\nbeta\ngamma\nplaceholder\n", encoding="utf-8")
@@ -1697,7 +1697,7 @@ def _apply_recovery_setup(agent, task, workspace_root):
         agent.session_store.save(agent.session)
 
 
-def _run_memory_continuity_variant(variant):
+def _run_memory_continuity_variant(variant):  # Run memory continuity variant.
     with tempfile.TemporaryDirectory(prefix="teddycode-memory-continuity-") as temp_dir:
         workspace_root = Path(temp_dir)
         (workspace_root / "README.md").write_text("demo\n", encoding="utf-8")
@@ -1769,7 +1769,7 @@ def _run_memory_continuity_variant(variant):
         }
 
 
-def _run_recovery_task_variant(task, variant):
+def _run_recovery_task_variant(task, variant):  # Run recovery task variant.
     if task["setup"] == "memory_continuity":
         return _run_memory_continuity_variant(variant)
     with tempfile.TemporaryDirectory(prefix="teddycode-recovery-ablation-") as temp_dir:
@@ -1806,7 +1806,7 @@ def _run_recovery_task_variant(task, variant):
         }
 
 
-def _recovery_variant_summary(rows):
+def _recovery_variant_summary(rows):  # Return the recovery variant summary.
     rows = list(rows)
     legacy_rows = [row for row in rows if row["category"] != "memory_continuity"]
     stale_rows = [row for row in rows if row["category"] == "partial_stale"]
@@ -1828,7 +1828,7 @@ def _recovery_variant_summary(rows):
     }
 
 
-def run_context_ablation_v2(artifact_path=DEFAULT_CONTEXT_ABLATION_V2_PATH, repetitions=5):
+def run_context_ablation_v2(artifact_path=DEFAULT_CONTEXT_ABLATION_V2_PATH, repetitions=5):  # Run context ablation v2.
     payload = run_context_stress_matrix(repetitions=repetitions)
     artifact = {
         "schema_version": METRICS_SCHEMA_VERSION,
@@ -1841,7 +1841,7 @@ def run_context_ablation_v2(artifact_path=DEFAULT_CONTEXT_ABLATION_V2_PATH, repe
     return _write_json_artifact(artifact_path, artifact)
 
 
-def run_memory_ablation_v2(artifact_path=DEFAULT_MEMORY_ABLATION_V2_PATH, repetitions=5):
+def run_memory_ablation_v2(artifact_path=DEFAULT_MEMORY_ABLATION_V2_PATH, repetitions=5):  # Run memory ablation v2.
     payload = run_large_scale_memory_experiment(repetitions=repetitions)
     artifact = {
         "schema_version": METRICS_SCHEMA_VERSION,
@@ -1856,7 +1856,7 @@ def run_memory_ablation_v2(artifact_path=DEFAULT_MEMORY_ABLATION_V2_PATH, repeti
     return _write_json_artifact(artifact_path, artifact)
 
 
-def run_recovery_ablation_v2(artifact_path=DEFAULT_RECOVERY_ABLATION_V2_PATH, repetitions=3):
+def run_recovery_ablation_v2(artifact_path=DEFAULT_RECOVERY_ABLATION_V2_PATH, repetitions=3):  # Run recovery ablation v2.
     repetitions = int(repetitions)
     variants = {"resume_enabled": [], "resume_disabled": []}
     for task in RECOVERY_ABLATION_TASKS:
@@ -1879,7 +1879,7 @@ def run_recovery_ablation_v2(artifact_path=DEFAULT_RECOVERY_ABLATION_V2_PATH, re
     return _write_json_artifact(artifact_path, artifact)
 
 
-def _existing_artifact_path(path):
+def _existing_artifact_path(path):  # Return the existing artifact path.
     path = Path(path)
     if path.exists():
         return path
@@ -1900,7 +1900,7 @@ def write_benchmark_core_report(
     dream_artifact_path=DEFAULT_DREAM_QUALITY_V1_PATH,
     memory_agent_artifact_path=DEFAULT_MEMORY_AGENT_EVAL_V1_PATH,
     memory_challenge_artifact_path=DEFAULT_MEMORY_CHALLENGE_V1_PATH,
-):
+):  # Write benchmark core report.
     harness = json.loads(_existing_artifact_path(harness_artifact_path).read_text(encoding="utf-8"))
     context = json.loads(_existing_artifact_path(context_artifact_path).read_text(encoding="utf-8"))
     memory = json.loads(_existing_artifact_path(memory_artifact_path).read_text(encoding="utf-8"))
@@ -2078,7 +2078,7 @@ def write_benchmark_core_report(
     return report_text
 
 
-def _artifact_exists(path):
+def _artifact_exists(path):  # Return the artifact exists.
     path = _existing_artifact_path(path)
     if not path.exists():
         print(f"missing artifact: {path}", file=sys.stderr)
@@ -2086,7 +2086,7 @@ def _artifact_exists(path):
     return True
 
 
-def _run_metrics_cli(name):
+def _run_metrics_cli(name):  # Run metrics cli.
     if name == "harness_regression":
         return 0 if _artifact_exists(DEFAULT_HARNESS_REGRESSION_V2_PATH) else 1
     if name == "context_ablation":
@@ -2128,7 +2128,7 @@ def _run_metrics_cli(name):
     return 2
 
 
-def main(argv=None):
+def main(argv=None):  # Run the command-line entry point.
     parser = argparse.ArgumentParser(description="TeddyCode benchmark metrics utilities.")
     parser.add_argument("--core-report", action="store_true", help="Write the benchmark core report.")
     parser.add_argument("--run", choices=RUN_NAMES, help="Run or validate a benchmark artifact by name.")

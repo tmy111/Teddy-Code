@@ -8,7 +8,7 @@ from .worker_notifications import render_worker_notification
 from .workspace import clip, now
 
 
-def run_worker(manager, task, prompt, action):
+def run_worker(manager, task, prompt, action):  # Run worker.
     item = manager._get_item(task.id)
     with manager._lock:
         item["status"] = "running"

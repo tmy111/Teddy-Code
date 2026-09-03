@@ -21,13 +21,13 @@ class ImageBlock:
     detail: str = "auto"
 
     @property
-    def byte_count(self):
+    def byte_count(self):  # Return the byte count.
         return len(self.data)
 
-    def base64_data(self):
+    def base64_data(self):  # Return the base64 data.
         return base64.b64encode(self.data).decode("ascii")
 
-    def data_url(self):
+    def data_url(self):  # Return the data url.
         return f"data:{self.mime_type};base64,{self.base64_data()}"
 
 
@@ -36,16 +36,16 @@ class ModelInput:
     text: str
     images: tuple[ImageBlock, ...] = field(default_factory=tuple)
 
-    def __init__(self, text: str, images=None):
+    def __init__(self, text: str, images=None):  # Initialize the instance.
         object.__setattr__(self, "text", str(text))
         object.__setattr__(self, "images", tuple(images or ()))
 
     @property
-    def image_count(self):
+    def image_count(self):  # Return the image count.
         return len(self.images)
 
 
-def ensure_model_input(value):
+def ensure_model_input(value):  # Ensure model input.
     if isinstance(value, ModelInput):
         return value
     return ModelInput(text=str(value))

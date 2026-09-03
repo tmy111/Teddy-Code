@@ -48,7 +48,7 @@ CONSOLIDATED_NOTES = {
 }
 
 
-def _topic_content(notes):
+def _topic_content(notes):  # Return the topic content.
     lines = [
         "# Test Topic",
         "",
@@ -63,7 +63,7 @@ def _topic_content(notes):
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _scripted_outputs(fixture_name):
+def _scripted_outputs(fixture_name):  # Return the scripted outputs.
     content = json.dumps(_topic_content(CONSOLIDATED_NOTES[fixture_name]))
     return [
         '<tool>{"name":"read_file","args":{"path":".teddycode/memory/topics/test-topic.md","start":1,"end":120}}</tool>',
@@ -72,14 +72,14 @@ def _scripted_outputs(fixture_name):
     ]
 
 
-def _latest_report(memory_dir):
+def _latest_report(memory_dir):  # Return the latest report.
     reports = sorted((Path(memory_dir) / "dream_reports").glob("*.json"))
     if not reports:
         raise FileNotFoundError("dream report was not written")
     return json.loads(reports[-1].read_text(encoding="utf-8"))
 
 
-def _run_fixture(fixture_path):
+def _run_fixture(fixture_path):  # Run fixture.
     fixture_path = Path(fixture_path)
     with tempfile.TemporaryDirectory(prefix="teddycode-dream-quality-") as tmp:
         root = Path(tmp)
@@ -113,14 +113,14 @@ def _run_fixture(fixture_path):
     }
 
 
-def _rate(rows, report_key, expected_key):
+def _rate(rows, report_key, expected_key):  # Return the rate.
     denominator = sum(row["expected"][expected_key] for row in rows)
     if denominator == 0:
         return 1.0
     return min(1.0, sum(row["report"][report_key] for row in rows) / denominator)
 
 
-def run_dream_quality_v1(fixtures_dir, artifact_path=DEFAULT_ARTIFACT_PATH):
+def run_dream_quality_v1(fixtures_dir, artifact_path=DEFAULT_ARTIFACT_PATH):  # Run dream quality v1.
     fixtures_dir = Path(fixtures_dir)
     rows = [_run_fixture(path) for path in sorted(fixtures_dir.iterdir()) if path.is_dir()]
     summary = {
@@ -148,7 +148,7 @@ def run_dream_quality_v1(fixtures_dir, artifact_path=DEFAULT_ARTIFACT_PATH):
     return artifact
 
 
-def main(argv=None):
+def main(argv=None):  # Run the command-line entry point.
     parser = argparse.ArgumentParser(description="Run TeddyCode dream quality fixtures.")
     parser.add_argument("--fixtures", required=True, help="Directory containing dream input fixtures.")
     parser.add_argument("--artifact", default=str(DEFAULT_ARTIFACT_PATH), help="Path for dream-quality-v1 artifact.")

@@ -23,7 +23,7 @@ SECRET_PATTERNS = [
 RELATIVE_DATE_PATTERN = re.compile(r"(?i)\b(tomorrow|yesterday|next week|last week)\b|今天|明天|昨天|下周|上周")
 
 
-def _load_topic_metadata(path):
+def _load_topic_metadata(path):  # Load topic metadata.
     if not path.exists():
         return {}
     rows = {}
@@ -40,7 +40,7 @@ def _load_topic_metadata(path):
     return rows
 
 
-def _load_topic_notes(topic_path):
+def _load_topic_notes(topic_path):  # Load topic notes.
     topic = topic_path.stem
     lines = topic_path.read_text(encoding="utf-8").splitlines()
     notes = []
@@ -56,17 +56,17 @@ def _load_topic_notes(topic_path):
     return notes
 
 
-def _tokenize(text):
+def _tokenize(text):  # Return the tokenize.
     return {token.lower() for token in re.findall(r"[A-Za-z0-9_]+", str(text))}
 
 
-def _note_id_for(topic_slug, note_text):
+def _note_id_for(topic_slug, note_text):  # Return the note id for.
     import hashlib
 
     return hashlib.sha256(f"{topic_slug}\n{note_text}".encode("utf-8")).hexdigest()[:12]
 
 
-def _subject_key(text):
+def _subject_key(text):  # Return the subject key.
     text = str(text).strip()
     patterns = (
         r"^(.+?)\s+is\s+.+$",
@@ -84,7 +84,7 @@ def _subject_key(text):
     return None
 
 
-def _finding(rule, topic, note_id="", text="", **extra):
+def _finding(rule, topic, note_id="", text="", **extra):  # Return the finding.
     payload = {"rule": rule, "topic": topic}
     if note_id:
         payload["note_id"] = note_id
@@ -94,7 +94,7 @@ def _finding(rule, topic, note_id="", text="", **extra):
     return payload
 
 
-def lint_memory_dir(memory_dir):
+def lint_memory_dir(memory_dir):  # Lint memory dir.
     memory_dir = Path(memory_dir)
     topics_dir = memory_dir / "topics"
     if not topics_dir.exists():
@@ -144,7 +144,7 @@ def lint_memory_dir(memory_dir):
     return sorted(findings, key=lambda item: (item["rule"], item.get("topic", ""), item.get("note_id", "")))
 
 
-def main(argv=None):
+def main(argv=None):  # Run the command-line entry point.
     parser = argparse.ArgumentParser(description="Lint TeddyCode durable memory files.")
     parser.add_argument("memory_dir", help="Memory directory containing topics/*.md and sidecars.")
     args = parser.parse_args(argv)

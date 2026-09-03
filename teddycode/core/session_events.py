@@ -12,7 +12,7 @@ from pathlib import Path
 from .workspace import now
 
 
-def _fs_path(path):
+def _fs_path(path):  # Return the fs path.
     path = Path(path)
     if os.name != "nt":
         return str(path)
@@ -25,13 +25,13 @@ def _fs_path(path):
 
 
 class SessionEventBus:
-    def __init__(self, session_id, path, redact=None):
+    def __init__(self, session_id, path, redact=None):  # Initialize the instance.
         self.session_id = str(session_id)
         self.path = Path(path)
         self.redact = redact or (lambda value: value)
         os.makedirs(_fs_path(self.path.parent), exist_ok=True)
 
-    def emit(self, event, payload=None):
+    def emit(self, event, payload=None):  # Emit the requested operation.
         record = dict(payload or {})
         record["event"] = str(event)
         record["session_id"] = self.session_id

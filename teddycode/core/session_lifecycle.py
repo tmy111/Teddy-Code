@@ -12,14 +12,14 @@ from .worker_manager import WorkerManager
 from .workspace import now
 
 
-def resume_runtime_session(runtime, session_id):
+def resume_runtime_session(runtime, session_id):  # Resume runtime session.
     _shutdown_workers(runtime)
     runtime.session = runtime.session_store.load(session_id)
     _rebind(runtime, emit_started=False)
     return runtime.session["id"]
 
 
-def clear_runtime_session(runtime):
+def clear_runtime_session(runtime):  # Clear runtime session.
     _shutdown_workers(runtime)
     runtime.session = {
         "id": datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6],
@@ -32,7 +32,7 @@ def clear_runtime_session(runtime):
     return runtime.session["id"]
 
 
-def _rebind(runtime, emit_started):
+def _rebind(runtime, emit_started):  # Rebind the runtime session.
     runtime._ensure_session_shape()
     runtime.session_event_bus = SessionEventBus(
         runtime.session["id"],
@@ -67,7 +67,7 @@ def _rebind(runtime, emit_started):
     runtime.refresh_prefix(force=True)
 
 
-def _shutdown_workers(runtime):
+def _shutdown_workers(runtime):  # Shut down active workers.
     manager = getattr(runtime, "worker_manager", None)
     shutdown = getattr(manager, "shutdown", None)
     if callable(shutdown):

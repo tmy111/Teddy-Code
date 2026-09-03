@@ -4,7 +4,7 @@
 from .workspace import WorkspaceContext
 
 
-def build_child_runtime(parent, subagent_type, write_scope, refresh_prefix=True):
+def build_child_runtime(parent, subagent_type, write_scope, refresh_prefix=True):  # Build child runtime.
     from .runtime import TeddyCode
 
     child = TeddyCode(
@@ -33,7 +33,7 @@ def build_child_runtime(parent, subagent_type, write_scope, refresh_prefix=True)
     return child
 
 
-def new_model_client(parent):
+def new_model_client(parent):  # Return the new model client.
     factory = getattr(parent, "model_client_factory", None)
     if factory is not None:
         return factory()
