@@ -3,12 +3,22 @@
 from dataclasses import dataclass, field
 
 
+@dataclass(frozen=True)
+class ModelToolCall:
+    """Provider-neutral native tool request returned by a model."""
+
+    name: str
+    args: dict = field(default_factory=dict)
+    call_id: str = ""
+
+
 @dataclass(frozen=True)#这个类是不可变的数据类
 class ModelResult:
     """一次模型调用的文本结果和附带元数据。"""
 
     text: str
     metadata: dict = field(default_factory=dict)#field确保每个ModelResult实例都有自己的元数据字典。
+    tool_calls: tuple[ModelToolCall, ...] = field(default_factory=tuple)
 
 
 def complete_model(model_client, prompt, max_new_tokens, **kwargs):

@@ -17,6 +17,7 @@ from .completion_governance import (
 )
 from .context_replacements import commit_proposed_replacements
 from .model_errors import finish_model_error
+from .native_tool_actions import model_request_options, resolve_model_action
 from .engine_helpers import (
     execute_tool_payload,
     request_step_limit_summary,
@@ -36,7 +37,6 @@ from .workspace import clip, now
 CHECKPOINT_NONE_STATUS = "no-checkpoint"
 CHECKPOINT_PARTIAL_STALE_STATUS = "partial-stale"
 CHECKPOINT_WORKSPACE_MISMATCH_STATUS = "workspace-mismatch"
-
 
 class Engine:
     """单轮任务控制器：把用户请求推进成若干次模型调用和工具调用。"""
@@ -244,12 +244,7 @@ class Engine:
                 "tool_steps": task_state.tool_steps,
             }
 
-            prompt_cache_key = None
-            prompt_cache_retention = None
-            if getattr(agent.model_client, "supports_prompt_cache", False):
-                # 只把稳定前缀签名传给支持缓存的 provider，动态 history 不参与缓存 key。
-                prompt_cache_key = prompt_metadata.get("prompt_cache_key")
-                prompt_cache_retention = "in_memory"
+            model_options = model_request_options(agent, prompt_metadata)
 
             model_started_at = time.monotonic()
             try:
@@ -258,8 +253,7 @@ class Engine:
                     agent.model_client,
                     prompt,
                     agent.max_new_tokens,
-                    prompt_cache_key=prompt_cache_key,
-                    prompt_cache_retention=prompt_cache_retention,
+                    **model_options,
                 )
             except Exception as exc:
                 if agent.abort_requested:
@@ -327,14 +321,16 @@ class Engine:
                 prompt_metadata.update(completion_metadata)
             agent.last_completion_metadata = completion_metadata
             agent.last_prompt_metadata = prompt_metadata
-            # 模型必须返回 TeddyCode 协议：工具调用、多个工具调用、retry 或 final。
-            kind, payload = agent.parse(raw)
+            kind, payload, native_tool_call_count = resolve_model_action(
+                result, model_options.get("tools"), agent.parse
+            )
             duration_ms = int((time.monotonic() - model_started_at) * 1000)
             agent.emit_trace(
                 task_state,
                 "model_parsed",
                 {
                     "kind": kind,
+                    "native_tool_calls": native_tool_call_count,
                     "completion_metadata": completion_metadata,
                     "duration_ms": duration_ms,
                 },

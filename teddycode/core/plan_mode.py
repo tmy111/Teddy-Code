@@ -36,7 +36,6 @@ class PlanModeManager:
         self.runtime.session_path = self.runtime.session_store.save(
             self.runtime.session
         )
-        self.runtime.refresh_prefix(force=True)
         self.runtime.session_event_bus.emit(
             "runtime_mode_changed",
             {"mode": "plan", "plan_path": plan_path, "topic": str(topic or "")},
@@ -50,7 +49,6 @@ class PlanModeManager:
         self.runtime.session_path = self.runtime.session_store.save(
             self.runtime.session
         )
-        self.runtime.refresh_prefix(force=True)
         self.runtime.session_event_bus.emit(
             "runtime_mode_changed",
             {

@@ -19,6 +19,7 @@ import urllib.error
 import urllib.request
 
 from ..core.content_blocks import ensure_model_input
+from .base import ModelResult, ModelToolCall
 from .errors import ProviderError, sanitize_url
 
 OPENAI_COMPATIBLE_USER_AGENT = "teddycode/0.1"
@@ -61,6 +62,51 @@ def _extract_openai_text(data):
                         return text
 
     return ""
+
+
+def _tool_arguments(value):
+    """Normalize provider tool arguments to one JSON object."""
+
+    if isinstance(value, dict):
+        return dict(value)
+    if not isinstance(value, str) or not value.strip():
+        return {}
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return dict(parsed) if isinstance(parsed, dict) else {}
+
+
+def _extract_openai_tool_calls(data):
+    """Extract Responses API and Chat Completions function calls."""
+
+    calls = []
+    for item in data.get("output", []) or []:
+        if not isinstance(item, dict) or item.get("type") != "function_call":
+            continue
+        calls.append(
+            ModelToolCall(
+                name=str(item.get("name", "")),
+                args=_tool_arguments(item.get("arguments")),
+                call_id=str(item.get("call_id") or item.get("id") or ""),
+            )
+        )
+    choices = data.get("choices", []) or []
+    if choices and isinstance(choices[0], dict):
+        message = choices[0].get("message", {}) or {}
+        for item in message.get("tool_calls", []) or []:
+            if not isinstance(item, dict):
+                continue
+            function = item.get("function", {}) or {}
+            calls.append(
+                ModelToolCall(
+                    name=str(function.get("name", "")),
+                    args=_tool_arguments(function.get("arguments")),
+                    call_id=str(item.get("id", "")),
+                )
+            )
+    return tuple(call for call in calls if call.name)
 
 
 def _extract_openai_text_from_sse(body_text):
@@ -362,9 +408,12 @@ class OpenAICompatibleModelClient:
         # 当前只在明确支持 prompt cache 语义的后端上启用这条链路，
         # 避免对不支持的后端传一个“看起来统一、其实没意义”的伪参数。
         self.supports_prompt_cache = "openai.com" in self.base_url
+        self.supports_native_tools = True
+        self.native_tool_protocol = "openai"
         self.last_completion_metadata = {}
+        self.last_tool_calls = ()
 
-    def complete(self, prompt, max_new_tokens, prompt_cache_key=None, prompt_cache_retention=None):
+    def complete(self, prompt, max_new_tokens, prompt_cache_key=None, prompt_cache_retention=None, tools=None):
         """向 OpenAI-compatible `/responses` 接口发起一次模型调用。
 
         为什么存在：
@@ -382,6 +431,7 @@ class OpenAICompatibleModelClient:
         落到 provider API 的地方。
         """
         self.last_completion_metadata = {}
+        self.last_tool_calls = ()
         content, image_input_count = _openai_input_content(prompt)
         payload = {
             "model": self.model,
@@ -396,6 +446,8 @@ class OpenAICompatibleModelClient:
         }
         if self.temperature is not None:
             payload["temperature"] = self.temperature
+        if tools:
+            payload["tools"] = list(tools)
         # runtime 传入的是“稳定前缀”的签名，而不是整段 prompt 的签名。
         # 这样缓存复用针对的是稳定段，不会因为动态 history 每轮变化而失效。
         if self.supports_prompt_cache and prompt_cache_key:
@@ -433,6 +485,7 @@ class OpenAICompatibleModelClient:
         # 这里两种都接住，并尽量统一抽取文本和 usage/cache 元数据。
         if content_type.startswith("text/event-stream") or body_text.lstrip().startswith("data:"):
             text, response_data = _extract_openai_response_from_sse(body_text)
+            self.last_tool_calls = _extract_openai_tool_calls(response_data)
             if isinstance(response_data, dict) and response_data:
                 # 这些元数据会一路传回 runtime，进入 trace 和 report，
                 # 用来观察 prompt cache 是否真的命中。
@@ -441,10 +494,11 @@ class OpenAICompatibleModelClient:
                     "prompt_cache_key": prompt_cache_key,
                     "prompt_cache_retention": prompt_cache_retention,
                     "image_input_count": image_input_count,
+                    "native_tool_call_count": len(self.last_tool_calls),
                     **request_metadata,
                     **_extract_usage_cache_details(response_data),
                 }
-            if text:
+            if text or self.last_tool_calls:
                 return text
             error = _provider_failure(
                 "openai",
@@ -487,11 +541,14 @@ class OpenAICompatibleModelClient:
             "prompt_cache_key": prompt_cache_key,
             "prompt_cache_retention": prompt_cache_retention,
             "image_input_count": image_input_count,
+            "native_tool_call_count": 0,
             **request_metadata,
             **_extract_usage_cache_details(data),
         }
+        self.last_tool_calls = _extract_openai_tool_calls(data)
+        self.last_completion_metadata["native_tool_call_count"] = len(self.last_tool_calls)
         text = _extract_openai_text(data)
-        if text:
+        if text or self.last_tool_calls:
             return text
         error = _provider_failure(
             "openai",
@@ -503,6 +560,16 @@ class OpenAICompatibleModelClient:
         )
         self.last_completion_metadata = error.to_metadata()
         raise error
+
+    def complete_result(self, prompt, max_new_tokens, **kwargs):
+        """Return text and native calls without leaking provider shapes upward."""
+
+        text = self.complete(prompt, max_new_tokens, **kwargs)
+        return ModelResult(
+            text=text,
+            metadata=dict(self.last_completion_metadata),
+            tool_calls=tuple(self.last_tool_calls),
+        )
 
 
 def _extract_anthropic_text(data):
@@ -516,6 +583,21 @@ def _extract_anthropic_text(data):
     return ""
 
 
+def _extract_anthropic_tool_calls(data):
+    calls = []
+    for item in data.get("content", []) or []:
+        if not isinstance(item, dict) or item.get("type") != "tool_use":
+            continue
+        calls.append(
+            ModelToolCall(
+                name=str(item.get("name", "")),
+                args=_tool_arguments(item.get("input")),
+                call_id=str(item.get("id", "")),
+            )
+        )
+    return tuple(call for call in calls if call.name)
+
+
 class AnthropicCompatibleModelClient:
     def __init__(self, model, base_url, api_key, temperature, timeout):  # Initialize the instance.
         self.model = model
@@ -524,15 +606,19 @@ class AnthropicCompatibleModelClient:
         self.temperature = temperature
         self.timeout = timeout
         self.supports_prompt_cache = False
+        self.supports_native_tools = True
+        self.native_tool_protocol = "anthropic"
         self.last_completion_metadata = {}
+        self.last_tool_calls = ()
 
-    def complete(self, prompt, max_new_tokens, prompt_cache_key=None, prompt_cache_retention=None):
+    def complete(self, prompt, max_new_tokens, prompt_cache_key=None, prompt_cache_retention=None, tools=None):
         """向 Anthropic-compatible /messages 接口发起一次模型调用。"""
 
         # 为了保持统一接口，runtime 仍然会传缓存参数进来；
         # 这里只是显式丢弃，因为当前 Anthropic-compatible 路径没有接缓存复用。
         del prompt_cache_key, prompt_cache_retention
         self.last_completion_metadata = {}
+        self.last_tool_calls = ()
         content, image_input_count = _anthropic_input_content(prompt)
         payload = {
             "model": self.model,
@@ -547,6 +633,8 @@ class AnthropicCompatibleModelClient:
         }
         if self.temperature is not None:
             payload["temperature"] = self.temperature
+        if tools:
+            payload["tools"] = list(tools)
 
         headers = {
             "Content-Type": "application/json",
@@ -598,9 +686,11 @@ class AnthropicCompatibleModelClient:
             self.last_completion_metadata = error.to_metadata()
             raise error
         text = _extract_anthropic_text(data)
-        if text:
+        self.last_tool_calls = _extract_anthropic_tool_calls(data)
+        if text or self.last_tool_calls:
             self.last_completion_metadata = {
                 "image_input_count": image_input_count,
+                "native_tool_call_count": len(self.last_tool_calls),
                 **request_metadata,
                 **_extract_usage_cache_details(data),
             }
@@ -615,3 +705,13 @@ class AnthropicCompatibleModelClient:
         )
         self.last_completion_metadata = error.to_metadata()
         raise error
+
+    def complete_result(self, prompt, max_new_tokens, **kwargs):
+        """Return text and native calls without leaking provider shapes upward."""
+
+        text = self.complete(prompt, max_new_tokens, **kwargs)
+        return ModelResult(
+            text=text,
+            metadata=dict(self.last_completion_metadata),
+            tool_calls=tuple(self.last_tool_calls),
+        )

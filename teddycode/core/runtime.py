@@ -23,6 +23,7 @@ from .context_orchestrator import ContextOrchestrator
 from .engine import Engine
 from . import model_output, tool_executor
 from .model_router import ModelClientRouter
+from ..tools.native import native_specs_for_client
 from .plan_mode import PlanModeController
 from .permissions import PermissionChecker
 from .run_store import RunStore
@@ -445,7 +446,10 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
     def set_tool_profile(self, name):  # Set tool profile.
         if name not in self.tool_profiles:
             raise ValueError(f"unknown tool profile: {name}")
+        changed = name != self._active_tool_profile_name
         self._active_tool_profile_name = name
+        if changed and hasattr(self, "prefix_state"):
+            self.refresh_prefix(force=True)
 
     def available_tools(self):  # Return the available tools.
         profile = self.active_tool_profile
@@ -467,6 +471,9 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             json.dumps(payload, sort_keys=True).encode("utf-8")
         ).hexdigest()
 
+    def native_tools(self):
+        return native_specs_for_client(self.model_client, self.available_tools())
+
     def build_prefix(self):  # Build prefix.
         tool_lines = []
         for name, tool in self.available_tools().items():
@@ -476,17 +483,42 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             risk = "approval required" if tool["risky"] else "safe"
             tool_lines.append(f"- {name}({fields}) [{risk}] {tool['description']}")
         tool_text = "\n".join(tool_lines)
-        examples = "\n".join(
-            [
-                '<tool>{"name":"list_files","args":{"path":"."}}</tool>',
-                '<tool>{"name":"read_file","args":{"path":"README.md","start":1,"end":80}}</tool>',
-                '<tool name="write_file" path="binary_search.py"><content>def binary_search(nums, target):\n    return -1\n</content></tool>',
-                '<tool name="patch_file" path="binary_search.py"><old_text>return -1</old_text><new_text>return mid</new_text></tool>',
-                '<tool>{"name":"run_shell","args":{"command":"uv run --with pytest python -m pytest -q","timeout":20}}</tool>',
-                '<tool>{"name":"agent","args":{"description":"Inspect auth","prompt":"Find auth entry points","subagent_type":"Explore"}}</tool>',
-                "<final>Done.</final>",
-            ]
-        )
+        native_tools_enabled = bool(self.native_tools())
+        if native_tools_enabled:
+            protocol_rules = textwrap.dedent(
+                """\
+                - Use the provider-native tool calling protocol. Do not write XML or JSON tool-call blocks in assistant text.
+                - When no more actions are needed, return a normal assistant answer without a <final> wrapper.
+                - Never invent tool results."""
+            )
+            examples_section = (
+                "Native tool calls are carried out-of-band by the provider API; "
+                "no text-protocol examples are required."
+            )
+        else:
+            protocol_rules = textwrap.dedent(
+                """\
+                - Return one or more <tool>...</tool> calls, or one <final>...</final>.
+                - Tool calls must look like:
+                  <tool>{"name":"tool_name","args":{...}}</tool>
+                - For write_file and patch_file with multi-line text, prefer XML style:
+                  <tool name="write_file" path="file.py"><content>...</content></tool>
+                - Final answers must look like:
+                  <final>your answer</final>
+                - Never invent tool results."""
+            )
+            examples = "\n".join(
+                [
+                    '<tool>{"name":"list_files","args":{"path":"."}}</tool>',
+                    '<tool>{"name":"read_file","args":{"path":"README.md","start":1,"end":80}}</tool>',
+                    '<tool name="write_file" path="binary_search.py"><content>def binary_search(nums, target):\n    return -1\n</content></tool>',
+                    '<tool name="patch_file" path="binary_search.py"><old_text>return -1</old_text><new_text>return mid</new_text></tool>',
+                    '<tool>{"name":"run_shell","args":{"command":"uv run --with pytest python -m pytest -q","timeout":20}}</tool>',
+                    '<tool>{"name":"agent","args":{"description":"Inspect auth","prompt":"Find auth entry points","subagent_type":"Explore"}}</tool>',
+                    "<final>Done.</final>",
+                ]
+            )
+            examples_section = f"Valid response examples:\n{examples}"
         # prefix 可以理解成 agent 的“工作手册”：
         # 它是谁、工具怎么调用、当前仓库是什么状态，都写在这里。
         text = textwrap.dedent(
@@ -495,14 +527,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
 
             Rules:
             - Use tools instead of guessing about the workspace.
-            - Return one or more <tool>...</tool> calls, or one <final>...</final>.
-            - Tool calls must look like:
-              <tool>{{"name":"tool_name","args":{{...}}}}</tool>
-            - For write_file and patch_file with multi-line text, prefer XML style:
-              <tool name="write_file" path="file.py"><content>...</content></tool>
-            - Final answers must look like:
-              <final>your answer</final>
-            - Never invent tool results.
+            {protocol_rules}
             - Keep answers concise and concrete.
             - If the path is clear, write or patch directly; for multi-file deliverables, batch related writes in one response or one shell script and do not read back files you just wrote.
             - Before writing tests for existing code, read the implementation first.
@@ -519,8 +544,7 @@ class TeddyCode(RuntimeSecretsMixin, RuntimeCheckpointsMixin):
             Tools:
             {tool_text}
 
-            Valid response examples:
-            {examples}
+            {examples_section}
 
             {self.workspace.text()}
             """
