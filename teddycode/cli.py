@@ -676,7 +676,12 @@ def _one_shot_prompt(args):  # Return the one shot prompt.
 
 
 def main(argv=None):  # Run the command-line entry point.
-    args = build_arg_parser().parse_args(argv)
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    if raw_argv and raw_argv[0] == "web":
+        from .web.main import main as web_main
+
+        return web_main(raw_argv[1:])
+    args = build_arg_parser().parse_args(raw_argv)
     validation_error = validate_args(args)
     if validation_error:
         print(validation_error, file=sys.stderr)
