@@ -7,7 +7,6 @@
 
 import argparse      # 命令行参数解析
 import json          # JSON 序列化
-import os            # 操作系统接口
 import shutil        # 高级文件操作（这里用于获取终端尺寸）
 import sys           # 系统相关功能（stdin、stderr）
 import textwrap      # 文本格式化
@@ -15,36 +14,18 @@ from pathlib import Path
 from urllib.parse import urlparse  # URL 解析
 #内部模块导入
 from .commands.slash import command_help_text, parse_subagent_args, resolve_command
-from .config import (
-    DEFAULT_PROVIDER,
-    PROVIDER_DEFAULTS,
-    load_project_env,
-    resolve_project_sandbox_config,
+from .bootstrap import (
+    TeddyCodeConfig,
+    configured_secret_names,
+    create_agent,
 )
-from .features import memory as memorylib
+from .config import DEFAULT_PROVIDER, PROVIDER_DEFAULTS
 from .features import skills as skillslib
 from .features.skills_runtime import invoke_skill
 from .providers import AnthropicCompatibleModelClient, OpenAICompatibleModelClient
 from .providers.errors import sanitize_url
 from .providers.runtime import ProviderClientClasses, build_provider_runtime
-from .core.model_router import ModelClientRouter
-from .core.runtime import TeddyCode, SessionStore
-from .core.workspace import WorkspaceContext, middle, now
-#需要保护的敏感环境变量列表
-DEFAULT_SECRET_ENV_NAMES = (
-    "TEDDYCODE_API_KEY",
-    "TEDDYCODE_OPENAI_API_KEY",
-    "OPENAI_API_KEY",
-    "OPENAI_API_TOKEN",
-    "TEDDYCODE_VISION_API_KEY",
-    "TEDDYCODE_ANTHROPIC_API_KEY",
-    "ANTHROPIC_API_KEY",
-    "ANTHROPIC_AUTH_TOKEN",
-    "TEDDYCODE_DEEPSEEK_API_KEY",
-    "DEEPSEEK_API_KEY",
-    "GITHUB_PAT",
-    "GH_PAT",
-)
+from .core.workspace import middle
 #欢迎界面
 WELCOME_ART = (
     "        ()___()",
@@ -70,18 +51,9 @@ HELP_DETAILS = (
 #默认模型
 DEFAULT_OPENAI_MODEL = PROVIDER_DEFAULTS["openai"]["model"]
 DEFAULT_OPENAI_BASE_URL = PROVIDER_DEFAULTS["openai"]["base_url"]
-SECRET_ENV_NAMES_VAR = "TEDDYCODE_SECRET_ENV_NAMES"
-
 #合并所有来源的密钥环境变量名（默认 + 命令行 + 环境变量），返回排序后的列表。
 def _configured_secret_names(args):  # Return the configured secret names.
-    configured_secret_names = set(DEFAULT_SECRET_ENV_NAMES)
-    configured_secret_names.update(str(name).upper() for name in args.secret_env_names)
-    extra_names = os.environ.get(SECRET_ENV_NAMES_VAR, "")
-    if extra_names.strip():
-        configured_secret_names.update(
-            item.strip().upper() for item in extra_names.split(",") if item.strip()
-        )
-    return sorted(configured_secret_names)
+    return configured_secret_names(TeddyCodeConfig.from_namespace(args))
 
 #返回支持的模型提供商客户端类映射。
 def _provider_client_classes():  # Return the provider client classes.
@@ -165,40 +137,6 @@ def build_agent(args):
     它是整个程序启动链路里最靠近 runtime 的装配点。`main()` 先调它，
     得到 agent 后，后面无论是 one-shot 还是 REPL 模式，都会落到 `ask()`。
     """
-    # 这里是 CLI 到 runtime 的装配点：
-    # 先采集工作区快照，再整理 secret 名单、模型后端和 session。
-    workspace = WorkspaceContext.build(
-        args.cwd,
-        repo_root_override=getattr(args, "repo_root", None),
-    )
-    store = SessionStore(workspace.repo_root + "/.teddycode/sessions")#创建session存储
-    provider_runtime = _build_provider_runtime(args)#构建provider运行配置
-    model = _build_model_client(args)#构建模型客户端
-    model_client_router = (
-        provider_runtime.model_client_router
-        if model is provider_runtime.model_client
-        else ModelClientRouter(model)
-    )
-    model_client_factory = provider_runtime.model_client_factory
-    args.max_new_tokens = provider_runtime.max_new_tokens
-
-    sandbox_config = resolve_project_sandbox_config(
-        start=workspace.repo_root,
-        config_path=getattr(args, "config", None),
-        mode=getattr(args, "sandbox", None),
-        backend=getattr(args, "sandbox_backend", None),
-    )
-    load_project_env(workspace.repo_root, override=False)#加载项目环境变量否
-    configured_secret_names = _configured_secret_names(args)#合并所有来源的密钥环境变量名（默认 + 命令行 + 环境变量），返回排序后的列表。
-    session_id = args.resume#读取session id
-    fixed_session_id = getattr(args, "session_id", None)#读取固定session id
-    if session_id == "latest":#如果session id为latest
-        session_id = store.latest()#获取最新session id
-    memory_dir = getattr(args, "memory_dir", None)#读取 memory 存储目录。
-    auto_dream = not getattr(args, "no_auto_dream", False)#是否开启自动 dream/memory 总结。
-    dream_interval = getattr(args, "dream_interval", 24.0)#自动 dream/memory 总结间隔（小时）。
-    dream_min_sessions = getattr(args, "dream_min_sessions", 5)#至少多少session才启动dream/memory 
-    final_readiness_mode = getattr(args, "final_readiness", "warn")
     ask_user_callback = (
         None
         if (
@@ -208,60 +146,19 @@ def build_agent(args):
         )
         else _cli_ask_user#交互式CLI里agent能中途问用户问题
     )
-    if session_id:
-        agent = TeddyCode.from_session(
-            model_client=model,
-            workspace=workspace,
-            session_store=store,
-            session_id=session_id,
-            approval_policy=args.approval,
-            max_steps=args.max_steps,
-            max_new_tokens=args.max_new_tokens,
-            secret_env_names=configured_secret_names,
-            memory_dir=memory_dir,
-            auto_dream=auto_dream,
-            dream_interval_hours=dream_interval,
-            dream_min_sessions=dream_min_sessions,
-            model_client_factory=model_client_factory,
-            model_client_router=model_client_router,
-            sandbox_config=sandbox_config,
-            ask_user_callback=ask_user_callback,
-            final_readiness_mode=final_readiness_mode,
-        )
-        return agent
-    session = None
-    if fixed_session_id:
-        session_path = store.path(fixed_session_id)
-        if session_path.exists():
-            session = store.load(fixed_session_id)
-        else:
-            session = {
-                "id": fixed_session_id,
-                "created_at": now(),
-                "workspace_root": workspace.repo_root,
-                "history": [],
-                "memory": memorylib.default_memory_state(),
-            }
-    agent = TeddyCode(
-        model_client=model,
-        workspace=workspace,
-        session_store=store,
-        session=session,
-        approval_policy=args.approval,
-        max_steps=args.max_steps,
-        max_new_tokens=args.max_new_tokens,
-        secret_env_names=configured_secret_names,
-        memory_dir=memory_dir,
-        auto_dream=auto_dream,
-        dream_interval_hours=dream_interval,
-        dream_min_sessions=dream_min_sessions,
-        model_client_factory=model_client_factory,
-        model_client_router=model_client_router,
-        sandbox_config=sandbox_config,
+    provider_runtime = _build_provider_runtime(args)
+    model = _build_model_client(args)
+    args.max_new_tokens = provider_runtime.max_new_tokens
+    config = TeddyCodeConfig.from_namespace(
+        args,
         ask_user_callback=ask_user_callback,
-        final_readiness_mode=final_readiness_mode,
+        max_new_tokens=provider_runtime.max_new_tokens,
     )
-    return agent
+    return create_agent(
+        config,
+        provider_runtime=provider_runtime,
+        model_client=model,
+    )
 
 # 命令行参数定义
 def build_arg_parser():  # Build arg parser.
