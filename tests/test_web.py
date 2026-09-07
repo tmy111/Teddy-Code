@@ -8,6 +8,7 @@ from teddycode import SessionStore, TeddyCode, WorkspaceContext
 from teddycode.bootstrap import TeddyCodeConfig
 from teddycode.testing import ScriptedModelClient
 from teddycode.web.app import create_app
+from teddycode.web.main import build_web_arg_parser
 from teddycode.web.session_manager import SessionManager
 
 
@@ -65,10 +66,12 @@ def test_create_and_read_session(tmp_path):
     app, _ = build_test_app(tmp_path, RuntimeFactory(["<final>unused</final>"]))
 
     with TestClient(app) as client:
+        health = client.get("/api/health")
         created = client.post("/api/sessions", json={"session_id": "web-test"})
         fetched = client.get("/api/sessions/web-test")
         listed = client.get("/api/sessions")
 
+    assert health.json() == {"status": "ok", "workspace": str(tmp_path.resolve())}
     assert created.status_code == 200
     assert created.json()["id"] == "web-test"
     assert fetched.status_code == 200
@@ -299,3 +302,21 @@ def test_workspace_file_endpoint_blocks_path_traversal(tmp_path):
     assert safe.status_code == 200
     assert safe.text == "safe"
     assert escaped.status_code == 400
+
+
+def test_web_cli_defaults_to_loopback_host():
+    args = build_web_arg_parser().parse_args([])
+
+    assert args.host == "127.0.0.1"
+    assert args.port == 8000
+
+
+def test_main_dispatches_web_subcommand(monkeypatch):
+    from teddycode import cli
+    from teddycode.web import main as web_main
+
+    received = []
+    monkeypatch.setattr(web_main, "main", lambda argv: received.append(argv) or 17)
+
+    assert cli.main(["web", "--cwd", "workspace", "--port", "9000"]) == 17
+    assert received == [["--cwd", "workspace", "--port", "9000"]]

@@ -1,7 +1,6 @@
 """工具定义与执行辅助逻辑。
 
-可以把这个文件看成 agent 的能力白名单：模型能申请哪些动作、这些动作
-如何做参数校验，以及最终如何执行，都是在这里定义的。
+可以把这个文件看成 agent 的能力白名单：模型能申请哪些动作、这些动作如何做参数校验，以及最终如何执行，都是在这里定义的。
 """
 
 import shutil
@@ -23,17 +22,8 @@ from .agents import (
     tool_task_stop,
     validate_agent_runtime,
 )
-from .ask_user import (
-    ASK_USER_TOOL_EXAMPLES,
-    ASK_USER_TOOL_SPECS,
-    tool_ask_user,
-)
-from .plan import (
-    PLAN_TOOL_EXAMPLES,
-    PLAN_TOOL_SPECS,
-    tool_enter_plan_mode,
-    tool_exit_plan_mode,
-)
+from .ask_user import ASK_USER_TOOL_EXAMPLES, ASK_USER_TOOL_SPECS, tool_ask_user
+from .plan import PLAN_TOOL_EXAMPLES, PLAN_TOOL_SPECS, tool_enter_plan_mode, tool_exit_plan_mode
 from .todos import (
     TODO_TOOL_EXAMPLES,
     TODO_TOOL_SPECS,

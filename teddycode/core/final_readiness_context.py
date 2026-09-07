@@ -1,4 +1,3 @@
-# 说明：检查上下文压力是否影响最终回答可靠性。
 """Context-pressure checks for final-readiness decisions."""
 
 CONTEXT_HARD_PRESSURE_RATIO = 0.95

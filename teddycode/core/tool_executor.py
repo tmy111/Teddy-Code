@@ -1,4 +1,3 @@
-# 校验、授权并执行模型发出的工具调用，同时记录证据和错误。
 """Tool-call validation, authorization, execution, and evidence recording."""
 import re
 
@@ -11,17 +10,14 @@ from .tool_repetition import repeated_tool_call_metadata
 def run_tool(agent, name, args):
     """执行一次工具调用的统一入口。"""
 
-    # 1. 工具名必须存在，否则后续校验/审批都没有意义。
     tool = agent.tools.get(name)
     if tool is None:
         agent._last_tool_result_metadata = _tool_result_metadata(
-            None, status="rejected", error_code="unknown_tool",
-            risk_level="high", read_only=False,
+            None, status="rejected", error_code="unknown_tool", risk_level="high", read_only=False,
         )
         record_governance_decision(agent, name, args, decision="deny", reason_code="unknown_tool", decision_type="tool_lookup")
         return f"error: unknown tool '{name}'"
     try:
-        # 2. 参数校验主要防止 schema 错误和路径逃逸。
         agent.validate_tool(name, args)
     except Exception as exc:
         example = agent.tool_example(name)
@@ -30,8 +26,7 @@ def run_tool(agent, name, args):
             message += f"\nexample: {example}"
         security_event_type = "path_escape" if "path escapes workspace" in str(exc) else ""
         agent._last_tool_result_metadata = _tool_result_metadata(
-            tool, status="rejected", error_code="invalid_arguments",
-            security_event_type=security_event_type,
+            tool, status="rejected", error_code="invalid_arguments", security_event_type=security_event_type,
         )
         record_governance_decision(
             agent, name, args, decision="deny", reason_code="invalid_arguments",
@@ -40,12 +35,10 @@ def run_tool(agent, name, args):
         )
         return message
     if agent.repeated_tool_call(name, args):
-        # 3. 重复完全相同的工具调用通常表示模型卡住了，直接拒绝并要求换动作。
         agent._last_tool_result_metadata = repeated_tool_call_metadata(tool)
         record_governance_decision(agent, name, args, decision="deny", reason_code="repeated_identical_call", decision_type="tool_repetition")
         return f"error: repeated identical tool call for {name}; choose a different tool or return a final answer"
     decision = agent.permission_checker.check(tool, args)
-    # 4. permission 是底层安全门，例如只读模式、审批策略、路径范围。
     _emit_permission_decision(agent, tool, args, decision)
     permission_reason = "read_only_violation" if not decision.allowed and getattr(agent, "read_only", False) else decision.reason
     record_governance_decision(
@@ -57,12 +50,10 @@ def run_tool(agent, name, args):
     )
     if not decision.allowed:
         agent._last_tool_result_metadata = _tool_result_metadata(
-            tool, status="rejected", error_code=decision.reason,
-            security_event_type=decision.security_event_type,
+            tool, status="rejected", error_code=decision.reason, security_event_type=decision.security_event_type,
         )
         return _permission_error(agent, tool, decision)
     policy = ToolPolicyChecker(agent).check(tool, args)
-    # 5. tool policy 是更高层的行为规则，例如 plan mode 只能写计划文件。
     _emit_tool_policy_decision(agent, tool, args, policy)
     record_governance_decision(
         agent, name, args, decision=policy.decision, reason_code=policy.reason,
@@ -71,15 +62,13 @@ def run_tool(agent, name, args):
     )
     if not policy.allowed:
         agent._last_tool_result_metadata = _tool_result_metadata(
-            tool, status="rejected", error_code=policy.reason,
-            security_event_type="tool_policy",
+            tool, status="rejected", error_code=policy.reason, security_event_type="tool_policy",
         )
         agent.record_process_note_for_tool(name, agent._last_tool_result_metadata)
         return policy.message
     before_snapshot = agent.capture_workspace_snapshot() if tool.risky else {}
     after_snapshot = before_snapshot
     try:
-        # 6. 真正执行工具；执行后对 risky 工具做 workspace diff，留下变更证据。
         full_result = tool.execute(args).content
         pending_metadata = dict(getattr(agent, "_pending_tool_result_metadata", {}) or {})
         agent._pending_tool_result_metadata = {}
@@ -141,7 +130,7 @@ def _run_shell_exit_code(result):  # Run shell exit code.
 def _tool_result_metadata(
     tool, *, status, error_code="", security_event_type="", risk_level=None,
     read_only=None, affected_paths=None, workspace_changed=False,
-    workspace_fingerprint=None, diff_summary=None, **extra
+    workspace_fingerprint=None, diff_summary=None, **extra,
 ):  # Return the tool result metadata.
     metadata = {
         "tool_status": status,

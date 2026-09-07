@@ -30,7 +30,7 @@ teddycode 关注本地 coding agent 的工程边界：配置清楚、任务能�
 
 ## 界面
 
-TUI 直接连接同一个 runtime。输入框、工具结果、状态栏、slash command 和补全都来自当前 session。
+CLI、TUI 和 Web UI 都通过同一个 bootstrap 直接连接 TeddyCode runtime。Web 后端不会启动或解析 CLI，而是把 `Engine.run_turn()` 的事件实时转成 SSE。
 
 | 工具和子 agent | Skills、help 和命令补全 |
 | --- | --- |
@@ -173,6 +173,42 @@ teddycode --resume latest              # 续接最近 session
 teddycode --cwd /path/to/repo          # 指定工作目录
 ```
 
+### Web UI
+
+后端默认只监听本机 `127.0.0.1:8000`：
+
+```bash
+teddycode web --cwd /path/to/repo
+# 也可以使用：python -m teddycode.web --cwd /path/to/repo
+```
+
+另开一个终端启动 React 开发服务器：
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+浏览器打开 `http://127.0.0.1:5173`。Vite 会把 `/api` 代理到 FastAPI；开发 CORS 仅允许本机的 `localhost:5173` 和 `127.0.0.1:5173`。
+
+Web UI 第一版支持 session 列表、历史恢复、Markdown、工具调用/结果卡片、实时 runtime 事件、Stop，以及 approval / ask_user 的网页交互。
+
+主要 API：
+
+| API | 作用 |
+| --- | --- |
+| `GET /api/health` | 后端与 workspace 健康状态。 |
+| `POST /api/sessions` | 新建 session，或按 id 恢复已有 session。 |
+| `GET /api/sessions` | 列出 `.teddycode/sessions` 中的 session。 |
+| `GET /api/sessions/{id}` | 获取 session 和历史。 |
+| `POST /api/sessions/{id}/messages` | 运行一轮并返回 `text/event-stream`。 |
+| `POST /api/sessions/{id}/abort` | 请求 runtime 安全停止当前轮次。 |
+| `POST /api/sessions/{id}/approvals/{request_id}` | 回答工具审批。 |
+| `POST /api/sessions/{id}/questions/{request_id}` | 回答 `ask_user`。 |
+| `GET /api/workspace/files` | 列出 workspace 内文件。 |
+| `GET /api/workspace/file?path=...` | 安全读取 workspace 内文本文件。 |
+
 常用运行参数：
 
 ```bash
@@ -253,6 +289,7 @@ teddycode --no-auto-dream              # 关闭后台 memory 整合
 
 ```text
 teddycode/
+├── bootstrap.py           # CLI / TUI / Web 共用的 runtime 装配
 ├── cli.py                 # CLI 参数、启动模式、REPL 命令
 ├── config/                # provider profile、TOML、env 解析
 ├── core/                  # runtime、engine、session、workers、context
@@ -260,7 +297,10 @@ teddycode/
 ├── providers/             # OpenAI-compatible / Anthropic-compatible client
 ├── tools/                 # tool registry 和具体工具
 ├── tui/                   # Textual TUI
+├── web/                   # FastAPI、session manager 和 SSE bridge
 └── evaluation/            # run evidence、metrics、evaluation helpers
+
+frontend/                  # React + TypeScript + Vite Web UI
 ```
 
 ## 测试

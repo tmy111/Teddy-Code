@@ -1,4 +1,3 @@
-# 定义 final answer 前的钩子协议，用于在回答前补做必要检查。
 """Before-final hook protocol.
 
 Hooks are explicit extension points for project or benchmark policy. Core TeddyCode
