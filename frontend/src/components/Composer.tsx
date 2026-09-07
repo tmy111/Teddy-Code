@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from "react";
+import { useI18n } from "../i18n";
 
 export function Composer({
   value,
@@ -15,6 +16,7 @@ export function Composer({
   onSend: () => void;
   onStop: () => void;
 }) {
+  const { t } = useI18n();
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -25,20 +27,20 @@ export function Composer({
     <div className="composer-wrap">
       <div className={`composer ${running ? "running" : ""}`}>
         <textarea
-          aria-label="Message TeddyCode"
+          aria-label={t("composerLabel")}
           value={value}
           disabled={!ready || running}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={ready ? "Ask Teddy to inspect, explain, or change this workspace…" : "Preparing workspace…"}
+          placeholder={ready ? t("composerPlaceholder") : t("composerPreparing")}
           rows={2}
         />
         <div className="composer-footer">
-          <span>Enter to send · Shift+Enter for a new line</span>
+          <span>{t("composerHint")}</span>
           {running ? (
-            <button className="button stop" onClick={onStop}><span aria-hidden="true">■</span> Stop</button>
+            <button className="button stop" onClick={onStop}><span aria-hidden="true">■</span> {t("stop")}</button>
           ) : (
-            <button className="button send" disabled={!ready || !value.trim()} onClick={onSend}>Send <span aria-hidden="true">↗</span></button>
+            <button className="button send" disabled={!ready || !value.trim()} onClick={onSend}>{t("send")} <span aria-hidden="true">↗</span></button>
           )}
         </div>
       </div>

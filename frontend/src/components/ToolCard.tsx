@@ -1,17 +1,18 @@
+import { useI18n, type MessageKey } from "../i18n";
 import type { TimelineItem } from "../types";
 
 type ToolItem = Extract<TimelineItem, { kind: "tool" }>;
 
-const LABELS: Record<string, string> = {
-  read_file: "Read file",
-  list_files: "List files",
-  search: "Search workspace",
-  run_shell: "Run command",
-  write_file: "Write file",
-  patch_file: "Patch file",
-  inspect_image: "Inspect image",
-  ask_user: "Ask user",
-  agent: "Run sub-agent",
+const LABELS: Record<string, MessageKey> = {
+  read_file: "toolReadFile",
+  list_files: "toolListFiles",
+  search: "toolSearch",
+  run_shell: "toolRunShell",
+  write_file: "toolWriteFile",
+  patch_file: "toolPatchFile",
+  inspect_image: "toolInspectImage",
+  ask_user: "toolAskUser",
+  agent: "toolAgent",
 };
 
 function primaryArgument(name: string, args: Record<string, unknown>) {
@@ -23,8 +24,9 @@ function primaryArgument(name: string, args: Record<string, unknown>) {
 }
 
 export function ToolCard({ item }: { item: ToolItem }) {
+  const { t } = useI18n();
   const icon = item.status === "running" ? "●" : item.status === "success" ? "✓" : "!";
-  const label = LABELS[item.name] || item.name.replaceAll("_", " ");
+  const label = LABELS[item.name] ? t(LABELS[item.name]) : item.name.replaceAll("_", " ");
   const detail = primaryArgument(item.name, item.args);
   return (
     <details className={`tool-card ${item.status}`} open={item.status !== "success"}>
@@ -35,7 +37,7 @@ export function ToolCard({ item }: { item: ToolItem }) {
           {detail && <code>{detail}</code>}
         </span>
         <span className="tool-duration">
-          {item.status === "running" ? "running" : item.status}
+          {t(item.status === "running" ? "toolRunning" : item.status === "success" ? "toolSuccess" : "toolError")}
         </span>
       </summary>
       {item.content && <pre className="tool-output">{item.content}</pre>}

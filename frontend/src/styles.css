@@ -60,6 +60,11 @@ body {
 .workspace-branch { margin-top: 4px; color: var(--faint); font-family: ui-monospace, monospace; font-size: .7rem; }
 .workspace-branch span { color: var(--green); }
 .runtime-pills { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.language-toggle { display: flex; flex: 0 0 auto; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: #121417; }
+.language-toggle button { min-width: 34px; padding: 4px 8px; border: 0; border-radius: 999px; color: var(--faint); background: transparent; cursor: pointer; font-family: ui-monospace, monospace; font-size: .75rem; line-height: 1.25; transition: color .15s, background .15s; }
+.language-toggle button:hover { color: var(--text); }
+.language-toggle button.active { color: #17120a; background: var(--amber); }
+.language-toggle button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .run-state, .model-pill { display: flex; align-items: center; gap: 7px; max-width: 240px; padding: 6px 9px; overflow: hidden; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: #121417; font-family: ui-monospace, monospace; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
 .run-state i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
 .run-state.active { color: #e8d5aa; border-color: #594923; background: #1d1912; }
@@ -158,7 +163,9 @@ body {
 }
 
 @media (max-width: 600px) {
-  .topbar { padding: 0 14px; }
+  .topbar { gap: 10px; padding: 0 14px; }
+  .workspace-name { max-width: 30vw; }
+  .run-state { max-width: 120px; }
   .conversation-inner { width: calc(100% - 28px); padding-top: 24px; }
   .chat-message { grid-template-columns: 1fr; gap: 8px; }
   .message-label { padding-top: 0; }

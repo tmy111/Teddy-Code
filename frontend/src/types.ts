@@ -1,3 +1,5 @@
+import type { MessageKey } from "./i18n";
+
 export interface WorkspaceInfo {
   cwd: string;
   repo_root: string;
@@ -66,6 +68,7 @@ export type TimelineItem =
       id: string;
       kind: "notice";
       content: string;
+      translationKey?: MessageKey;
       tone: "neutral" | "warning" | "error";
     }
   | {
@@ -74,6 +77,7 @@ export type TimelineItem =
       interaction: "approval" | "question";
       requestId: string;
       title: string;
+      actionName?: string;
       args?: Record<string, unknown>;
       choices?: string[];
       resolved?: string;

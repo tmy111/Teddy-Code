@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useI18n } from "../i18n";
 import type { TimelineItem } from "../types";
 
 type InteractionItem = Extract<TimelineItem, { kind: "interaction" }>;
@@ -10,6 +11,7 @@ export function InteractionCard({
   item: InteractionItem;
   onResolve: (answer: string) => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -19,7 +21,7 @@ export function InteractionCard({
     try {
       await onResolve(value);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not submit the response.");
+      setError(cause instanceof Error ? cause.message : t("errorSubmitResponse"));
     } finally {
       setBusy(false);
     }
@@ -28,16 +30,20 @@ export function InteractionCard({
   return (
     <section className={`interaction-card ${item.resolved ? "resolved" : ""}`}>
       <div className="interaction-kicker">
-        {item.interaction === "approval" ? "Approval required" : "Teddy has a question"}
+        {item.interaction === "approval" ? t("approvalRequired") : t("teddyQuestion")}
       </div>
-      <h3>{item.title}</h3>
+      <h3>
+        {item.interaction === "approval"
+          ? t("approvalTitle", { action: item.actionName || t("thisAction") })
+          : item.title || t("questionFallback")}
+      </h3>
       {item.args && <pre>{JSON.stringify(item.args, null, 2)}</pre>}
       {item.resolved ? (
-        <div className="interaction-resolution">Answered: {item.resolved}</div>
+        <div className="interaction-resolution">{t("answered", { answer: item.resolved })}</div>
       ) : item.interaction === "approval" ? (
         <div className="interaction-actions">
-          <button className="button secondary" disabled={busy} onClick={() => resolve("deny")}>Deny</button>
-          <button className="button primary" disabled={busy} onClick={() => resolve("allow")}>Allow</button>
+          <button className="button secondary" disabled={busy} onClick={() => resolve("deny")}>{t("deny")}</button>
+          <button className="button primary" disabled={busy} onClick={() => resolve("allow")}>{t("allow")}</button>
         </div>
       ) : (
         <div className="question-controls">
@@ -49,8 +55,8 @@ export function InteractionCard({
             </div>
           )}
           <div className="answer-row">
-            <input value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Type an answer" />
-            <button className="button primary" disabled={busy || !answer.trim()} onClick={() => resolve(answer.trim())}>Reply</button>
+            <input value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder={t("typeAnswer")} />
+            <button className="button primary" disabled={busy || !answer.trim()} onClick={() => resolve(answer.trim())}>{t("reply")}</button>
           </div>
         </div>
       )}
