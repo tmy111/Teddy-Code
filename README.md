@@ -70,7 +70,7 @@ teddycode 启动前先解析一个 **provider profile**。一个 profile 主要�
 
 | 字段 | 作用 |
 | --- | --- |
-| `protocol` | 请求协议，目前支持 `openai` 和 `anthropic`。 |
+| `protocol` | 请求协议，目前支持 `openai` 和 `anthropic`以及deepseek。 |
 | `api_key` | 发给 provider 的 key。 |
 | `base_url` | provider endpoint。 |
 | `model` | 本次请求使用的模型名。 |
