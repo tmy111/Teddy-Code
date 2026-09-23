@@ -28,6 +28,8 @@ teddycode 是一个本地终端里的 coding agent，运行在你的仓库上下
 
 teddycode 关注本地 coding agent 的工程边界：配置清楚、任务能续接、结果能复盘。
 
+要在公开任务上对比 TeddyCode、Claude Code 和 Codex，见 [Coding agent 对比评测](docs/coding-agent-benchmark.md)。
+
 ## 界面
 
 TUI 直接连接同一个 runtime。输入框、工具结果、状态栏、slash command 和补全都来自当前 session。

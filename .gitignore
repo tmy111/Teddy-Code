@@ -52,6 +52,7 @@ docs/**
 !docs/memory.md
 !docs/skills.md
 !docs/sandbox.md
+!docs/coding-agent-benchmark.md
 
 # OS files
 .DS_Store
