@@ -1,8 +1,11 @@
 """Checks for the shared Harbor run configuration."""
 
 import argparse
+import json
 
-from scripts.run_coding_agent_comparison import build_commands
+import pytest
+
+from scripts.run_coding_agent_comparison import build_commands, main
 
 
 def test_three_agents_share_dataset_and_trial_budget():
@@ -28,3 +31,30 @@ def test_three_agents_share_dataset_and_trial_budget():
     assert commands["teddycode"][commands["teddycode"].index("-a") + 1] == (
         "benchmarks.harbor_teddycode_agent:TeddyCodeAgent"
     )
+
+
+def comparison_args(model):
+    return [
+        "--teddycode-model", model,
+        "--claude-model", "anthropic/test-model",
+        "--codex-model", "openai/test-model", "--dry-run",
+    ]
+
+
+@pytest.mark.parametrize("model", [
+    "", "model", "/model", "other/model", "openai/", "anthropic/ ",
+    "deepseek/\n", "openai/ model", "openai/model ", "openai/--help",
+])
+def test_comparison_rejects_invalid_teddycode_model(model):
+    with pytest.raises(SystemExit) as error:
+        main(comparison_args(model))
+    assert error.value.code == 2
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic", "deepseek"])
+def test_dry_run_full_dataset_without_harbor_or_credentials(provider, capsys):
+    assert main(comparison_args(f"{provider}/org/model") + ["--task-limit", "0"]) == 0
+    manifest = json.loads(capsys.readouterr().out)
+    assert manifest["task_limit"] == 0 and manifest["status"] == {}
+    assert all("-l" not in command for command in manifest["commands"].values())
+    assert manifest["commands"]["teddycode"][-1] == f"{provider}/org/model"

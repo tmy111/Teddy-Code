@@ -59,7 +59,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.task_limit < 0 or args.attempts < 1 or args.concurrency < 1:
         parser.error("task-limit must be >= 0; attempts and concurrency must be >= 1")
-    if not args.teddycode_model.startswith(("openai/", "anthropic/", "deepseek/")):
+    provider, separator, model = args.teddycode_model.partition("/")
+    if (
+        provider not in {"openai", "anthropic", "deepseek"} or not separator
+        or not model.strip() or model != model.strip() or model.startswith("-")
+    ):
         parser.error("--teddycode-model must be openai/model, anthropic/model, or deepseek/model")
     commands = build_commands(args)
     manifest = {
